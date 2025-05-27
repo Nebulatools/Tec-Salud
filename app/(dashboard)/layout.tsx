@@ -3,7 +3,7 @@
 
 import type React from "react"
 
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/hooks/use-auth"
 import Sidebar from "@/components/layout/sidebar"
@@ -16,12 +16,21 @@ export default function DashboardLayout({
 }) {
   const { user, loading } = useAuth()
   const router = useRouter()
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
   useEffect(() => {
     if (!loading && !user) {
       router.push("/login")
     }
   }, [user, loading, router])
+
+  // Load sidebar state from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem("sidebar-collapsed")
+    if (saved) {
+      setSidebarCollapsed(JSON.parse(saved))
+    }
+  }, [])
 
   if (loading) {
     return (
@@ -36,11 +45,11 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Sidebar />
+    <div className="min-h-screen bg-gray-50 flex">
+      <Sidebar onCollapseChange={setSidebarCollapsed} />
 
-      {/* Main content area that adjusts based on sidebar state */}
-      <div className="md:ml-64 transition-all duration-300">
+      {/* Main content area that takes remaining space */}
+      <div className="flex-1 transition-all duration-300 ease-in-out">
         <Header />
         <main className="p-6">{children}</main>
       </div>

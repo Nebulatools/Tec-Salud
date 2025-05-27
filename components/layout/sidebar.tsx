@@ -26,7 +26,7 @@ const navigation = [
   },
 ]
 
-export default function Sidebar() {
+export default function Sidebar({ onCollapseChange }: { onCollapseChange?: (collapsed: boolean) => void }) {
   const [isOpen, setIsOpen] = useState(false)
   const [isCollapsed, setIsCollapsed] = useState(false)
   const pathname = usePathname()
@@ -40,15 +40,18 @@ export default function Sidebar() {
   useEffect(() => {
     const saved = localStorage.getItem("sidebar-collapsed")
     if (saved) {
-      setIsCollapsed(JSON.parse(saved))
+      const collapsed = JSON.parse(saved)
+      setIsCollapsed(collapsed)
+      onCollapseChange?.(collapsed)
     }
-  }, [])
+  }, [onCollapseChange])
 
   // Save collapsed state to localStorage
   const toggleCollapsed = () => {
     const newState = !isCollapsed
     setIsCollapsed(newState)
     localStorage.setItem("sidebar-collapsed", JSON.stringify(newState))
+    onCollapseChange?.(newState)
   }
 
   return (
@@ -66,7 +69,7 @@ export default function Sidebar() {
       {/* Desktop Sidebar */}
       <div
         className={cn(
-          "hidden md:flex fixed inset-y-0 left-0 z-40 sidebar-bg transition-all duration-300 ease-in-out",
+          "hidden md:flex relative sidebar-bg transition-all duration-300 ease-in-out",
           isCollapsed ? "w-16" : "w-64",
         )}
       >
