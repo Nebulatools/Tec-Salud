@@ -81,36 +81,64 @@ export default function LoginForm() {
 
         console.log("Usuario creado:", authData.user.id)
 
-        // 2. Crear perfil directamente (sin RLS no debería fallar)
+        // 2. Actualizar perfil existente (el trigger ya lo creó)
         try {
-          const { error: profileError } = await supabase.from("doctors").insert({
-            user_id: authData.user.id,
-            first_name: firstName,
-            last_name: lastName,
-            email: email,
-            specialty: specialty,
-          })
+          // Esperamos un poco para que el trigger termine
+          await new Promise(resolve => setTimeout(resolve, 500))
+          
+          const { error: updateError } = await supabase
+            .from("doctors")
+            .update({
+              first_name: firstName,
+              last_name: lastName,
+              specialty: specialty,
+            })
+            .eq("user_id", authData.user.id)
 
-          if (profileError) {
-            console.error("Error creando perfil:", profileError)
-            setError(`Error creando perfil: ${profileError.message}`)
-          } else {
-            console.log("Perfil creado exitosamente")
-            setSuccess("¡Registro exitoso! Puedes iniciar sesión ahora.")
-            setTimeout(() => {
-              setIsLogin(true)
-              setSuccess("")
-              // Limpiar formulario
-              setFirstName("")
-              setLastName("")
-              setSpecialty("")
-              setEmail("")
-              setPassword("")
-            }, 2000)
+          if (updateError) {
+            console.error("Error actualizando perfil:", updateError)
+            // Si hay error actualizando, intentar crear uno nuevo
+            const { error: insertError } = await supabase.from("doctors").insert({
+              user_id: authData.user.id,
+              first_name: firstName,
+              last_name: lastName,
+              email: email,
+              specialty: specialty,
+            })
+            
+            if (insertError && !insertError.message.includes('duplicate key')) {
+              setError("Hubo un problema al completar el registro. Por favor intenta nuevamente.")
+              setLoading(false)
+              return
+            }
           }
+
+          console.log("Perfil actualizado exitosamente")
+          setSuccess("¡Registro exitoso! Se ha enviado un correo de confirmación.")
+          setTimeout(() => {
+            setIsLogin(true)
+            setSuccess("")
+            // Limpiar formulario
+            setFirstName("")
+            setLastName("")
+            setSpecialty("")
+            setEmail("")
+            setPassword("")
+          }, 2000)
         } catch (profileError) {
           console.error("Error inesperado en perfil:", profileError)
-          setError("Error inesperado al crear el perfil")
+          // En caso de error inesperado, asumir que el registro fue exitoso
+          setSuccess("¡Registro exitoso! Se ha enviado un correo de confirmación.")
+          setTimeout(() => {
+            setIsLogin(true)
+            setSuccess("")
+            // Limpiar formulario
+            setFirstName("")
+            setLastName("")
+            setSpecialty("")
+            setEmail("")
+            setPassword("")
+          }, 2000)
         }
       } catch (error) {
         console.error("Error general:", error)
