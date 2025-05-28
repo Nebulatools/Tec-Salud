@@ -11,6 +11,7 @@ import { useAuth } from "@/hooks/use-auth"
 import { ChevronLeft, ChevronRight, CalendarIcon, Clock, Plus, List, Filter, Download, Upload } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import AddAppointmentForm from "./add-appointment-form"
+import ConsultationFlow from "./consultation-flow"
 
 interface Appointment {
   id: string
@@ -34,6 +35,10 @@ export default function AppointmentCalendar() {
   const [viewMode, setViewMode] = useState<"week" | "list">("week")
   const [selectedFilter, setSelectedFilter] = useState("Hoy")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
+  
+  // Add consultation flow state
+  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null)
+  const [isConsultationOpen, setIsConsultationOpen] = useState(false)
 
   useEffect(() => {
     fetchAppointments()
@@ -244,6 +249,18 @@ export default function AppointmentCalendar() {
     return `${start.getDate()} De ${start.toLocaleDateString("es-ES", { month: "long" })} - ${end.getDate()} De ${end.toLocaleDateString("es-ES", { month: "long" })} De ${end.getFullYear()}`
   }
 
+  const handleStartConsultation = (appointment: Appointment) => {
+    setSelectedAppointment(appointment)
+    setIsConsultationOpen(true)
+  }
+
+  const handleCloseConsultation = () => {
+    setSelectedAppointment(null)
+    setIsConsultationOpen(false)
+    // Refresh appointments to update status
+    fetchAppointments()
+  }
+
   if (loading) {
     return (
       <div className="space-y-4">
@@ -253,6 +270,17 @@ export default function AppointmentCalendar() {
           </CardContent>
         </Card>
       </div>
+    )
+  }
+
+  // Show consultation flow if open
+  if (isConsultationOpen && selectedAppointment) {
+    return (
+      <ConsultationFlow
+        appointmentId={selectedAppointment.id}
+        patientName={`${selectedAppointment.patient.first_name} ${selectedAppointment.patient.last_name}`}
+        onClose={handleCloseConsultation}
+      />
     )
   }
 
@@ -427,7 +455,8 @@ export default function AppointmentCalendar() {
                       {getAppointmentsForDate(new Date()).map((appointment) => (
                         <div
                           key={appointment.id}
-                          className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:shadow-lg transition-all duration-200 hover:border-teal-300 dark:hover:border-teal-600"
+                          className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:shadow-lg transition-all duration-200 hover:border-teal-300 dark:hover:border-teal-600 cursor-pointer"
+                          onClick={() => handleStartConsultation(appointment)}
                         >
                           <div className="flex items-start justify-between mb-3">
                             <div className="flex items-center gap-3">
@@ -466,7 +495,11 @@ export default function AppointmentCalendar() {
                             <Button size="sm" variant="outline" className="flex-1">
                               Ver detalles
                             </Button>
-                            <Button size="sm" className="bg-teal-600 hover:bg-teal-700">
+                            <Button 
+                              size="sm" 
+                              className="bg-teal-600 hover:bg-teal-700"
+                              onClick={() => handleStartConsultation(appointment)}
+                            >
                               Iniciar consulta
                             </Button>
                           </div>
@@ -544,6 +577,7 @@ export default function AppointmentCalendar() {
                               key={appointment.id}
                               className="bg-teal-100 dark:bg-teal-900 border-l-2 border-teal-500 p-1 rounded text-xs hover:bg-teal-200 dark:hover:bg-teal-800 cursor-pointer transition-colors"
                               title={`${appointment.patient.first_name} ${appointment.patient.last_name} - ${formatTime(appointment.start_time)} - ${appointment.status}`}
+                              onClick={() => handleStartConsultation(appointment)}
                             >
                               <div className="font-medium text-gray-900 dark:text-white truncate">
                                 {appointment.patient.first_name}
@@ -604,6 +638,7 @@ export default function AppointmentCalendar() {
                           key={appointment.id}
                           className="bg-teal-100 dark:bg-teal-900 border-l-4 border-teal-500 p-2 rounded text-xs hover:bg-teal-200 dark:hover:bg-teal-800 cursor-pointer transition-colors"
                           title={`${appointment.patient.first_name} ${appointment.patient.last_name} - ${formatTime(appointment.start_time)} - ${appointment.status}`}
+                          onClick={() => handleStartConsultation(appointment)}
                         >
                           <div className="font-medium text-gray-900 dark:text-white truncate">
                             {appointment.patient.first_name} {appointment.patient.last_name}
@@ -684,8 +719,12 @@ export default function AppointmentCalendar() {
 
                     <div className="flex items-center gap-2">
                       <Badge className={getStatusColor(appointment.status)}>{appointment.status}</Badge>
-                      <Button size="sm" variant="ghost">
-                        <Plus className="h-4 w-4" />
+                      <Button 
+                        size="sm" 
+                        className="bg-teal-600 hover:bg-teal-700"
+                        onClick={() => handleStartConsultation(appointment)}
+                      >
+                        Iniciar consulta
                       </Button>
                     </div>
                   </div>

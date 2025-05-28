@@ -8,6 +8,7 @@ import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/hooks/use-auth"
 import { Calendar, Clock, Plus, ArrowRight } from "lucide-react"
 import Link from "next/link"
+import ConsultationFlow from "@/components/appointments/consultation-flow"
 
 interface Appointment {
   id: string
@@ -25,50 +26,66 @@ export default function PendingAppointments() {
   const { user } = useAuth()
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [loading, setLoading] = useState(true)
+  
+  // Add consultation flow state
+  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null)
+  const [isConsultationOpen, setIsConsultationOpen] = useState(false)
+
+  const fetchPendingAppointments = async () => {
+    if (!user) return
+
+    try {
+      const { data: doctor, error: doctorError } = await supabase.from("doctors").select("id").eq("user_id", user.id).single()
+      
+      if (doctorError) {
+        console.error("Error fetching doctor:", doctorError)
+        return
+      }
+      
+      if (!doctor) return
+
+      const today = new Date().toISOString().split("T")[0]
+      
+      const { data, error } = await supabase
+        .from("appointments")
+        .select(`
+          id,
+          appointment_date,
+          start_time,
+          end_time,
+          status,
+          patients!inner (
+            first_name,
+            last_name
+          )
+        `)
+        .eq("doctor_id", doctor.id)
+        .eq("status", "Programada")
+        .gte("appointment_date", today)
+        .order("appointment_date", { ascending: true })
+        .order("start_time", { ascending: true })
+        .limit(6)
+
+      if (error) {
+        console.error("Error fetching appointments:", error)
+        return
+      }
+
+      if (data) {
+        const formattedAppointments = data.map((apt) => ({
+          ...apt,
+          patient: Array.isArray(apt.patients) ? apt.patients[0] : apt.patients,
+        }))
+        setAppointments(formattedAppointments)
+      }
+    } catch (error) {
+      console.error("Error fetching appointments:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
-    const fetchPendingAppointments = async () => {
-      if (!user) return
-
-      try {
-        const { data: doctor } = await supabase.from("doctors").select("id").eq("user_id", user.id).single()
-        if (!doctor) return
-
-        const today = new Date().toISOString().split("T")[0]
-        const { data } = await supabase
-          .from("appointments")
-          .select(`
-            id,
-            appointment_date,
-            start_time,
-            end_time,
-            status,
-            patients!inner (
-              first_name,
-              last_name
-            )
-          `)
-          .eq("doctor_id", doctor.id)
-          .eq("status", "Programada")
-          .gte("appointment_date", today)
-          .order("appointment_date", { ascending: true })
-          .order("start_time", { ascending: true })
-          .limit(6)
-
-        if (data) {
-          const formattedAppointments = data.map((apt) => ({
-            ...apt,
-            patient: apt.patients,
-          }))
-          setAppointments(formattedAppointments)
-        }
-      } catch (error) {
-        console.error("Error fetching appointments:", error)
-      } finally {
-        setLoading(false)
-      }
-    }
-
     fetchPendingAppointments()
   }, [user])
 
@@ -90,6 +107,29 @@ export default function PendingAppointments() {
       minute: "2-digit",
       hour12: false,
     })
+  }
+
+  const handleStartConsultation = (appointment: Appointment) => {
+    setSelectedAppointment(appointment)
+    setIsConsultationOpen(true)
+  }
+
+  const handleCloseConsultation = () => {
+    setSelectedAppointment(null)
+    setIsConsultationOpen(false)
+    // Refresh appointments to update status
+    fetchPendingAppointments()
+  }
+
+  // Show consultation flow if open
+  if (isConsultationOpen && selectedAppointment) {
+    return (
+      <ConsultationFlow
+        appointmentId={selectedAppointment.id}
+        patientName={`${selectedAppointment.patient.first_name} ${selectedAppointment.patient.last_name}`}
+        onClose={handleCloseConsultation}
+      />
+    )
   }
 
   if (loading) {
@@ -160,7 +200,12 @@ export default function PendingAppointments() {
                   </div>
 
                   <div className="mt-3">
-                    <Button className="w-full button-primary text-white text-sm">Iniciar Consulta →</Button>
+                    <Button 
+                      className="w-full button-primary text-white text-sm"
+                      onClick={() => handleStartConsultation(appointment)}
+                    >
+                      Iniciar Consulta →
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
