@@ -1,9 +1,10 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Mic } from "lucide-react"
+import { Textarea } from "@/components/ui/textarea"
+import { Mic, Square, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface ConsultationRecordingProps {
@@ -23,6 +24,14 @@ export default function ConsultationRecording({
 }: ConsultationRecordingProps) {
   const [isRecording, setIsRecording] = useState(false)
   const [recordingTime, setRecordingTime] = useState(0)
+  const [transcript, setTranscript] = useState("")
+  const [isTranscribing, setIsTranscribing] = useState(false)
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const streamRef = useRef<MediaStream | null>(null)
+  const chunksRef = useRef<Blob[]>([])
 
   useEffect(() => {
     let interval: NodeJS.Timeout
@@ -38,26 +47,113 @@ export default function ConsultationRecording({
     }
   }, [isRecording])
 
-  const handleStartRecording = () => {
-    setIsRecording(true)
-    onRecordingStateChange(true)
-    // Here you would start actual recording
+  const handleStartRecording = async () => {
+    try {
+      setError(null)
+      setTranscript("")
+      chunksRef.current = []
+
+      // Request microphone permission
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          sampleRate: 16000,
+          channelCount: 1,
+          echoCancellation: true,
+          noiseSuppression: true
+        } 
+      })
+      
+      streamRef.current = stream
+
+      // Create MediaRecorder
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: 'audio/webm;codecs=opus'
+      })
+      
+      mediaRecorderRef.current = mediaRecorder
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          chunksRef.current.push(event.data)
+        }
+      }
+
+      mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(chunksRef.current, { type: 'audio/webm' })
+        setAudioBlob(audioBlob)
+        
+        // Stop all tracks
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach(track => track.stop())
+        }
+        
+        // Start transcription
+        await transcribeAudio(audioBlob)
+      }
+
+      // Start recording
+      mediaRecorder.start(1000) // Collect data every second
+      setIsRecording(true)
+      setRecordingTime(0)
+      onRecordingStateChange(true)
+
+    } catch (err) {
+      console.error("Error starting recording:", err)
+      setError("Error al acceder al micrófono. Verifica los permisos.")
+    }
   }
 
   const handleStopRecording = () => {
-    setIsRecording(false)
-    onRecordingStateChange(false)
-    
-    // Simulate processing and complete this step
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop()
+      setIsRecording(false)
+      onRecordingStateChange(false)
+    }
+  }
+
+  const transcribeAudio = async (audioBlob: Blob) => {
+    setIsTranscribing(true)
+    try {
+      const formData = new FormData()
+      formData.append('audio', audioBlob, 'recording.webm')
+      formData.append('language', 'es-MX')
+
+      const response = await fetch('/api/transcribe', {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (!response.ok) {
+        throw new Error(`Error en transcripción: ${response.statusText}`)
+      }
+
+      const data = await response.json()
+      
+      if (data.success && data.transcript) {
+        setTranscript(data.transcript)
+      } else {
+        throw new Error(data.error || 'Error desconocido en transcripción')
+      }
+
+    } catch (err) {
+      console.error("Transcription error:", err)
+      setError(`Error de transcripción: ${err instanceof Error ? err.message : 'Error desconocido'}`)
+      setTranscript("Error al transcribir el audio. Puedes escribir manualmente.")
+    } finally {
+      setIsTranscribing(false)
+    }
+  }
+
+  const handleComplete = () => {
     const recordingData = {
       duration: recordingTime,
       startedAt: new Date().toISOString(),
-      processedTranscript: "Grabación procesada automáticamente...",
+      processedTranscript: transcript || "No se pudo transcribir el audio.",
+      audioBlob: audioBlob // Optional: keep for future use
     }
     
     onComplete(recordingData)
     
-    // Auto-navigate to verification step after a short delay
     setTimeout(() => {
       onNavigateToStep(3)
     }, 1000)
@@ -71,72 +167,103 @@ export default function ConsultationRecording({
 
   return (
     <Card>
-      <CardContent className="p-8">
-        <div className="text-center space-y-8">
+      <CardContent className="p-6 sm:p-8 space-y-6">
+        <div className="text-center space-y-6">
           <div>
-            <h2 className="text-2xl font-semibold text-gray-900 mb-2">
-              Presione el botón para iniciar la grabación de la consulta
+            <h2 className="text-xl sm:text-2xl font-semibold text-gray-900 mb-2">
+              {isRecording ? "Grabación en Progreso" : 
+               isTranscribing ? "Transcribiendo Audio..." : 
+               "Iniciar Grabación de Consulta"}
             </h2>
-            <p className="text-gray-600">
-              La grabación se procesará automáticamente
+            <p className="text-gray-600 text-sm sm:text-base">
+              {isRecording ? "Presione el botón para detener." : 
+               isTranscribing ? "Procesando con Gemini AI..." :
+               "La grabación se transcribirá automáticamente con IA."}
             </p>
           </div>
 
-          {/* Recording Button */}
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <p className="text-red-700 text-sm">{error}</p>
+            </div>
+          )}
+
           <div className="flex justify-center">
             <button
               onClick={isRecording ? handleStopRecording : handleStartRecording}
+              disabled={isTranscribing}
               className={cn(
-                "w-32 h-32 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg",
+                "w-24 h-24 sm:w-32 sm:h-32 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg",
                 isRecording
                   ? "bg-red-500 hover:bg-red-600 animate-pulse"
+                  : isTranscribing
+                  ? "bg-blue-500 cursor-not-allowed"
                   : "bg-primary-400 hover:bg-primary-500"
               )}
             >
-              <Mic className="w-12 h-12 text-white" />
+              {isTranscribing ? (
+                <Loader2 className="w-10 h-10 sm:w-12 sm:h-12 text-white animate-spin" />
+              ) : isRecording ? (
+                <Square className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
+              ) : (
+                <Mic className="w-10 h-10 sm:w-12 sm:h-12 text-white" />
+              )}
             </button>
           </div>
 
-          {/* Recording Status */}
           {isRecording && (
-            <div className="space-y-4">
-              <div className="text-center">
-                <div className="text-3xl font-mono font-bold text-gray-900 mb-2">
-                  {formatTime(recordingTime)}
-                </div>
-                <p className="text-sm text-gray-600">
-                  Grabación en progreso...
-                </p>
+            <div className="text-center">
+              <div className="text-2xl sm:text-3xl font-mono font-bold text-gray-900 mb-1">
+                {formatTime(recordingTime)}
               </div>
-              
-              <div className="flex items-center justify-center gap-2">
-                <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
-                <span className="text-sm text-red-600 font-medium">REC</span>
+              <div className="flex items-center justify-center gap-2 text-sm text-red-600 font-medium">
+                <div className="w-2 h-2 sm:w-3 sm:h-3 bg-red-500 rounded-full animate-pulse"></div>
+                REC
               </div>
             </div>
           )}
 
-          {!isRecording && recordingTime === 0 && (
+          {(transcript || isTranscribing) && (
             <div className="space-y-4">
-              <p className="text-gray-500">
-                Haga clic en el micrófono para comenzar la grabación
+              <Textarea
+                value={transcript}
+                onChange={(e) => setTranscript(e.target.value)}
+                placeholder={isTranscribing ? "Transcribiendo..." : "La transcripción aparecerá aquí o puedes escribir manualmente..."}
+                className="min-h-[150px] sm:min-h-[200px] text-sm border-gray-300 focus:ring-primary-500 focus:border-primary-500"
+                disabled={isTranscribing}
+              />
+
+              {transcript && !isTranscribing && (
+                <Button 
+                  onClick={handleComplete}
+                  className="w-full bg-primary-500 hover:bg-primary-600"
+                >
+                  Continuar con esta transcripción →
+                </Button>
+              )}
+            </div>
+          )}
+
+          {!isRecording && !isTranscribing && !transcript && (
+            <div className="space-y-4 pt-4">
+              <p className="text-gray-500 text-sm">
+                Haga clic en el micrófono para comenzar la grabación.
               </p>
               
-              {/* Navigation to other steps while not recording */}
-              <div className="flex justify-center gap-4">
+              <div className="flex flex-col sm:flex-row justify-center gap-3">
                 <Button 
                   variant="outline" 
                   onClick={() => onNavigateToStep(1)}
-                  className="text-gray-600"
+                  className="text-gray-600 w-full sm:w-auto"
                 >
-                  ← Volver al resumen
+                  ← Resumen Paciente
                 </Button>
                 <Button 
                   variant="outline" 
                   onClick={() => onNavigateToStep(3)}
-                  className="text-gray-600"
+                  className="text-gray-600 w-full sm:w-auto"
                 >
-                  Ir a verificación →
+                  Saltar Grabación →
                 </Button>
               </div>
             </div>
