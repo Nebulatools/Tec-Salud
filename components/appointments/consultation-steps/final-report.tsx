@@ -9,31 +9,95 @@ interface FinalReportProps {
   appointmentId: string
   consultationData: any
   onComplete: (data: any) => void
+  onBack?: () => void
 }
 
-export default function FinalReport({ appointmentId, consultationData, onComplete }: FinalReportProps) {
+export default function FinalReport({ appointmentId, consultationData, onComplete, onBack }: FinalReportProps) {
   const [isSaving, setIsSaving] = useState(false)
+  
+  // Debug: Log the consultation data received
+  console.log('FinalReport received consultationData:', consultationData)
+  console.log('AI Generated Report:', consultationData?.reportData?.aiGeneratedReport)
 
   const handlePrint = () => {
     window.print()
   }
 
   const handleDownloadPDF = () => {
-    // Here you would generate and download PDF
-    console.log("Downloading PDF...")
+    // Generar PDF con el reporte de IA y transcript original
+    const reportContent = consultationData?.reportData?.aiGeneratedReport || 'No hay reporte generado'
+    const originalTranscript = consultationData?.recordingData?.processedTranscript || consultationData?.transcript || 'No hay transcript disponible'
+    
+    // Crear contenido del PDF
+    const pdfContent = `
+=== REPORTE MÉDICO GENERADO POR IA ===
+
+${reportContent}
+
+=== TRANSCRIPT ORIGINAL ===
+
+${originalTranscript}
+    `
+    
+    // Crear y descargar archivo
+    const blob = new Blob([pdfContent], { type: 'text/plain' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `reporte-medico-${patientName.replace(/\s+/g, '-')}-${new Date().toISOString().split('T')[0]}.txt`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
   }
 
   const handleSave = async () => {
     setIsSaving(true)
     
-    // Simulate saving to database
-    setTimeout(() => {
-      setIsSaving(false)
+    try {
+      // Preparar datos del reporte para guardar
+      const reportToSave = {
+        patient_id: consultationData?.patientInfo?.id,
+        doctor_id: consultationData?.doctorId || '1', // TODO: obtener del contexto de usuario
+        appointment_id: appointmentId,
+        report_type: 'Consulta Médica',
+        title: `Consulta - ${patientName} - ${new Date().toLocaleDateString('es-MX')}`,
+        content: consultationData?.reportData?.aiGeneratedReport || 'Reporte no disponible',
+        original_transcript: consultationData?.recordingData?.processedTranscript || consultationData?.transcript,
+        ai_suggestions: consultationData?.reportData?.suggestions || [],
+        compliance_status: consultationData?.reportData?.isCompliant || false
+      }
+
+      // Guardar en la base de datos usando el API real
+      const response = await fetch('/api/medical-reports', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(reportToSave),
+      })
+
+      if (!response.ok) {
+        throw new Error(`Error al guardar: ${response.statusText}`)
+      }
+
+      const savedReport = await response.json()
+      
       onComplete({
         reportSaved: true,
         savedAt: new Date().toISOString(),
+        reportId: savedReport.id
       })
-    }, 1000)
+      
+      // Mostrar mensaje de éxito
+      alert('¡Reporte guardado exitosamente en la base de datos!')
+      
+    } catch (error) {
+      console.error('Error saving report:', error)
+      alert(`Error al guardar el reporte: ${error instanceof Error ? error.message : 'Error desconocido'}`)
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   const getCurrentDate = () => {
@@ -127,17 +191,61 @@ export default function FinalReport({ appointmentId, consultationData, onComplet
                 Reporte de Consulta
               </h2>
               
-              <div className="space-y-4">
-                <p className="text-gray-700 leading-relaxed">
-                  {consultationData?.patientInfo?.medical_history || `No hay reportes previos para ${patientName}. Este será el primer reporte generado.`}
-                </p>
-                
-                {consultationData?.recordingData && (
-                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                    <h3 className="font-medium text-gray-900 mb-2">Resumen de la Consulta:</h3>
-                    <p className="text-gray-700 text-sm">
-                      {consultationData.recordingData.processedTranscript || "Grabación procesada automáticamente durante la consulta."}
-                    </p>
+              <div className="space-y-6">
+                {/* Reporte principal - SIEMPRE mostrar el generado por IA como contenido principal */}
+                <div>
+                  <div className="prose prose-sm max-w-none">
+                    {consultationData?.reportData?.aiGeneratedReport ? (
+                      <div 
+                        className="text-gray-900 leading-relaxed whitespace-pre-wrap"
+                        dangerouslySetInnerHTML={{ 
+                          __html: consultationData.reportData.aiGeneratedReport
+                            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                            .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                            .replace(/\n/g, '<br />')
+                        }} 
+                      />
+                    ) : (
+                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-6 text-center">
+                        <p className="text-amber-800 font-medium">No hay reporte generado por IA disponible</p>
+                        <p className="text-amber-600 text-sm mt-2">
+                          Por favor, complete el paso de "Asistente de Cumplimiento IA" para generar el reporte médico.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Mostrar transcript original solo como referencia si existe reporte IA */}
+                {consultationData?.reportData?.aiGeneratedReport && (consultationData?.recordingData?.processedTranscript || consultationData?.transcript) && (
+                  <details className="border-t pt-6">
+                    <summary className="font-medium text-gray-700 cursor-pointer hover:text-gray-900">
+                      Ver transcripción original
+                    </summary>
+                    <div className="mt-3 bg-gray-50 border border-gray-200 rounded-lg p-4">
+                      <p className="text-gray-700 text-sm leading-relaxed whitespace-pre-wrap">
+                        {consultationData?.recordingData?.processedTranscript || consultationData?.transcript}
+                      </p>
+                    </div>
+                  </details>
+                )}
+
+                {/* Sugerencias clínicas si existen */}
+                {consultationData?.reportData?.suggestions && consultationData.reportData.suggestions.length > 0 && (
+                  <div className="border-t pt-6">
+                    <h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
+                      🤖 Sugerencias Clínicas de IA
+                    </h3>
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <ul className="space-y-2">
+                        {consultationData.reportData.suggestions.map((suggestion: string, index: number) => (
+                          <li key={index} className="text-blue-800 text-sm flex items-start">
+                            <span className="inline-block w-1.5 h-1.5 bg-blue-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>
+                            {suggestion}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   </div>
                 )}
               </div>
@@ -162,6 +270,17 @@ export default function FinalReport({ appointmentId, consultationData, onComplet
           </div>
         </CardContent>
       </Card>
+      
+      {/* Navigation */}
+      <div className="flex justify-start">
+        <Button 
+          variant="ghost"
+          onClick={onBack}
+          className="text-gray-600"
+        >
+          ← Regresar a Verificación
+        </Button>
+      </div>
     </div>
   )
 } 

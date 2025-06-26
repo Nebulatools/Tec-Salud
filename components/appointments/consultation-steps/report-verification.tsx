@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -12,9 +12,11 @@ interface ReportVerificationProps {
   appointmentId: string
   consultationData: any
   onComplete: (data: any) => void
+  onNext?: () => void
+  onBack?: () => void
 }
 
-export default function ReportVerification({ appointmentId, consultationData, onComplete }: ReportVerificationProps) {
+export default function ReportVerification({ appointmentId, consultationData, onComplete, onNext, onBack }: ReportVerificationProps) {
   const [reportData, setReportData] = useState({
     patientName: consultationData?.patientInfo?.first_name + " " + consultationData?.patientInfo?.last_name || "Paciente",
     reportType: "Reporte Médico",
@@ -22,8 +24,18 @@ export default function ReportVerification({ appointmentId, consultationData, on
     recordedDate: consultationData?.recordedDate || new Date().toISOString().split("T")[0],
     reactionType: consultationData?.reactionType || "Consulta Médica",
     facilityName: consultationData?.facilityName || "Tec Salud",
-    notes: consultationData?.patientInfo?.medical_history || `No hay reportes previos para ${consultationData?.patientInfo?.first_name || "este paciente"}. Este será el primer reporte generado.`,
+    notes: consultationData?.reportData?.aiGeneratedReport || consultationData?.patientInfo?.medical_history || `No hay reportes previos para ${consultationData?.patientInfo?.first_name || "este paciente"}. Este será el primer reporte generado.`,
   })
+
+  // Actualizar con el reporte generado por IA
+  useEffect(() => {
+    if (consultationData?.reportData?.aiGeneratedReport) {
+      setReportData(prev => ({
+        ...prev,
+        notes: consultationData.reportData.aiGeneratedReport
+      }))
+    }
+  }, [consultationData?.reportData?.aiGeneratedReport])
 
   const [isEditing, setIsEditing] = useState(false)
   const [question, setQuestion] = useState("")
@@ -187,7 +199,7 @@ export default function ReportVerification({ appointmentId, consultationData, on
             onClick={handleGenerateFinalReport}
             className="bg-primary-400 hover:bg-primary-500 text-white px-8"
           >
-            Generar Reporte Final
+            Continuar a Reporte Final
           </Button>
         </div>
 
@@ -239,12 +251,20 @@ export default function ReportVerification({ appointmentId, consultationData, on
         </div>
 
         {/* Navigation */}
-        <div className="flex justify-start pt-4 border-t">
+        <div className="flex justify-between pt-4 border-t">
           <Button 
             variant="ghost"
+            onClick={onBack}
             className="text-gray-600"
           >
-            Anterior
+            ← Anterior
+          </Button>
+          <Button 
+            variant="outline"
+            onClick={onNext}
+            className="text-primary-600"
+          >
+            Siguiente →
           </Button>
         </div>
       </CardContent>

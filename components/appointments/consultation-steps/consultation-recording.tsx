@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { Mic, Square, Loader2 } from "lucide-react"
+import { Mic, Square, Loader2, FileText } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface ConsultationRecordingProps {
@@ -28,6 +28,7 @@ export default function ConsultationRecording({
   const [isTranscribing, setIsTranscribing] = useState(false)
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [manualTranscriptMode, setManualTranscriptMode] = useState(false)
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
@@ -149,7 +150,8 @@ export default function ConsultationRecording({
       duration: recordingTime,
       startedAt: new Date().toISOString(),
       processedTranscript: transcript || "No se pudo transcribir el audio.",
-      audioBlob: audioBlob // Optional: keep for future use
+      audioBlob: audioBlob, // Optional: keep for future use
+      isManualTranscript: manualTranscriptMode
     }
     
     onComplete(recordingData)
@@ -157,6 +159,11 @@ export default function ConsultationRecording({
     setTimeout(() => {
       onNavigateToStep(3)
     }, 1000)
+  }
+
+  const handleManualTranscript = () => {
+    setManualTranscriptMode(true)
+    setTranscript("")
   }
 
   const formatTime = (seconds: number) => {
@@ -223,7 +230,8 @@ export default function ConsultationRecording({
             </div>
           )}
 
-          {(transcript || isTranscribing) && (
+          {/* Textarea para grabación/transcripción automática */}
+          {(transcript || isTranscribing) && !manualTranscriptMode && (
             <div className="space-y-4">
               <Textarea
                 value={transcript}
@@ -244,11 +252,39 @@ export default function ConsultationRecording({
             </div>
           )}
 
-          {!isRecording && !isTranscribing && !transcript && (
-            <div className="space-y-4 pt-4">
+          {/* Opciones iniciales - solo si no hay transcript Y no está en modo manual */}
+          {!isRecording && !isTranscribing && !transcript && !manualTranscriptMode && (
+            <div className="space-y-6 pt-4">
               <p className="text-gray-500 text-sm">
-                Haga clic en el micrófono para comenzar la grabación.
+                Seleccione una opción para continuar:
               </p>
+              
+              {/* Opciones de transcripción */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <Button 
+                  variant="outline"
+                  onClick={handleStartRecording}
+                  className="h-32 flex flex-col gap-3 border-2 border-primary-200 hover:border-primary-400"
+                >
+                  <Mic className="h-8 w-8 text-primary-500" />
+                  <div className="text-center">
+                    <span className="text-base font-medium block">Grabar Audio</span>
+                    <span className="text-xs text-gray-500">Transcripción automática con IA</span>
+                  </div>
+                </Button>
+                
+                <Button 
+                  variant="outline"
+                  onClick={handleManualTranscript}
+                  className="h-32 flex flex-col gap-3 border-2 border-green-200 hover:border-green-400"
+                >
+                  <FileText className="h-8 w-8 text-green-500" />
+                  <div className="text-center">
+                    <span className="text-base font-medium block">Escribir Manual</span>
+                    <span className="text-xs text-gray-500">Copiar/pegar transcript existente</span>
+                  </div>
+                </Button>
+              </div>
               
               <div className="flex flex-col sm:flex-row justify-center gap-3">
                 <Button 
@@ -264,6 +300,47 @@ export default function ConsultationRecording({
                   className="text-gray-600 w-full sm:w-auto"
                 >
                   Saltar Grabación →
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Modo manual de transcript */}
+          {manualTranscriptMode && (
+            <div className="space-y-4">
+              <div className="text-center">
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  Transcripción Manual
+                </h3>
+                <p className="text-gray-600 text-sm">
+                  Escriba o pegue la transcripción de la consulta médica
+                </p>
+              </div>
+              
+              <Textarea
+                value={transcript}
+                onChange={(e) => setTranscript(e.target.value)}
+                placeholder="Escriba aquí la transcripción de la consulta médica..."
+                className="min-h-[200px] text-sm border-gray-300 focus:ring-primary-500 focus:border-primary-500"
+              />
+              
+              <div className="flex gap-3">
+                <Button 
+                  onClick={() => {
+                    setManualTranscriptMode(false)
+                    setTranscript("")
+                  }}
+                  variant="outline"
+                  className="flex-1"
+                >
+                  Cancelar
+                </Button>
+                <Button 
+                  onClick={handleComplete}
+                  disabled={!transcript.trim()}
+                  className="flex-1 bg-primary-500 hover:bg-primary-600"
+                >
+                  Continuar con esta transcripción →
                 </Button>
               </div>
             </div>

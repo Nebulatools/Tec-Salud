@@ -17,6 +17,9 @@ interface MedicalReport {
   report_type: string
   title: string
   content: string
+  original_transcript?: string
+  ai_suggestions?: string[]
+  compliance_status?: boolean
   created_at: string
   patient: {
     first_name: string
@@ -50,29 +53,18 @@ export default function MedicalReports() {
     if (!user) return
 
     try {
-      const { data: doctor } = await supabase.from("doctors").select("id").eq("user_id", user.id).single()
-      if (!doctor) return
-
-      const { data } = await supabase
-        .from("medical_reports")
-        .select(`
-          id,
-          report_type,
-          title,
-          content,
-          created_at,
-          patients!inner (
-            first_name,
-            last_name
-          )
-        `)
-        .eq("doctor_id", doctor.id)
-        .order("created_at", { ascending: false })
-
+      // Usar la nueva API
+      const response = await fetch('/api/medical-reports')
+      if (!response.ok) {
+        throw new Error('Error fetching reports')
+      }
+      
+      const data = await response.json()
+      
       if (data) {
-        const formattedReports = data.map((report) => ({
+        const formattedReports = data.map((report: any) => ({
           ...report,
-          patient: report.patients,
+          patient: report.patients || { first_name: 'N/A', last_name: '' },
         }))
         setReports(formattedReports)
       }
@@ -187,10 +179,22 @@ export default function MedicalReports() {
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex-1 min-w-0">
-                          <p className="font-medium text-gray-900 dark:text-white truncate">
-                            {report.patient.first_name} {report.patient.last_name}
-                          </p>
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium text-gray-900 dark:text-white truncate">
+                              {report.patient.first_name} {report.patient.last_name}
+                            </p>
+                            {report.compliance_status && (
+                              <Badge variant="success" className="text-xs">
+                                ✓ Compliant
+                              </Badge>
+                            )}
+                          </div>
                           <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{report.title}</p>
+                          {report.ai_suggestions && report.ai_suggestions.length > 0 && (
+                            <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                              🤖 {report.ai_suggestions.length} sugerencias de IA
+                            </p>
+                          )}
                         </div>
                         <div className="text-right">
                           <p className="text-sm text-gray-500 dark:text-gray-400">{formatDate(report.created_at)}</p>
@@ -228,15 +232,57 @@ export default function MedicalReports() {
                   </div>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-6">
                 <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
                   <Calendar className="h-4 w-4" />
                   Creado el {formatDate(selectedReport.created_at)}
+                  {selectedReport.compliance_status && (
+                    <Badge variant="success" className="ml-2">
+                      ✓ Cumple Normativa
+                    </Badge>
+                  )}
                 </div>
 
-                <div className="prose dark:prose-invert max-w-none">
-                  <div className="whitespace-pre-wrap text-gray-900 dark:text-white">{selectedReport.content}</div>
+                {/* Reporte Principal */}
+                <div>
+                  <h3 className="font-semibold text-gray-900 dark:text-white mb-2">Reporte Médico</h3>
+                  <div className="prose dark:prose-invert max-w-none">
+                    <div className="whitespace-pre-wrap text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
+                      {selectedReport.content}
+                    </div>
+                  </div>
                 </div>
+
+                {/* Transcript Original */}
+                {selectedReport.original_transcript && (
+                  <div>
+                    <h3 className="font-semibold text-gray-900 dark:text-white mb-2">Transcripción Original</h3>
+                    <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
+                      <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                        {selectedReport.original_transcript}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Sugerencias de IA */}
+                {selectedReport.ai_suggestions && selectedReport.ai_suggestions.length > 0 && (
+                  <div>
+                    <h3 className="font-semibold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
+                      🤖 Sugerencias Clínicas de IA
+                    </h3>
+                    <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
+                      <ul className="space-y-2">
+                        {selectedReport.ai_suggestions.map((suggestion, index) => (
+                          <li key={index} className="text-sm text-green-800 dark:text-green-200 flex items-start gap-2">
+                            <span className="inline-block w-1.5 h-1.5 bg-green-500 rounded-full mt-2 flex-shrink-0"></span>
+                            {suggestion}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           ) : (

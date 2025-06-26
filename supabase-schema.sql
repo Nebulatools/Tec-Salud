@@ -79,6 +79,9 @@ CREATE TABLE medical_reports (
     report_type VARCHAR(100) NOT NULL,
     title VARCHAR(255) NOT NULL,
     content TEXT NOT NULL,
+    original_transcript TEXT,
+    ai_suggestions JSONB,
+    compliance_status BOOLEAN DEFAULT false,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

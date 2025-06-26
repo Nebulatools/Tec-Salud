@@ -4,14 +4,16 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, Check, FileText, Mic, Shield, Download } from "lucide-react"
+import { ArrowLeft, Check, FileText, Mic, Shield, Download, Bot } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 import PatientSummary from "./consultation-steps/patient-summary"
 import ConsultationRecording from "./consultation-steps/consultation-recording"
+import ComplianceAssistant from "../consultation-steps/compliance-assistant"
 import ReportVerification from "./consultation-steps/report-verification"
 import FinalReport from "./consultation-steps/final-report"
 import RecordingIndicator from "./recording-indicator"
+import { ConsultationData } from "@/types/consultation"
 
 interface ConsultationFlowProps {
   appointmentId: string
@@ -41,12 +43,18 @@ const steps: StepConfig[] = [
   },
   {
     id: 3,
+    title: "Asistente de Cumplimiento IA",
+    icon: Bot,
+    component: ComplianceAssistant,
+  },
+  {
+    id: 4,
     title: "Verificación de Reporte",
     icon: Shield,
     component: ReportVerification,
   },
   {
-    id: 4,
+    id: 5,
     title: "Reporte Final",
     icon: Download,
     component: FinalReport,
@@ -57,35 +65,64 @@ export default function ConsultationFlow({ appointmentId, patientName, onClose }
   const [currentStep, setCurrentStep] = useState(1)
   const [completedSteps, setCompletedSteps] = useState<number[]>([])
   const [isRecording, setIsRecording] = useState(false)
-  const [consultationData, setConsultationData] = useState({
+  const [consultationData, setConsultationData] = useState<ConsultationData>({
     patientInfo: null,
     recordingData: null,
+    transcript: undefined,
     reportData: null,
     finalReport: null,
   })
 
   const handleStepComplete = (stepId: number, data?: any) => {
-    setCompletedSteps(prev => [...prev, stepId])
+    console.log('Step completed:', stepId, 'with data:', data)
     
-    // Update consultation data
+    // Solo añadir a completedSteps si no está ya ahí
+    setCompletedSteps(prev => prev.includes(stepId) ? prev : [...prev, stepId])
+    
+    // Update consultation data - preservar datos existentes
     if (stepId === 1) {
       setConsultationData(prev => ({ ...prev, patientInfo: data }))
     } else if (stepId === 2) {
-      setConsultationData(prev => ({ ...prev, recordingData: data }))
+      setConsultationData(prev => ({ ...prev, recordingData: data, transcript: data?.transcript }))
     } else if (stepId === 3) {
-      setConsultationData(prev => ({ ...prev, reportData: data }))
+      // Paso 3: Compliance Assistant - preservar datos de IA
+      console.log('Updating step 3 data:', data)
+      setConsultationData(prev => {
+        const updated = { 
+          ...prev, 
+          reportData: {
+            ...prev.reportData,
+            ...data
+          }
+        }
+        console.log('Updated consultation data after step 3:', updated)
+        return updated
+      })
     } else if (stepId === 4) {
+      // Paso 4: Verificación - hacer merge para preservar datos de IA del paso 3
+      setConsultationData(prev => ({ 
+        ...prev, 
+        reportData: {
+          ...prev.reportData,
+          ...data
+        }
+      }))
+    } else if (stepId === 5) {
       setConsultationData(prev => ({ ...prev, finalReport: data }))
     }
 
     // Move to next step automatically except for step 2 (recording)
-    if (stepId !== 2 && stepId < 4) {
+    if (stepId !== 2 && stepId < 5) {
       setCurrentStep(stepId + 1)
     }
   }
 
   const handleStepNavigation = (stepId: number) => {
-    setCurrentStep(stepId)
+    // Permitir navegar a cualquier paso que ya haya sido completado o al actual
+    const maxAllowedStep = Math.max(...completedSteps, currentStep)
+    if (stepId <= maxAllowedStep || stepId === currentStep + 1) {
+      setCurrentStep(stepId)
+    }
   }
 
   const getCurrentStepComponent = () => {
@@ -98,6 +135,9 @@ export default function ConsultationFlow({ appointmentId, patientName, onClose }
         appointmentId={appointmentId}
         consultationData={consultationData}
         onComplete={(data?: any) => handleStepComplete(currentStep, data)}
+        onDataUpdate={setConsultationData}
+        onNext={() => setCurrentStep(currentStep + 1)}
+        onBack={() => setCurrentStep(currentStep - 1)}
         onRecordingStateChange={setIsRecording}
         onNavigateToStep={handleStepNavigation}
       />

@@ -156,6 +156,9 @@ export type Database = {
           report_type: string
           title: string
           content: string
+          original_transcript: string | null
+          ai_suggestions: any | null
+          compliance_status: boolean | null
           created_at: string
           updated_at: string
         }
@@ -167,6 +170,9 @@ export type Database = {
           report_type: string
           title: string
           content: string
+          original_transcript?: string | null
+          ai_suggestions?: any | null
+          compliance_status?: boolean | null
           created_at?: string
           updated_at?: string
         }
@@ -178,6 +184,9 @@ export type Database = {
           report_type?: string
           title?: string
           content?: string
+          original_transcript?: string | null
+          ai_suggestions?: any | null
+          compliance_status?: boolean | null
           created_at?: string
           updated_at?: string
         }
