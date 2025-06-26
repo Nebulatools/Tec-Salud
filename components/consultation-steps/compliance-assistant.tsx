@@ -134,6 +134,8 @@ export default function ComplianceAssistant({
 
     } catch (error) {
       console.error('Error during initial analysis:', error)
+      // Mostrar error al usuario
+      alert(`Error al analizar la transcripción: ${error instanceof Error ? error.message : 'Error desconocido'}. Por favor, inténtalo de nuevo.`)
     } finally {
       setLoading(false)
     }

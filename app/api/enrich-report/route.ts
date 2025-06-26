@@ -47,8 +47,20 @@ Tu respuesta final DEBE ser un único objeto JSON, sin ningún texto o explicaci
   * Si el reporte está completo, los arrays missingInformation y questionsForDoctor deben estar vacíos [].`;
 
 export async function POST(request: NextRequest) {
+  console.log('=== ENRICH REPORT API CALLED ===');
+  
   try {
+    // Verificar variables de entorno
+    if (!process.env.GEMINI_API_KEY) {
+      console.error('GEMINI_API_KEY not found in environment variables');
+      return NextResponse.json(
+        { error: 'Server configuration error: Missing API key' },
+        { status: 500 }
+      );
+    }
+
     const { transcript } = await request.json();
+    console.log('Received transcript length:', transcript?.length || 0);
 
     if (!transcript) {
       return NextResponse.json(
@@ -57,6 +69,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    console.log('Initializing Gemini model...');
     const model = genAI.getGenerativeModel({ 
       model: 'gemini-1.5-pro',
       generationConfig: {
@@ -68,25 +81,42 @@ export async function POST(request: NextRequest) {
       }
     });
 
+    console.log('Calling Gemini API...');
     const result = await model.generateContent(COMPLIANCE_PROMPT + "\n\nTRANSCRIPCIÓN:\n" + transcript);
+    
+    console.log('Getting response...');
     const response = await result.response;
     const text = response.text();
     
+    console.log('AI Response length:', text?.length || 0);
+    console.log('AI Response preview:', text?.substring(0, 200));
+    
     try {
       const parsedResponse = JSON.parse(text);
+      console.log('Successfully parsed AI response');
       return NextResponse.json(parsedResponse);
     } catch (parseError) {
       console.error('Error parsing AI response:', parseError);
+      console.error('Raw AI response:', text);
       return NextResponse.json(
-        { error: 'Invalid response format from AI' },
+        { error: 'Invalid response format from AI', details: text?.substring(0, 500) },
         { status: 500 }
       );
     }
 
   } catch (error) {
     console.error('Error in enrich-report API:', error);
+    console.error('Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      name: error instanceof Error ? error.name : undefined
+    });
+    
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { 
+        error: 'Internal server error',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     );
   }
