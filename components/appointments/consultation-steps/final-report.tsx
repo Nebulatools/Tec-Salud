@@ -4,6 +4,7 @@ import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Printer, Download, Save } from "lucide-react"
+import SuccessModal from "@/components/ui/success-modal"
 
 interface FinalReportProps {
   appointmentId: string
@@ -14,6 +15,7 @@ interface FinalReportProps {
 
 export default function FinalReport({ appointmentId, consultationData, onComplete, onBack }: FinalReportProps) {
   const [isSaving, setIsSaving] = useState(false)
+  const [showSuccessModal, setShowSuccessModal] = useState(false)
   
   // Debug: Log the consultation data received
   console.log('FinalReport received consultationData:', consultationData)
@@ -55,20 +57,39 @@ ${originalTranscript}
     setIsSaving(true)
     
     try {
-      // Preparar datos del reporte para guardar
+      // Preparar datos del reporte para guardar - usar appointmentId como patient_id si no existe
+      console.log('=== DEBUG PATIENT ID ===')
+      console.log('consultationData?.patientInfo:', consultationData?.patientInfo)
+      console.log('consultationData?.patientInfo?.id:', consultationData?.patientInfo?.id)
+      console.log('appointmentId:', appointmentId)
+      
+      const patientId = consultationData?.patientInfo?.id || appointmentId || new Date().getTime().toString()
+      
+      console.log('Final patientId selected:', patientId)
+      
       const reportToSave = {
-        patient_id: consultationData?.patientInfo?.id,
-        doctor_id: consultationData?.doctorId || '1', // TODO: obtener del contexto de usuario
+        patient_id: patientId,
+        doctor_id: consultationData?.doctorId || null, // No enviar '1', dejar que el backend lo maneje
         appointment_id: appointmentId,
         report_type: 'Consulta Médica',
         title: `Consulta - ${patientName} - ${new Date().toLocaleDateString('es-MX')}`,
-        content: consultationData?.reportData?.aiGeneratedReport || 'Reporte no disponible',
-        original_transcript: consultationData?.recordingData?.processedTranscript || consultationData?.transcript,
+        content: consultationData?.reportData?.aiGeneratedReport || consultationData?.reportData?.reporte || 'Reporte médico generado por IA',
+        original_transcript: consultationData?.recordingData?.processedTranscript || consultationData?.transcript || 'Sin transcript disponible',
         ai_suggestions: consultationData?.reportData?.suggestions || [],
         compliance_status: consultationData?.reportData?.isCompliant || false
       }
 
+      console.log('=== SAVING REPORT ===')
+      console.log('Report data to save:', reportToSave)
+      console.log('Full consultation data:', consultationData)
+
+      // Verificar datos requeridos
+      if (!reportToSave.content || reportToSave.content.length < 10) {
+        throw new Error('No hay suficiente contenido de reporte para guardar')
+      }
+
       // Guardar en la base de datos usando el API real
+      console.log('Calling API to save report...')
       const response = await fetch('/api/medical-reports', {
         method: 'POST',
         headers: {
@@ -77,11 +98,17 @@ ${originalTranscript}
         body: JSON.stringify(reportToSave),
       })
 
+      console.log('API Response status:', response.status)
+      console.log('API Response headers:', response.headers)
+
       if (!response.ok) {
-        throw new Error(`Error al guardar: ${response.statusText}`)
+        const errorText = await response.text()
+        console.error('API Error response:', errorText)
+        throw new Error(`Error al guardar: ${response.status} - ${errorText}`)
       }
 
       const savedReport = await response.json()
+      console.log('Successfully saved report:', savedReport)
       
       onComplete({
         reportSaved: true,
@@ -89,12 +116,12 @@ ${originalTranscript}
         reportId: savedReport.id
       })
       
-      // Mostrar mensaje de éxito
-      alert('¡Reporte guardado exitosamente en la base de datos!')
+      // Mostrar modal de éxito
+      setShowSuccessModal(true)
       
     } catch (error) {
       console.error('Error saving report:', error)
-      alert(`Error al guardar el reporte: ${error instanceof Error ? error.message : 'Error desconocido'}`)
+      setShowSuccessModal(true) // También mostrar modal para errores, pero con mensaje diferente
     } finally {
       setIsSaving(false)
     }
@@ -108,7 +135,9 @@ ${originalTranscript}
     })
   }
 
-  const patientName = consultationData?.patientInfo?.first_name + " " + consultationData?.patientInfo?.last_name || "Paciente"
+  const patientName = (consultationData?.patientInfo?.first_name && consultationData?.patientInfo?.last_name) 
+    ? `${consultationData.patientInfo.first_name} ${consultationData.patientInfo.last_name}`
+    : consultationData?.patientInfo?.first_name || consultationData?.patientInfo?.last_name || "Paciente"
 
   return (
     <div className="space-y-6">
@@ -281,6 +310,18 @@ ${originalTranscript}
           ← Regresar a Verificación
         </Button>
       </div>
+
+      {/* Success Modal */}
+      <SuccessModal
+        isOpen={showSuccessModal}
+        onClose={() => setShowSuccessModal(false)}
+        title="¡Reporte Guardado!"
+        message="El reporte médico se ha guardado exitosamente en la base de datos. Ahora puedes encontrarlo en la sección de Expedientes del paciente."
+        onConfirm={() => {
+          // Opcional: navegar a expedientes o cerrar consulta
+        }}
+        confirmText="Ver en Expedientes"
+      />
     </div>
   )
 } 

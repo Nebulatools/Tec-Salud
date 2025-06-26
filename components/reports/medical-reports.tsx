@@ -103,14 +103,7 @@ export default function MedicalReports() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Expedientes</h1>
-          <div className="flex gap-4 mt-2">
-            <button className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
-              Pacientes
-            </button>
-            <button className="text-teal-600 dark:text-teal-400 border-b-2 border-teal-600 pb-1 font-medium">
-              Reportes
-            </button>
-          </div>
+
         </div>
 
         <div className="flex items-center gap-4">
@@ -183,17 +176,27 @@ export default function MedicalReports() {
                             <p className="font-medium text-gray-900 dark:text-white truncate">
                               {report.patient.first_name} {report.patient.last_name}
                             </p>
-                            {report.compliance_status && (
-                              <Badge variant="success" className="text-xs">
-                                ✓ Compliant
-                              </Badge>
-                            )}
+
                           </div>
                           <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{report.title}</p>
                           {report.ai_suggestions && report.ai_suggestions.length > 0 && (
-                            <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-                              🤖 {report.ai_suggestions.length} sugerencias de IA
-                            </p>
+                            <div className="mt-2 space-y-1">
+                              <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">
+                                🤖 {report.ai_suggestions.length} sugerencias de IA:
+                              </p>
+                              <div className="text-xs text-gray-600 dark:text-gray-400 space-y-1">
+                                {report.ai_suggestions.slice(0, 2).map((suggestion, index) => (
+                                  <p key={index} className="truncate">
+                                    • {suggestion}
+                                  </p>
+                                ))}
+                                {report.ai_suggestions.length > 2 && (
+                                  <p className="text-blue-500 font-medium">
+                                    +{report.ai_suggestions.length - 2} más...
+                                  </p>
+                                )}
+                              </div>
+                            </div>
                           )}
                         </div>
                         <div className="text-right">

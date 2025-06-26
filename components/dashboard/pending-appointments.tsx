@@ -16,7 +16,9 @@ interface Appointment {
   start_time: string
   end_time: string
   status: string
-  patient: {
+  patient_id: string
+  patients: {
+    id: string
     first_name: string
     last_name: string
   }
@@ -39,6 +41,13 @@ export default function PendingAppointments() {
       
       if (doctorError) {
         console.error("Error fetching doctor:", doctorError)
+        console.error("User ID:", user.id)
+        console.error("Make sure there's a doctor record for this user in the database")
+        
+        // Si no hay doctor, mostrar mensaje más claro
+        if (doctorError.code === 'PGRST116') {
+          console.error("No doctor found for this user. Please run the fix-doctor-user.sql script")
+        }
         return
       }
       
@@ -54,7 +63,9 @@ export default function PendingAppointments() {
           start_time,
           end_time,
           status,
+          patient_id,
           patients!inner (
+            id,
             first_name,
             last_name
           )
@@ -213,6 +224,20 @@ export default function PendingAppointments() {
           </div>
         )}
       </CardContent>
+      
+      {/* Consultation Flow Modal */}
+      {isConsultationOpen && selectedAppointment && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg w-full max-w-6xl max-h-[90vh] overflow-y-auto">
+            <ConsultationFlow
+              appointmentId={selectedAppointment.id}
+              patientName={`${selectedAppointment.patients.first_name} ${selectedAppointment.patients.last_name}`}
+              patientId={selectedAppointment.patient_id}
+              onClose={handleCloseConsultation}
+            />
+          </div>
+        </div>
+      )}
     </Card>
   )
 }

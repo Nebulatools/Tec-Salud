@@ -9,11 +9,13 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/hooks/use-auth"
-import { Search, Plus, User, Trash2, Edit, MoreVertical } from "lucide-react"
+import { Search, Plus, User, Trash2, Edit, MoreVertical, FileText, Calendar } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import AddPatientForm from "./add-patient-form"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import EditPatientForm from "./edit-patient-form"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import ReportViewerModal from "@/components/reports/report-viewer-modal"
 
 interface Patient {
   id: string
@@ -23,6 +25,27 @@ interface Patient {
   gender: "Masculino" | "Femenino" | "Otro"
   phone: string | null
   email: string | null
+  address: string | null
+  emergency_contact_name: string | null
+  emergency_contact_phone: string | null
+  medical_history: string | null
+  allergies: string | null
+  current_medications: string | null
+}
+
+interface MedicalReport {
+  id: string
+  title: string
+  report_type: string
+  content: string
+  created_at: string
+  doctors: {
+    first_name: string
+    last_name: string
+  }[]
+  compliance_status: boolean
+  ai_suggestions: string[]
+  original_transcript: string
 }
 
 export default function PatientList() {
@@ -35,6 +58,10 @@ export default function PatientList() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [patientToEdit, setPatientToEdit] = useState<Patient | null>(null)
+  const [patientReports, setPatientReports] = useState<MedicalReport[]>([])
+  const [loadingReports, setLoadingReports] = useState(false)
+  const [selectedReport, setSelectedReport] = useState<any>(null)
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false)
 
   useEffect(() => {
     fetchPatients()
@@ -46,6 +73,12 @@ export default function PatientList() {
     )
     setFilteredPatients(filtered)
   }, [patients, searchTerm])
+
+  useEffect(() => {
+    if (selectedPatient) {
+      fetchPatientReports(selectedPatient.id)
+    }
+  }, [selectedPatient])
 
   const fetchPatients = async () => {
     if (!user) return
@@ -68,6 +101,42 @@ export default function PatientList() {
       console.error("Error fetching patients:", error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchPatientReports = async (patientId: string) => {
+    setLoadingReports(true)
+    try {
+      const { data, error } = await supabase
+        .from("medical_reports")
+        .select(`
+          id,
+          title,
+          report_type,
+          content,
+          created_at,
+          doctors (
+            first_name,
+            last_name
+          ),
+          compliance_status,
+          ai_suggestions,
+          original_transcript
+        `)
+        .eq("patient_id", patientId)
+        .order("created_at", { ascending: false })
+
+      if (error) {
+        console.error("Error fetching reports:", error)
+        setPatientReports([])
+      } else {
+        setPatientReports(data || [])
+      }
+    } catch (error) {
+      console.error("Error fetching patient reports:", error)
+      setPatientReports([])
+    } finally {
+      setLoadingReports(false)
     }
   }
 
@@ -114,6 +183,11 @@ export default function PatientList() {
     }
   }
 
+  const handleViewReport = (report: MedicalReport) => {
+    setSelectedReport(report)
+    setIsReportModalOpen(true)
+  }
+
   if (loading) {
     return (
       <div className="space-y-4">
@@ -132,17 +206,7 @@ export default function PatientList() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Expedientes</h1>
-          <div className="flex gap-4 mt-2">
-            <button className="text-teal-600 dark:text-teal-400 border-b-2 border-teal-600 pb-1 font-medium">
-              Pacientes
-            </button>
-            <button className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
-              Reportes
-            </button>
-          </div>
-        </div>
+        <div></div>
 
         <div className="flex items-center gap-4">
           <div className="relative">
@@ -300,40 +364,117 @@ export default function PatientList() {
                   </DropdownMenu>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <h3 className="font-medium text-gray-900 dark:text-white mb-3">Información Personal</h3>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-gray-500 dark:text-gray-400">Fecha de nacimiento:</span>
-                        <span className="text-gray-900 dark:text-white">
-                          {new Date(selectedPatient.date_of_birth).toLocaleDateString("es-ES")}
-                        </span>
+              <CardContent>
+                <Tabs defaultValue="info" className="w-full">
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="info" className="flex items-center gap-2">
+                      <User className="h-4 w-4" />
+                      Información Personal
+                    </TabsTrigger>
+                    <TabsTrigger value="reports" className="flex items-center gap-2">
+                      <FileText className="h-4 w-4" />
+                      Reportes Médicos ({patientReports.length})
+                    </TabsTrigger>
+                  </TabsList>
+                  
+                  <TabsContent value="info" className="mt-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <h3 className="font-medium text-gray-900 dark:text-white mb-3">Información Personal</h3>
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-gray-500 dark:text-gray-400">Fecha de nacimiento:</span>
+                            <span className="text-gray-900 dark:text-white">
+                              {new Date(selectedPatient.date_of_birth).toLocaleDateString("es-ES")}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-500 dark:text-gray-400">Teléfono:</span>
+                            <span className="text-gray-900 dark:text-white">
+                              {selectedPatient.phone || "No registrado"}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-500 dark:text-gray-400">Email:</span>
+                            <span className="text-gray-900 dark:text-white">
+                              {selectedPatient.email || "No registrado"}
+                            </span>
+                          </div>
+                        </div>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500 dark:text-gray-400">Teléfono:</span>
-                        <span className="text-gray-900 dark:text-white">
-                          {selectedPatient.phone || "No registrado"}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500 dark:text-gray-400">Email:</span>
-                        <span className="text-gray-900 dark:text-white">
-                          {selectedPatient.email || "No registrado"}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
 
-                  <div>
-                    <h3 className="font-medium text-gray-900 dark:text-white mb-3">Historial Médico</h3>
-                    <div className="space-y-2">
-                      <Badge variant="secondary">Sin alergias conocidas</Badge>
-                      <Badge variant="secondary">Sin medicamentos actuales</Badge>
+                      <div>
+                        <h3 className="font-medium text-gray-900 dark:text-white mb-3">Historial Médico</h3>
+                        <div className="space-y-2">
+                          <Badge variant="secondary">Sin alergias conocidas</Badge>
+                          <Badge variant="secondary">Sin medicamentos actuales</Badge>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
+                  </TabsContent>
+                  
+                  <TabsContent value="reports" className="mt-6">
+                    {loadingReports ? (
+                      <div className="flex items-center justify-center py-8">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600"></div>
+                      </div>
+                    ) : patientReports.length === 0 ? (
+                      <div className="text-center py-8">
+                        <FileText className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                        <p className="text-gray-500 dark:text-gray-400">
+                          No hay reportes médicos para este paciente
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {patientReports.map((report) => (
+                          <Card key={report.id} className="p-4">
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <FileText className="h-4 w-4 text-teal-600" />
+                                  <h4 className="font-medium text-gray-900 dark:text-white">
+                                    {report.title}
+                                  </h4>
+                                  <Badge variant="outline" className="text-xs">
+                                    {report.report_type}
+                                  </Badge>
+                                </div>
+                                <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-3">
+                                  <Calendar className="h-3 w-3" />
+                                  <span>
+                                    {new Date(report.created_at).toLocaleDateString("es-ES", {
+                                      year: "numeric",
+                                      month: "long",
+                                      day: "numeric",
+                                      hour: "2-digit",
+                                      minute: "2-digit"
+                                    })}
+                                  </span>
+                                                                      <span>•</span>
+                                    <span>
+                                      Dr. {report.doctors[0]?.first_name} {report.doctors[0]?.last_name}
+                                    </span>
+                                </div>
+                                <div className="text-sm text-gray-600 dark:text-gray-300 line-clamp-3">
+                                  {report.content.slice(0, 200)}...
+                                </div>
+                              </div>
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="ml-4"
+                                onClick={() => handleViewReport(report)}
+                              >
+                                Ver completo
+                              </Button>
+                            </div>
+                          </Card>
+                        ))}
+                      </div>
+                    )}
+                  </TabsContent>
+                </Tabs>
               </CardContent>
             </Card>
           ) : (
@@ -350,6 +491,16 @@ export default function PatientList() {
           )}
         </div>
       </div>
+
+      {/* Report Viewer Modal */}
+      <ReportViewerModal
+        isOpen={isReportModalOpen}
+        onClose={() => {
+          setIsReportModalOpen(false)
+          setSelectedReport(null)
+        }}
+        report={selectedReport}
+      />
     </div>
   )
 }

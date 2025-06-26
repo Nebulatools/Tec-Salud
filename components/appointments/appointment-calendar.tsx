@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/hooks/use-auth"
-import { ChevronLeft, ChevronRight, CalendarIcon, Clock, Plus, List, Filter, Download, Upload } from "lucide-react"
+import { ChevronLeft, ChevronRight, CalendarIcon, Clock, Plus, List } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import AddAppointmentForm from "./add-appointment-form"
 import ConsultationFlow from "./consultation-flow"
@@ -249,6 +249,25 @@ export default function AppointmentCalendar() {
     return `${start.getDate()} De ${start.toLocaleDateString("es-ES", { month: "long" })} - ${end.getDate()} De ${end.toLocaleDateString("es-ES", { month: "long" })} De ${end.getFullYear()}`
   }
 
+  // Función optimizada para calcular posición de citas
+  const getAppointmentPosition = (startTime: string, endTime: string) => {
+    const [startHour, startMinute] = startTime.split(':').map(Number)
+    const [endHour, endMinute] = endTime.split(':').map(Number)
+    
+    // Minutos desde 8:00 AM (más eficiente sin multiplicaciones repetidas)
+    const startMinutes = (startHour - 8) * 60 + startMinute
+    const endMinutes = (endHour - 8) * 60 + endMinute
+    const duration = endMinutes - startMinutes
+    
+    // Constante optimizada: 64px/60min = 1.0667px/min
+    const PIXELS_PER_MINUTE = 1.0667
+    
+    return {
+      top: Math.max(0, startMinutes * PIXELS_PER_MINUTE),
+      height: Math.max(24, duration * PIXELS_PER_MINUTE) // Mínimo 24px para legibilidad
+    }
+  }
+
   const handleStartConsultation = (appointment: Appointment) => {
     setSelectedAppointment(appointment)
     setIsConsultationOpen(true)
@@ -279,6 +298,7 @@ export default function AppointmentCalendar() {
       <ConsultationFlow
         appointmentId={selectedAppointment.id}
         patientName={`${selectedAppointment.patient.first_name} ${selectedAppointment.patient.last_name}`}
+        patientId={selectedAppointment.patient.id}
         onClose={handleCloseConsultation}
       />
     )
@@ -320,14 +340,6 @@ export default function AppointmentCalendar() {
       {/* Filters and Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-2">
-          <input
-            type="text"
-            placeholder="Buscar paciente o consulta"
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 dark:bg-gray-800 dark:border-gray-600"
-          />
-        </div>
-
-        <div className="flex items-center gap-2">
           {["Hoy", "Esta semana", "Este mes"].map((filter) => (
             <Button
               key={filter}
@@ -343,42 +355,27 @@ export default function AppointmentCalendar() {
               {filter}
             </Button>
           ))}
-
-          <Button variant="outline" size="sm">
-            <Filter className="mr-2 h-4 w-4" />
-            Filtros
-          </Button>
-
-          <Button variant="outline" size="sm">
-            <Download className="mr-2 h-4 w-4" />
-            Exportar
-          </Button>
-
-          <Button variant="outline" size="sm">
-            <Upload className="mr-2 h-4 w-4" />
-            Importar
-          </Button>
-
-          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="bg-teal-600 hover:bg-teal-700">
-                <Plus className="mr-2 h-4 w-4" />
-                Nueva consulta
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>Programar Nueva Consulta</DialogTitle>
-              </DialogHeader>
-              <AddAppointmentForm
-                onSuccess={() => {
-                  setIsAddDialogOpen(false)
-                  fetchAppointments()
-                }}
-              />
-            </DialogContent>
-          </Dialog>
         </div>
+
+        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+          <DialogTrigger asChild>
+            <Button className="bg-teal-600 hover:bg-teal-700">
+              <Plus className="mr-2 h-4 w-4" />
+              Nueva consulta
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Programar Nueva Consulta</DialogTitle>
+            </DialogHeader>
+            <AddAppointmentForm
+              onSuccess={() => {
+                setIsAddDialogOpen(false)
+                fetchAppointments()
+              }}
+            />
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* Calendar/List View */}
@@ -600,12 +597,12 @@ export default function AppointmentCalendar() {
               </div>
             ) : (
               // Week/Day view with time slots
-              <div className={`grid ${getGridCols()} gap-4`}>
-                {/* Time column */}
-                <div className="space-y-16">
-                  <div className="h-12"></div> {/* Header space */}
+              <div className={`grid ${getGridCols()} gap-4 relative`}>
+                {/* Columna de horas */}
+                <div className="space-y-0">
+                  <div className="h-12 border-b border-gray-200 dark:border-gray-700"></div>
                   {Array.from({ length: 12 }, (_, i) => (
-                    <div key={i} className="text-sm text-gray-500 dark:text-gray-400 text-right pr-2">
+                    <div key={i} className="h-16 flex items-start pt-1 text-sm font-medium text-gray-500 dark:text-gray-400 text-right pr-3 border-t border-gray-100 dark:border-gray-700">
                       {`${i + 8}:00`}
                     </div>
                   ))}
@@ -613,9 +610,9 @@ export default function AppointmentCalendar() {
 
                 {/* Days columns */}
                 {weekDays.map((day, dayIndex) => (
-                  <div key={dayIndex} className="space-y-2">
+                  <div key={dayIndex} className="relative">
                     {/* Day header */}
-                    <div className="text-center p-2">
+                    <div className="text-center p-2 h-12 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
                       <div className="text-sm font-medium text-gray-500 dark:text-gray-400">{getDayName(dayIndex, day)}</div>
                       <div
                         className={`text-lg font-bold mt-1 ${
@@ -631,36 +628,44 @@ export default function AppointmentCalendar() {
                       </div>
                     </div>
 
-                    {/* Appointments for this day */}
-                    <div className="space-y-1 min-h-[600px]">
-                      {getAppointmentsForDate(day).map((appointment) => (
-                        <div
-                          key={appointment.id}
-                          className="bg-teal-100 dark:bg-teal-900 border-l-4 border-teal-500 p-2 rounded text-xs hover:bg-teal-200 dark:hover:bg-teal-800 cursor-pointer transition-colors"
-                          title={`${appointment.patient.first_name} ${appointment.patient.last_name} - ${formatTime(appointment.start_time)} - ${appointment.status}`}
-                          onClick={() => handleStartConsultation(appointment)}
-                        >
-                          <div className="font-medium text-gray-900 dark:text-white truncate">
-                            {appointment.patient.first_name} {appointment.patient.last_name}
-                          </div>
-                          <div className="flex items-center gap-1 text-gray-600 dark:text-gray-400">
-                            <Clock className="h-3 w-3" />
-                            {formatTime(appointment.start_time)}
-                          </div>
-                          <div className="mt-1">
-                            <Badge className={`text-xs px-1 py-0 ${getStatusColor(appointment.status)}`}>
-                              {appointment.status}
-                            </Badge>
-                          </div>
-                        </div>
+                    {/* Líneas de tiempo */}
+                    <div className="absolute inset-0 top-12 pointer-events-none">
+                      {Array.from({ length: 12 }, (_, i) => (
+                        <div key={i} className="h-16 border-t border-gray-50 dark:border-gray-800"></div>
                       ))}
+                    </div>
+
+                    {/* Citas posicionadas por tiempo */}
+                    <div className="relative h-[768px]">
+                      {getAppointmentsForDate(day).map((appointment) => {
+                        const { top, height } = getAppointmentPosition(appointment.start_time, appointment.end_time)
+                        const showBadge = height > 45
+                        
+                        return (
+                          <div
+                            key={appointment.id}
+                            className="absolute left-1 right-1 bg-gradient-to-r from-teal-100 to-teal-50 dark:from-teal-900 dark:to-teal-800 border-l-4 border-teal-500 p-2 rounded-md text-xs hover:from-teal-200 hover:to-teal-100 dark:hover:from-teal-800 dark:hover:to-teal-700 cursor-pointer transition-all duration-200 shadow-sm hover:shadow-md z-10"
+                            style={{ top, height }}
+                            title={`${appointment.patient.first_name} ${appointment.patient.last_name} - ${formatTime(appointment.start_time)} a ${formatTime(appointment.end_time)}`}
+                            onClick={() => handleStartConsultation(appointment)}
+                          >
+                            <div className="font-semibold text-gray-900 dark:text-white truncate">
+                              {appointment.patient.first_name} {appointment.patient.last_name}
+                            </div>
+                            <div className="flex items-center gap-1 text-gray-600 dark:text-gray-400 mt-0.5">
+                              <Clock className="h-3 w-3 flex-shrink-0" />
+                              <span>{formatTime(appointment.start_time)}</span>
+                            </div>
+                            {showBadge && (
+                              <Badge className={`text-xs px-1.5 py-0.5 mt-1 ${getStatusColor(appointment.status)}`}>
+                                {appointment.status}
+                              </Badge>
+                            )}
+                          </div>
+                        )
+                      })}
                       
-                      {/* Show message when no appointments for this day but filter is active */}
-                      {getAppointmentsForDate(day).length === 0 && selectedFilter !== "Este mes" && (
-                        <div className="text-center py-4 text-gray-400 text-xs">
-                          Sin citas
-                        </div>
-                      )}
+
                     </div>
                   </div>
                 ))}

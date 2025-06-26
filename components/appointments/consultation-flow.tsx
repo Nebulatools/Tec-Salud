@@ -18,6 +18,7 @@ import { ConsultationData } from "@/types/consultation"
 interface ConsultationFlowProps {
   appointmentId: string
   patientName: string
+  patientId?: string
   onClose: () => void
 }
 
@@ -61,12 +62,17 @@ const steps: StepConfig[] = [
   },
 ]
 
-export default function ConsultationFlow({ appointmentId, patientName, onClose }: ConsultationFlowProps) {
+export default function ConsultationFlow({ appointmentId, patientName, patientId, onClose }: ConsultationFlowProps) {
+  console.log('=== CONSULTATION FLOW STARTED ===')
+  console.log('appointmentId:', appointmentId)
+  console.log('patientName:', patientName)
+  console.log('patientId:', patientId)
+  
   const [currentStep, setCurrentStep] = useState(1)
   const [completedSteps, setCompletedSteps] = useState<number[]>([])
   const [isRecording, setIsRecording] = useState(false)
   const [consultationData, setConsultationData] = useState<ConsultationData>({
-    patientInfo: null,
+    patientInfo: { id: patientId },
     recordingData: null,
     transcript: undefined,
     reportData: null,
@@ -81,7 +87,14 @@ export default function ConsultationFlow({ appointmentId, patientName, onClose }
     
     // Update consultation data - preservar datos existentes
     if (stepId === 1) {
-      setConsultationData(prev => ({ ...prev, patientInfo: data }))
+      setConsultationData(prev => ({ 
+        ...prev, 
+        patientInfo: { 
+          ...prev.patientInfo, 
+          ...data,
+          id: prev.patientInfo?.id || patientId // Preservar el ID original
+        } 
+      }))
     } else if (stepId === 2) {
       setConsultationData(prev => ({ ...prev, recordingData: data, transcript: data?.transcript }))
     } else if (stepId === 3) {

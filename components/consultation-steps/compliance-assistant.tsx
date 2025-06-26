@@ -104,7 +104,7 @@ export default function ComplianceAssistant({
       if (suggestionsResponse.ok) {
         suggestionsResult = await suggestionsResponse.json()
         // Ensure suggestions is an array of strings
-        if (suggestionsResult.suggestions && Array.isArray(suggestionsResult.suggestions)) {
+        if (suggestionsResult && suggestionsResult.suggestions && Array.isArray(suggestionsResult.suggestions)) {
           setSuggestions(suggestionsResult.suggestions.filter(s => typeof s === 'string'))
         }
       }
@@ -129,8 +129,8 @@ export default function ComplianceAssistant({
         reportData: reportData
       })
       
-      // Marcar paso como completado automáticamente
-      onComplete(reportData)
+      // NO auto-completar - que el usuario decida cuándo continuar
+      // onComplete(reportData)
 
     } catch (error) {
       console.error('Error during initial analysis:', error)
@@ -189,7 +189,7 @@ export default function ComplianceAssistant({
       if (suggestionsResponse.ok) {
         const suggestionsResult: SuggestionsResponse = await suggestionsResponse.json()
         // Ensure suggestions is an array of strings
-        if (suggestionsResult.suggestions && Array.isArray(suggestionsResult.suggestions)) {
+        if (suggestionsResult && suggestionsResult.suggestions && Array.isArray(suggestionsResult.suggestions)) {
           setSuggestions(suggestionsResult.suggestions.filter(s => typeof s === 'string'))
         }
       }
@@ -199,6 +199,8 @@ export default function ComplianceAssistant({
 
     } catch (error) {
       console.error('Error during revalidation:', error)
+      // Mostrar error al usuario
+      alert(`Error al revalidar el reporte: ${error instanceof Error ? error.message : 'Error desconocido'}. Por favor, inténtalo de nuevo.`)
     } finally {
       setValidating(false)
     }

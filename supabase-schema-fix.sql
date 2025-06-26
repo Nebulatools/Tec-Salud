@@ -1,26 +1,21 @@
--- SCHEMA COMPLETO SIN RLS PARA QUE FUNCIONE EL REGISTRO
--- COPIA Y PEGA ESTE ARCHIVO COMPLETO EN SUPABASE SQL EDITOR
-
 -- ========================================
--- 1. LIMPIAR TODO LO ANTERIOR
+-- SCHEMA COMPLETO ACTUALIZADO - EJECUTAR EN SUPABASE
 -- ========================================
 
--- Drop existing tables if they exist
+-- 1. PRIMERO VERIFICAR SI HAY DATOS QUE NECESITAS RESPALDAR
+-- Si tienes datos importantes, haz un backup antes de ejecutar esto
+
+-- 2. LIMPIAR TABLAS ANTERIORES
 DROP TABLE IF EXISTS medical_reports CASCADE;
 DROP TABLE IF EXISTS appointments CASCADE;
 DROP TABLE IF EXISTS patients CASCADE;
 DROP TABLE IF EXISTS doctors CASCADE;
 
--- Drop existing functions if they exist
+-- 3. LIMPIAR FUNCIONES
 DROP FUNCTION IF EXISTS update_updated_at_column() CASCADE;
-DROP FUNCTION IF EXISTS validate_user_exists() CASCADE;
 DROP FUNCTION IF EXISTS public.handle_new_user() CASCADE;
 
--- ========================================
--- 2. CREAR TODAS LAS TABLAS
--- ========================================
-
--- Create doctors table (SIN FOREIGN KEY Y SIN RLS)
+-- 4. CREAR TABLA DOCTORS
 CREATE TABLE doctors (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     user_id UUID NOT NULL,
@@ -34,7 +29,7 @@ CREATE TABLE doctors (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Create patients table
+-- 5. CREAR TABLA PATIENTS
 CREATE TABLE patients (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     doctor_id UUID REFERENCES doctors(id) ON DELETE CASCADE,
@@ -54,7 +49,7 @@ CREATE TABLE patients (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Create appointments table
+-- 6. CREAR TABLA APPOINTMENTS
 CREATE TABLE appointments (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     doctor_id UUID REFERENCES doctors(id) ON DELETE CASCADE,
@@ -70,7 +65,7 @@ CREATE TABLE appointments (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Create medical_reports table
+-- 7. CREAR TABLA MEDICAL_REPORTS CON TODAS LAS COLUMNAS
 CREATE TABLE medical_reports (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     patient_id UUID REFERENCES patients(id) ON DELETE CASCADE,
@@ -80,17 +75,13 @@ CREATE TABLE medical_reports (
     title VARCHAR(255) NOT NULL,
     content TEXT NOT NULL,
     original_transcript TEXT,
-    ai_suggestions JSONB,
+    ai_suggestions JSONB DEFAULT '[]'::jsonb,
     compliance_status BOOLEAN DEFAULT false,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-
--- ========================================
--- 3. CREAR ÍNDICES PARA PERFORMANCE
--- ========================================
-
+-- 8. CREAR ÍNDICES
 CREATE INDEX idx_doctors_user_id ON doctors(user_id);
 CREATE INDEX idx_doctors_email ON doctors(email);
 CREATE INDEX idx_patients_doctor_id ON patients(doctor_id);
@@ -101,12 +92,9 @@ CREATE INDEX idx_appointments_date ON appointments(appointment_date);
 CREATE INDEX idx_appointments_status ON appointments(status);
 CREATE INDEX idx_medical_reports_patient_id ON medical_reports(patient_id);
 CREATE INDEX idx_medical_reports_doctor_id ON medical_reports(doctor_id);
+CREATE INDEX idx_medical_reports_appointment_id ON medical_reports(appointment_id);
 
--- ========================================
--- 4. CREAR FUNCIONES Y TRIGGERS
--- ========================================
-
--- Function to update updated_at timestamp
+-- 9. CREAR FUNCIÓN PARA ACTUALIZAR TIMESTAMP
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -115,7 +103,7 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
--- Create triggers for updated_at
+-- 10. CREAR TRIGGERS
 CREATE TRIGGER update_doctors_updated_at 
     BEFORE UPDATE ON doctors 
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
@@ -132,78 +120,49 @@ CREATE TRIGGER update_medical_reports_updated_at
     BEFORE UPDATE ON medical_reports 
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
--- Function to create a new doctor profile when a new user signs up
+-- 11. FUNCIÓN PARA CREAR DOCTOR CUANDO SE REGISTRA UN USUARIO
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER
 LANGUAGE plpgsql
-SECURITY DEFINER -- Important for accessing auth.users and inserting into public.doctors
+SECURITY DEFINER
 AS $$
 BEGIN
-  -- Insert a new doctor record linked to the new auth user
   INSERT INTO public.doctors (user_id, email, first_name, last_name, specialty)
   VALUES (
-    NEW.id, -- The user_id from auth.users
-    NEW.email, -- The email from auth.users
-    COALESCE(NEW.raw_user_meta_data->>'first_name', 'Nombre Pendiente'), -- Attempt to get first_name from metadata, or use placeholder
-    COALESCE(NEW.raw_user_meta_data->>'last_name', 'Apellido Pendiente'),  -- Attempt to get last_name from metadata, or use placeholder
-    'Especialidad Pendiente' -- Default specialty, can be updated later by the doctor
+    NEW.id,
+    NEW.email,
+    COALESCE(NEW.raw_user_meta_data->>'first_name', 'Nombre'),
+    COALESCE(NEW.raw_user_meta_data->>'last_name', 'Apellido'),
+    COALESCE(NEW.raw_user_meta_data->>'specialty', 'Medicina General')
   );
   RETURN NEW;
 END;
 $$;
 
--- Trigger to call the function after a new user is inserted into auth.users
+-- 12. TRIGGER PARA NUEVOS USUARIOS
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
--- ========================================
--- 5. NO RLS POR AHORA (PARA QUE FUNCIONE)
--- ========================================
-
--- Las tablas están SIN Row Level Security para que funcione el registro
--- Después de que todo funcione, puedes agregar RLS ejecutando:
--- ALTER TABLE doctors ENABLE ROW LEVEL SECURITY;
--- etc...
-
--- ========================================
--- 6. DATOS DE EJEMPLO (OPCIONAL)
--- ========================================
-
--- Puedes descomentar esto si quieres datos de prueba
+-- 13. INSERTAR UN DOCTOR DE PRUEBA (OPCIONAL)
+-- Si necesitas un doctor de prueba, descomenta estas líneas:
 /*
 INSERT INTO doctors (user_id, first_name, last_name, email, specialty) 
-VALUES ('00000000-0000-0000-0000-000000000000', 'Dr. Ejemplo', 'Médico', 'ejemplo@test.com', 'General Medicine');
-
-INSERT INTO patients (doctor_id, first_name, last_name, date_of_birth, gender, phone, email) 
 VALUES (
-  (SELECT id FROM doctors LIMIT 1),
-  'Juan', 'Pérez', '1990-01-15', 'Masculino', '555-0123', 'juan@test.com'
+    '00000000-0000-0000-0000-000000000001'::uuid, 
+    'Doctor', 
+    'Demo', 
+    'demo@doctor.com', 
+    'Medicina General'
 );
 */
 
--- ========================================
--- 7. AGREGAR COLUMNAS FALTANTES (SI NO EXISTEN)
--- ========================================
-
--- Agregar columnas faltantes a medical_reports
-ALTER TABLE medical_reports
-ADD COLUMN IF NOT EXISTS original_transcript TEXT,
-ADD COLUMN IF NOT EXISTS ai_suggestions JSONB,
-ADD COLUMN IF NOT EXISTS compliance_status BOOLEAN DEFAULT false;
-
--- ========================================
--- 8. MENSAJE FINAL
--- ========================================
-
+-- 14. MENSAJE FINAL
 DO $$
 BEGIN
-    RAISE NOTICE '🎉 ¡BASE DE DATOS CREADA SIN RLS! 🎉';
+    RAISE NOTICE '✅ Base de datos creada exitosamente';
     RAISE NOTICE '✅ Tablas: doctors, patients, appointments, medical_reports';
-    RAISE NOTICE '✅ Índices para performance creados';
-    RAISE NOTICE '❌ Row Level Security DESHABILITADO (para que funcione el registro)';
-    RAISE NOTICE '✅ Triggers automáticos activados';
-    RAISE NOTICE '✅ Sin foreign key constraints problemáticos';
-    RAISE NOTICE '🚀 ¡Ahora SÍ puedes registrarte sin errores!';
-    RAISE NOTICE '⚠️  Después de probar, puedes habilitar RLS para seguridad';
+    RAISE NOTICE '✅ Todas las columnas necesarias incluidas';
+    RAISE NOTICE '✅ Índices y triggers configurados';
+    RAISE NOTICE '⚠️  Row Level Security deshabilitado por ahora';
 END $$;
