@@ -19,8 +19,15 @@ export default function SuccessModal({
   title,
   message,
   onConfirm,
-  confirmText = "Continuar"
+  confirmText = "Cerrar"
 }: SuccessModalProps) {
+  const handleButtonClick = () => {
+    if (onConfirm) {
+      onConfirm()
+    }
+    onClose()
+  }
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-md">
@@ -49,24 +56,13 @@ export default function SuccessModal({
           </p>
         </div>
         
-        <div className="flex justify-end gap-3">
+        <div className="flex justify-center">
           <Button
-            variant="outline"
-            onClick={onClose}
+            onClick={handleButtonClick}
+            className="bg-green-600 hover:bg-green-700 px-8"
           >
-            Cerrar
+            {confirmText}
           </Button>
-          {onConfirm && (
-            <Button
-              onClick={() => {
-                onConfirm()
-                onClose()
-              }}
-              className="bg-green-600 hover:bg-green-700"
-            >
-              {confirmText}
-            </Button>
-          )}
         </div>
       </DialogContent>
     </Dialog>
