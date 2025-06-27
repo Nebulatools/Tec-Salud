@@ -130,6 +130,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const patientId = searchParams.get('patient_id');
+    const doctorId = searchParams.get('doctor_id');
 
     let query = supabase
       .from('medical_reports')
@@ -148,6 +149,10 @@ export async function GET(request: NextRequest) {
 
     if (patientId) {
       query = query.eq('patient_id', patientId);
+    }
+
+    if (doctorId) {
+      query = query.eq('doctor_id', doctorId);
     }
 
     const { data, error } = await query;

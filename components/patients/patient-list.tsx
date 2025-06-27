@@ -107,6 +107,10 @@ export default function PatientList() {
   const fetchPatientReports = async (patientId: string) => {
     setLoadingReports(true)
     try {
+      // Obtener el doctor actual
+      const { data: doctor } = await supabase.from("doctors").select("id").eq("user_id", user?.id).single()
+      if (!doctor) return
+
       const { data, error } = await supabase
         .from("medical_reports")
         .select(`
@@ -124,6 +128,7 @@ export default function PatientList() {
           original_transcript
         `)
         .eq("patient_id", patientId)
+        .eq("doctor_id", doctor.id)
         .order("created_at", { ascending: false })
 
       if (error) {

@@ -53,8 +53,12 @@ export default function MedicalReports() {
     if (!user) return
 
     try {
-      // Usar la nueva API
-      const response = await fetch('/api/medical-reports')
+      // Obtener el doctor actual
+      const { data: doctor } = await supabase.from("doctors").select("id").eq("user_id", user.id).single()
+      if (!doctor) return
+
+      // Usar la nueva API con filtro por doctor
+      const response = await fetch(`/api/medical-reports?doctor_id=${doctor.id}`)
       if (!response.ok) {
         throw new Error('Error fetching reports')
       }
