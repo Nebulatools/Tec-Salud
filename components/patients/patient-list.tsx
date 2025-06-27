@@ -386,7 +386,7 @@ export default function PatientList() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div>
                         <h3 className="font-medium text-gray-900 dark:text-white mb-3">Información Personal</h3>
-                        <div className="space-y-2 text-sm">
+                        <div className="space-y-3 text-sm">
                           <div className="flex justify-between">
                             <span className="text-gray-500 dark:text-gray-400">Fecha de nacimiento:</span>
                             <span className="text-gray-900 dark:text-white">
@@ -405,14 +405,61 @@ export default function PatientList() {
                               {selectedPatient.email || "No registrado"}
                             </span>
                           </div>
+                          {selectedPatient.address && (
+                            <div className="pt-2">
+                              <span className="text-gray-500 dark:text-gray-400 block mb-1">Dirección:</span>
+                              <span className="text-gray-900 dark:text-white text-xs leading-relaxed">
+                                {selectedPatient.address}
+                              </span>
+                            </div>
+                          )}
+                          {(selectedPatient.emergency_contact_name || selectedPatient.emergency_contact_phone) && (
+                            <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
+                              <span className="text-gray-500 dark:text-gray-400 block mb-2 font-medium">
+                                Contacto de Emergencia:
+                              </span>
+                              {selectedPatient.emergency_contact_name && (
+                                <div className="flex justify-between mb-1">
+                                  <span className="text-gray-500 dark:text-gray-400">Nombre:</span>
+                                  <span className="text-gray-900 dark:text-white">
+                                    {selectedPatient.emergency_contact_name}
+                                  </span>
+                                </div>
+                              )}
+                              {selectedPatient.emergency_contact_phone && (
+                                <div className="flex justify-between">
+                                  <span className="text-gray-500 dark:text-gray-400">Teléfono:</span>
+                                  <span className="text-gray-900 dark:text-white">
+                                    {selectedPatient.emergency_contact_phone}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
 
                       <div>
                         <h3 className="font-medium text-gray-900 dark:text-white mb-3">Historial Médico</h3>
-                        <div className="space-y-2">
-                          <Badge variant="secondary">Sin alergias conocidas</Badge>
-                          <Badge variant="secondary">Sin medicamentos actuales</Badge>
+                        <div className="space-y-3">
+                          <div>
+                            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Alergias:</h4>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                              {selectedPatient.allergies || "Sin alergias conocidas"}
+                            </p>
+                          </div>
+                          <div>
+                            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Medicamentos Actuales:</h4>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                              {selectedPatient.current_medications || "Sin medicamentos actuales"}
+                            </p>
+                          </div>
+                          <div>
+                            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Historial Médico:</h4>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                              {selectedPatient.medical_history || "Sin historial médico registrado"}
+                            </p>
+                          </div>
                         </div>
                       </div>
                     </div>

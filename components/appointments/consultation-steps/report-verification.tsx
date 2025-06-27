@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Edit, Send, Mic, Plus, CheckCircle2 } from "lucide-react"
+import { supabase } from "@/lib/supabase"
 
 interface ReportVerificationProps {
   appointmentId: string
@@ -17,7 +18,35 @@ interface ReportVerificationProps {
   onBack?: () => void
 }
 
+interface PatientInfo {
+  id: string
+  first_name: string
+  last_name: string
+  date_of_birth: string
+  phone: string
+  email: string
+  medical_history: string | null
+  allergies: string | null
+  current_medications: string | null
+}
+
+interface AppointmentDetails {
+  appointment_date: string
+  start_time: string
+  end_time: string
+  notes: string | null
+}
+
 export default function ReportVerification({ appointmentId, consultationData, onComplete, onDataUpdate, onNext, onBack }: ReportVerificationProps) {
+  // Usar la información que ya viene del paso 1 - MÁS EFICIENTE
+  const patientInfo = consultationData?.patientInfo
+  const appointmentDetails = consultationData?.appointmentDetails
+  
+  // Debug: verificar qué información está llegando
+  console.log('=== PASO 4 - INFORMACIÓN RECIBIDA ===')
+  console.log('patientInfo:', patientInfo)
+  console.log('appointmentDetails:', appointmentDetails)
+
   const [reportData, setReportData] = useState({
     patientName: consultationData?.patientInfo?.first_name + " " + consultationData?.patientInfo?.last_name || "Paciente",
     reportType: "Reporte Médico",
@@ -176,62 +205,24 @@ export default function ReportVerification({ appointmentId, consultationData, on
 
       <Card className="bg-white shadow-lg">
         <CardContent className="p-8 space-y-8">
-        {/* Report Header */}
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="text-sm font-medium text-gray-600">Paciente:</label>
-              {isEditing ? (
-                <Input
-                  value={reportData.patientName}
-                  onChange={(e) => setReportData(prev => ({ ...prev, patientName: e.target.value }))}
-                  className="mt-1"
-                />
-              ) : (
-                <p className="text-gray-900 font-medium">{reportData.patientName}</p>
-              )}
-            </div>
-            
-            <div>
-              <label className="text-sm font-medium text-gray-600">Tipo de Reporte:</label>
-              {isEditing ? (
-                <Input
-                  value={reportData.reportType}
-                  onChange={(e) => setReportData(prev => ({ ...prev, reportType: e.target.value }))}
-                  className="mt-1"
-                />
-              ) : (
-                <p className="text-gray-900 font-medium">{reportData.reportType}</p>
-              )}
-            </div>
-          </div>
-
+        {/* Patient Information - IGUAL QUE EN EL PASO 1 */}
+        <div>
+          <h3 className="text-lg font-medium text-gray-900 mb-4">Información del Paciente</h3>
+          
           <div className="grid grid-cols-2 gap-6">
             <div>
               <div className="space-y-3">
                 <div>
-                  <span className="text-sm font-medium text-gray-600">Onset Date:</span>
-                  {isEditing ? (
-                    <Input
-                      value={reportData.onsetDate}
-                      onChange={(e) => setReportData(prev => ({ ...prev, onsetDate: e.target.value }))}
-                      className="mt-1"
-                    />
-                  ) : (
-                    <p className="text-gray-900">{reportData.onsetDate}</p>
-                  )}
+                  <span className="text-sm font-medium text-gray-600">Nombre:</span>
+                  <p className="text-gray-900">{patientInfo?.first_name} {patientInfo?.last_name}</p>
                 </div>
                 <div>
-                  <span className="text-sm font-medium text-gray-600">Reaction Type:</span>
-                  {isEditing ? (
-                    <Input
-                      value={reportData.reactionType}
-                      onChange={(e) => setReportData(prev => ({ ...prev, reactionType: e.target.value }))}
-                      className="mt-1"
-                    />
-                  ) : (
-                    <p className="text-gray-900">{reportData.reactionType}</p>
-                  )}
+                  <span className="text-sm font-medium text-gray-600">Fecha de Nacimiento:</span>
+                  <p className="text-gray-900">{patientInfo?.date_of_birth ? new Date(patientInfo.date_of_birth).toLocaleDateString("es-ES") : "No especificada"}</p>
+                </div>
+                <div>
+                  <span className="text-sm font-medium text-gray-600">Teléfono:</span>
+                  <p className="text-gray-900">{patientInfo?.phone || "No especificado"}</p>
                 </div>
               </div>
             </div>
@@ -239,28 +230,16 @@ export default function ReportVerification({ appointmentId, consultationData, on
             <div>
               <div className="space-y-3">
                 <div>
-                  <span className="text-sm font-medium text-gray-600">Recorded Date:</span>
-                  {isEditing ? (
-                    <Input
-                      value={reportData.recordedDate}
-                      onChange={(e) => setReportData(prev => ({ ...prev, recordedDate: e.target.value }))}
-                      className="mt-1"
-                    />
-                  ) : (
-                    <p className="text-gray-900">{reportData.recordedDate}</p>
-                  )}
+                  <span className="text-sm font-medium text-gray-600">Email:</span>
+                  <p className="text-gray-900">{patientInfo?.email || "No especificado"}</p>
                 </div>
                 <div>
-                  <span className="text-sm font-medium text-gray-600">Facility Name:</span>
-                  {isEditing ? (
-                    <Input
-                      value={reportData.facilityName}
-                      onChange={(e) => setReportData(prev => ({ ...prev, facilityName: e.target.value }))}
-                      className="mt-1"
-                    />
-                  ) : (
-                    <p className="text-gray-900">{reportData.facilityName}</p>
-                  )}
+                  <span className="text-sm font-medium text-gray-600">Fecha de Consulta:</span>
+                  <p className="text-gray-900">{appointmentDetails?.appointment_date ? new Date(appointmentDetails.appointment_date).toLocaleDateString("es-ES") : "No especificada"}</p>
+                </div>
+                <div>
+                  <span className="text-sm font-medium text-gray-600">Hora:</span>
+                  <p className="text-gray-900">{appointmentDetails?.start_time} - {appointmentDetails?.end_time}</p>
                 </div>
               </div>
             </div>

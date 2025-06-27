@@ -31,6 +31,7 @@ export default function SuccessModal({
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-lg p-0 [&>button]:hidden">
+        <DialogTitle className="sr-only">{title}</DialogTitle>
         {/* Header con solo una X */}
         <div className="flex items-center justify-between p-6 border-b">
           <div className="flex items-center gap-4">

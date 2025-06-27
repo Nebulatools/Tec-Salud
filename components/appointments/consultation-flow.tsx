@@ -91,9 +91,10 @@ export default function ConsultationFlow({ appointmentId, patientName, patientId
         ...prev, 
         patientInfo: { 
           ...prev.patientInfo, 
-          ...data,
+          ...data.patientInfo,
           id: prev.patientInfo?.id || patientId // Preservar el ID original
-        } 
+        },
+        appointmentDetails: data.appointmentDetails
       }))
     } else if (stepId === 2) {
       setConsultationData(prev => ({ ...prev, recordingData: data, transcript: data?.transcript }))
