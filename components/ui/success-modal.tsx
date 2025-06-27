@@ -30,39 +30,39 @@ export default function SuccessModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100 dark:bg-green-900">
-                <CheckCircle className="h-6 w-6 text-green-600 dark:text-green-400" />
-              </div>
-              <DialogTitle className="text-lg font-semibold text-gray-900 dark:text-white">
-                {title}
-              </DialogTitle>
+      <DialogContent className="sm:max-w-lg p-0 [&>button]:hidden">
+        {/* Header con solo una X */}
+        <div className="flex items-center justify-between p-6 border-b">
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-100">
+              <CheckCircle className="h-8 w-8 text-primary-600" />
             </div>
-            <button
-              onClick={onClose}
-              className="rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-            >
-              <X className="h-4 w-4" />
-            </button>
+            <h2 className="text-xl font-bold text-gray-900">
+              {title}
+            </h2>
           </div>
-        </DialogHeader>
-        
-        <div className="py-4">
-          <p className="text-sm text-gray-600 dark:text-gray-300">
-            {message}
-          </p>
+          <button
+            onClick={onClose}
+            className="rounded-full h-8 w-8 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+          >
+            <X className="h-5 w-5" />
+          </button>
         </div>
         
-        <div className="flex justify-center">
-          <Button
-            onClick={handleButtonClick}
-            className="bg-green-600 hover:bg-green-700 px-8"
-          >
-            {confirmText}
-          </Button>
+        {/* Content */}
+        <div className="p-6">
+          <p className="text-gray-600 text-base leading-relaxed mb-6">
+            {message}
+          </p>
+          
+          <div className="flex justify-center">
+            <Button
+              onClick={handleButtonClick}
+              className="bg-primary-400 hover:bg-primary-500 text-white px-8 py-2"
+            >
+              {confirmText}
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

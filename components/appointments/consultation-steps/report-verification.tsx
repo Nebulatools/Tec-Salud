@@ -6,17 +6,18 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { Edit, Send, Mic, Plus } from "lucide-react"
+import { Edit, Send, Mic, Plus, CheckCircle2 } from "lucide-react"
 
 interface ReportVerificationProps {
   appointmentId: string
   consultationData: any
   onComplete: (data: any) => void
+  onDataUpdate?: (data: any) => void
   onNext?: () => void
   onBack?: () => void
 }
 
-export default function ReportVerification({ appointmentId, consultationData, onComplete, onNext, onBack }: ReportVerificationProps) {
+export default function ReportVerification({ appointmentId, consultationData, onComplete, onDataUpdate, onNext, onBack }: ReportVerificationProps) {
   const [reportData, setReportData] = useState({
     patientName: consultationData?.patientInfo?.first_name + " " + consultationData?.patientInfo?.last_name || "Paciente",
     reportType: "Reporte Médico",
@@ -27,25 +28,118 @@ export default function ReportVerification({ appointmentId, consultationData, on
     notes: consultationData?.reportData?.aiGeneratedReport || consultationData?.patientInfo?.medical_history || `No hay reportes previos para ${consultationData?.patientInfo?.first_name || "este paciente"}. Este será el primer reporte generado.`,
   })
 
-  // Actualizar con el reporte generado por IA
+  // Actualizar con el reporte generado por IA y otros datos
   useEffect(() => {
     if (consultationData?.reportData?.aiGeneratedReport) {
       setReportData(prev => ({
         ...prev,
-        notes: consultationData.reportData.aiGeneratedReport
+        notes: consultationData.reportData.aiGeneratedReport,
+        patientName: consultationData?.patientInfo?.first_name && consultationData?.patientInfo?.last_name 
+          ? `${consultationData.patientInfo.first_name} ${consultationData.patientInfo.last_name}`
+          : prev.patientName,
+        onsetDate: consultationData?.onsetDate || prev.onsetDate,
+        recordedDate: consultationData?.recordedDate || prev.recordedDate,
+        reactionType: consultationData?.reactionType || prev.reactionType,
+        facilityName: consultationData?.facilityName || prev.facilityName
       }))
     }
-  }, [consultationData?.reportData?.aiGeneratedReport])
+  }, [
+    consultationData?.reportData?.aiGeneratedReport, 
+    consultationData?.patientInfo,
+    consultationData?.onsetDate,
+    consultationData?.recordedDate,
+    consultationData?.reactionType,
+    consultationData?.facilityName
+  ])
 
   const [isEditing, setIsEditing] = useState(false)
   const [question, setQuestion] = useState("")
+  const [changesSaved, setChangesSaved] = useState(false)
+
+  // Función para aplicar cambios automáticamente cuando se sale del modo edición
+  const handleToggleEdit = () => {
+    if (isEditing) {
+      // Si estamos saliendo del modo edición, aplicar los cambios SIN AVANZAR
+      const updatedConsultationData = {
+        ...consultationData,
+        reportData: {
+          ...consultationData.reportData,
+          aiGeneratedReport: reportData.notes,
+          reporte: reportData.notes
+        },
+        patientInfo: {
+          ...consultationData.patientInfo,
+          first_name: reportData.patientName.split(' ')[0] || consultationData.patientInfo?.first_name,
+          last_name: reportData.patientName.split(' ').slice(1).join(' ') || consultationData.patientInfo?.last_name
+        },
+        onsetDate: reportData.onsetDate,
+        recordedDate: reportData.recordedDate,
+        reactionType: reportData.reactionType,
+        facilityName: reportData.facilityName
+      }
+      
+      // Usar onDataUpdate para guardar SIN avanzar de paso
+      if (onDataUpdate) {
+        onDataUpdate(updatedConsultationData)
+        setChangesSaved(true)
+        // Ocultar mensaje después de 3 segundos
+        setTimeout(() => setChangesSaved(false), 3000)
+      }
+    }
+    setIsEditing(!isEditing)
+  }
 
   const handleSave = () => {
-    onComplete(reportData)
+    // Actualizar los datos cuando se hace clic en Guardar SIN AVANZAR
+    const updatedConsultationData = {
+      ...consultationData,
+      reportData: {
+        ...consultationData.reportData,
+        aiGeneratedReport: reportData.notes,
+        reporte: reportData.notes
+      },
+      patientInfo: {
+        ...consultationData.patientInfo,
+        first_name: reportData.patientName.split(' ')[0] || consultationData.patientInfo?.first_name,
+        last_name: reportData.patientName.split(' ').slice(1).join(' ') || consultationData.patientInfo?.last_name
+      },
+      onsetDate: reportData.onsetDate,
+      recordedDate: reportData.recordedDate,
+      reactionType: reportData.reactionType,
+      facilityName: reportData.facilityName
+    }
+    
+    // Usar onDataUpdate para guardar SIN avanzar
+    if (onDataUpdate) {
+      onDataUpdate(updatedConsultationData)
+      setChangesSaved(true)
+      // Ocultar mensaje después de 3 segundos
+      setTimeout(() => setChangesSaved(false), 3000)
+    } else {
+      onComplete(updatedConsultationData)
+    }
   }
 
   const handleGenerateFinalReport = () => {
-    onComplete(reportData)
+    // Aplicar cambios antes de continuar al siguiente paso
+    const updatedConsultationData = {
+      ...consultationData,
+      reportData: {
+        ...consultationData.reportData,
+        aiGeneratedReport: reportData.notes,
+        reporte: reportData.notes
+      },
+      patientInfo: {
+        ...consultationData.patientInfo,
+        first_name: reportData.patientName.split(' ')[0] || consultationData.patientInfo?.first_name,
+        last_name: reportData.patientName.split(' ').slice(1).join(' ') || consultationData.patientInfo?.last_name
+      },
+      onsetDate: reportData.onsetDate,
+      recordedDate: reportData.recordedDate,
+      reactionType: reportData.reactionType,
+      facilityName: reportData.facilityName
+    }
+    onComplete(updatedConsultationData)
   }
 
   const handleQuestionSubmit = () => {
@@ -61,15 +155,23 @@ export default function ReportVerification({ appointmentId, consultationData, on
       {/* Header with action button */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Verificación de Reporte Generado</h1>
-        <Button 
-          variant="outline"
-          size="sm" 
-          onClick={() => setIsEditing(!isEditing)}
-          className="text-primary-600 hover:text-primary-700 border-primary-200"
-        >
-          <Edit className="w-4 h-4 mr-1" />
-          {isEditing ? "Vista Previa" : "Editar"}
-        </Button>
+        <div className="flex items-center gap-3">
+          {changesSaved && (
+            <div className="flex items-center gap-1 text-green-600 text-sm">
+              <CheckCircle2 className="h-4 w-4" />
+              Cambios guardados
+            </div>
+          )}
+          <Button 
+            variant="outline"
+            size="sm" 
+            onClick={handleToggleEdit}
+            className="text-primary-600 hover:text-primary-700 border-primary-200"
+          >
+            <Edit className="w-4 h-4 mr-1" />
+            {isEditing ? "Aplicar Cambios" : "Editar"}
+          </Button>
+        </div>
       </div>
 
       <Card className="bg-white shadow-lg">
