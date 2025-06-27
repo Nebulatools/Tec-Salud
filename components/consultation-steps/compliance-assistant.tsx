@@ -273,28 +273,33 @@ export default function ComplianceAssistant({
       {/* Sidebar - 1/3 width */}
       <div className="space-y-4">
         {/* Compliance Status */}
-        <Card className="p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h4 className="font-semibold flex items-center gap-2">
-              <Bot className="h-4 w-4" />
+        <Card className="p-6 min-h-[500px]">
+          <div className="flex items-center justify-between mb-4">
+            <h4 className="text-lg font-bold flex items-center gap-2">
+              <Bot className="h-5 w-5" />
               Estado de Cumplimiento
             </h4>
           </div>
           
           {complianceData && complianceData.missingInformation.length > 0 ? (
-            <div className="space-y-3">
-              <div className="flex items-start gap-2">
-                <AlertCircle className="h-5 w-5 text-amber-500 mt-0.5" />
-                <p className="text-sm text-muted-foreground">
-                  Faltan {complianceData.missingInformation.length} campos requeridos
-                </p>
+            <div className="space-y-4">
+              <div className="flex items-start gap-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
+                <AlertCircle className="h-6 w-6 text-amber-500 mt-0.5" />
+                <div>
+                  <p className="text-base font-semibold text-amber-800">
+                    Faltan {complianceData.missingInformation.length} campos requeridos
+                  </p>
+                  <p className="text-sm text-amber-700 mt-1">
+                    Complete la información faltante para mejorar el cumplimiento
+                  </p>
+                </div>
               </div>
               
-              <ScrollArea className="h-48">
-                <div className="space-y-3">
+              <ScrollArea className="h-64">
+                <div className="space-y-4 pr-2">
                   {complianceData.questionsForDoctor.map((question, index) => (
-                    <div key={index} className="space-y-2">
-                      <p className="text-sm font-medium">{question}</p>
+                    <div key={index} className="space-y-2 p-3 bg-gray-50 rounded-lg border">
+                      <p className="text-sm font-semibold text-gray-800">{question}</p>
                       <Textarea
                         placeholder="Respuesta del médico..."
                         value={doctorResponses[question] || ''}
@@ -302,7 +307,7 @@ export default function ComplianceAssistant({
                           ...doctorResponses,
                           [question]: e.target.value
                         })}
-                        className="min-h-[60px]"
+                        className="min-h-[70px] bg-white"
                       />
                     </div>
                   ))}
@@ -312,8 +317,8 @@ export default function ComplianceAssistant({
               <Button
                 onClick={handleRevalidate}
                 disabled={validating}
-                className="w-full"
-                variant="default"
+                className="w-full bg-primary-400 hover:bg-primary-500 text-white"
+                size="lg"
               >
                 {validating ? (
                   <>
@@ -329,40 +334,31 @@ export default function ComplianceAssistant({
               </Button>
             </div>
           ) : (
-            <div className="flex items-center gap-2 text-green-600">
-              <CheckCircle2 className="h-5 w-5" />
-              <p className="text-sm font-medium">
+            <div className="flex flex-col items-center justify-center text-center py-12 px-4">
+              <div className="p-4 bg-green-100 rounded-full mb-4">
+                <CheckCircle2 className="h-8 w-8 text-green-600" />
+              </div>
+              <p className="text-lg font-semibold text-green-800 mb-2">
+                ¡Excelente!
+              </p>
+              <p className="text-base text-green-700">
                 Todos los campos requeridos están completos
               </p>
+              <div className="mt-4 p-3 bg-green-50 rounded-lg border border-green-200 w-full">
+                <p className="text-sm text-green-800 font-medium">
+                  ✅ Cumple con los estándares de documentación médica
+                </p>
+              </div>
             </div>
           )}
         </Card>
 
-        {/* Clinical Suggestions */}
-        {suggestions.length > 0 && (
-          <Card className="p-4">
-            <h4 className="font-semibold flex items-center gap-2 mb-3">
-              <Stethoscope className="h-4 w-4" />
-              Sugerencias Clínicas
-            </h4>
-            <ScrollArea className="h-48">
-              <div className="space-y-3">
-                {suggestions.map((suggestion, index) => (
-                  <div key={index} className="flex items-start gap-2">
-                    <div className="h-1.5 w-1.5 rounded-full bg-primary mt-2" />
-                    <p className="text-sm text-muted-foreground">{suggestion}</p>
-                  </div>
-                ))}
-              </div>
-            </ScrollArea>
-          </Card>
-        )}
-
         {/* Action Buttons */}
-        <div className="space-y-2">
+        <div className="space-y-3">
           <Button
             onClick={handleNext}
-            className="w-full"
+            size="lg"
+            className="w-full bg-primary-400 hover:bg-primary-500 text-white"
           >
             Continuar a Verificación Final
           </Button>
@@ -374,9 +370,10 @@ export default function ComplianceAssistant({
           <Button
             onClick={onBack}
             variant="outline"
-            className="w-full"
+            size="lg"
+            className="w-full text-gray-600"
           >
-            Regresar
+            ← Regresar
           </Button>
         </div>
       </div>

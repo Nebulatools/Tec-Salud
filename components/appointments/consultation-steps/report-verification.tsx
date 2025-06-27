@@ -57,25 +57,23 @@ export default function ReportVerification({ appointmentId, consultationData, on
   }
 
   return (
-    <Card>
-      <CardHeader className="border-b border-gray-200">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-lg font-semibold text-gray-900">
-            Verificación de Reporte Generado
-          </CardTitle>
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={() => setIsEditing(!isEditing)}
-            className="text-primary-600 hover:text-primary-700"
-          >
-            <Edit className="w-4 h-4 mr-1" />
-            Editar
-          </Button>
-        </div>
-      </CardHeader>
-      
-      <CardContent className="p-6 space-y-6">
+    <div className="space-y-6">
+      {/* Header with action button */}
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-gray-900">Verificación de Reporte Generado</h1>
+        <Button 
+          variant="outline"
+          size="sm" 
+          onClick={() => setIsEditing(!isEditing)}
+          className="text-primary-600 hover:text-primary-700 border-primary-200"
+        >
+          <Edit className="w-4 h-4 mr-1" />
+          {isEditing ? "Vista Previa" : "Editar"}
+        </Button>
+      </div>
+
+      <Card className="bg-white shadow-lg">
+        <CardContent className="p-8 space-y-8">
         {/* Report Header */}
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
@@ -167,20 +165,37 @@ export default function ReportVerification({ appointmentId, consultationData, on
           </div>
         </div>
 
-        {/* Notes Section */}
+        {/* Notes Section - Reporte con formato bonito */}
         <div>
-          <label className="text-sm font-medium text-gray-600 block mb-2">Notas:</label>
+          <label className="text-sm font-medium text-gray-600 block mb-4">Reporte de Consulta:</label>
           {isEditing ? (
             <Textarea
               value={reportData.notes}
               onChange={(e) => setReportData(prev => ({ ...prev, notes: e.target.value }))}
-              className="min-h-[100px]"
+              className="min-h-[400px] text-sm"
             />
           ) : (
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-              <p className="text-gray-700 text-sm leading-relaxed">
-                {reportData.notes}
-              </p>
+            <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+              <div className="prose prose-sm max-w-none">
+                {reportData.notes ? (
+                  <div 
+                    className="text-gray-900 leading-relaxed whitespace-pre-wrap"
+                    dangerouslySetInnerHTML={{ 
+                      __html: reportData.notes
+                        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                        .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                        .replace(/\n/g, '<br />')
+                    }} 
+                  />
+                ) : (
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-center">
+                    <p className="text-amber-800 font-medium">No hay reporte generado</p>
+                    <p className="text-amber-600 text-sm mt-2">
+                      Complete el paso anterior para generar el reporte médico.
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -267,7 +282,8 @@ export default function ReportVerification({ appointmentId, consultationData, on
             Siguiente →
           </Button>
         </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </div>
   )
 } 
