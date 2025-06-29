@@ -2,13 +2,13 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/hooks/use-auth"
 import { Calendar, Clock, Plus, ArrowRight } from "lucide-react"
 import Link from "next/link"
-import ConsultationFlow from "@/components/appointments/consultation-flow"
 
 interface Appointment {
   id: string
@@ -26,12 +26,9 @@ interface Appointment {
 
 export default function PendingAppointments() {
   const { user } = useAuth()
+  const router = useRouter()
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [loading, setLoading] = useState(true)
-  
-  // Add consultation flow state
-  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null)
-  const [isConsultationOpen, setIsConsultationOpen] = useState(false)
 
   const fetchPendingAppointments = async () => {
     if (!user) return
@@ -121,26 +118,8 @@ export default function PendingAppointments() {
   }
 
   const handleStartConsultation = (appointment: Appointment) => {
-    setSelectedAppointment(appointment)
-    setIsConsultationOpen(true)
-  }
-
-  const handleCloseConsultation = () => {
-    setSelectedAppointment(null)
-    setIsConsultationOpen(false)
-    // Refresh appointments to update status
-    fetchPendingAppointments()
-  }
-
-  // Show consultation flow if open
-  if (isConsultationOpen && selectedAppointment) {
-    return (
-      <ConsultationFlow
-        appointmentId={selectedAppointment.id}
-        patientName={`${selectedAppointment.patient.first_name} ${selectedAppointment.patient.last_name}`}
-        onClose={handleCloseConsultation}
-      />
-    )
+    // Redireccionar a la página dedicada de consulta
+    router.push(`/consultas/${appointment.id}`)
   }
 
   if (loading) {
@@ -224,20 +203,6 @@ export default function PendingAppointments() {
           </div>
         )}
       </CardContent>
-      
-      {/* Consultation Flow Modal */}
-      {isConsultationOpen && selectedAppointment && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg w-full max-w-6xl max-h-[90vh] overflow-y-auto">
-            <ConsultationFlow
-              appointmentId={selectedAppointment.id}
-              patientName={`${selectedAppointment.patients.first_name} ${selectedAppointment.patients.last_name}`}
-              patientId={selectedAppointment.patient_id}
-              onClose={handleCloseConsultation}
-            />
-          </div>
-        </div>
-      )}
     </Card>
   )
 }

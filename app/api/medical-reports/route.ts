@@ -77,6 +77,13 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Asegurarse de que ai_suggestions sea un array válido
+    let aiSuggestions = reportData.ai_suggestions;
+    if (aiSuggestions && !Array.isArray(aiSuggestions)) {
+      console.warn('ai_suggestions is not an array, converting...');
+      aiSuggestions = [];
+    }
+
     const insertData = {
       patient_id: patientId, // Usar el patientId validado
       doctor_id: doctorId,
@@ -85,19 +92,65 @@ export async function POST(request: NextRequest) {
       title: reportData.title || 'Reporte sin título',
       content: reportData.content,
       original_transcript: reportData.original_transcript,
-      ai_suggestions: reportData.ai_suggestions || null,
+      ai_suggestions: aiSuggestions || [],
       compliance_status: reportData.compliance_status || false,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
 
-    console.log('Data to insert:', insertData);
+    console.log('AI suggestions being saved:', insertData.ai_suggestions);
 
-    const { data, error } = await supabase
-      .from('medical_reports')
-      .insert([insertData])
-      .select()
-      .single();
+    console.log('Data to save:', insertData);
+
+    // Verificar si ya existe un reporte para esta cita
+    let data, error;
+    
+    if (reportData.appointment_id) {
+      // Buscar reporte existente
+      const { data: existingReport } = await supabase
+        .from('medical_reports')
+        .select('id')
+        .eq('appointment_id', reportData.appointment_id)
+        .maybeSingle();
+
+      if (existingReport) {
+        // Actualizar reporte existente
+        console.log('Updating existing report:', existingReport.id);
+        const updateResult = await supabase
+          .from('medical_reports')
+          .update({
+            ...insertData,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existingReport.id)
+          .select()
+          .single();
+        
+        data = updateResult.data;
+        error = updateResult.error;
+      } else {
+        // Crear nuevo reporte
+        console.log('Creating new report');
+        const insertResult = await supabase
+          .from('medical_reports')
+          .insert([insertData])
+          .select()
+          .single();
+        
+        data = insertResult.data;
+        error = insertResult.error;
+      }
+    } else {
+      // Sin appointment_id, crear directamente
+      const insertResult = await supabase
+        .from('medical_reports')
+        .insert([insertData])
+        .select()
+        .single();
+      
+      data = insertResult.data;
+      error = insertResult.error;
+    }
 
     if (error) {
       console.error('Database error:', error);

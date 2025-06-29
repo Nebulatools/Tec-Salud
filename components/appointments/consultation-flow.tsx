@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, Check, FileText, Mic, Shield, Download, Bot } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useToast } from "@/components/ui/use-toast"
+import { supabase } from "@/lib/supabase"
 
 import PatientSummary from "./consultation-steps/patient-summary"
 import ConsultationRecording from "./consultation-steps/consultation-recording"
@@ -68,6 +70,7 @@ export default function ConsultationFlow({ appointmentId, patientName, patientId
   console.log('patientName:', patientName)
   console.log('patientId:', patientId)
   
+  const { toast } = useToast()
   const [currentStep, setCurrentStep] = useState(1)
   const [completedSteps, setCompletedSteps] = useState<number[]>([])
   const [isRecording, setIsRecording] = useState(false)
@@ -78,6 +81,155 @@ export default function ConsultationFlow({ appointmentId, patientName, patientId
     reportData: null,
     finalReport: null,
   })
+  const [draftId, setDraftId] = useState<string | null>(null) // Para tracking del borrador único
+
+  // Cargar datos guardados desde Supabase
+  useEffect(() => {
+    const loadSavedData = async () => {
+      try {
+        console.log('=== CARGANDO DATOS DESDE SUPABASE ===')
+        console.log('AppointmentId:', appointmentId)
+        
+        const { data: report, error: reportError } = await supabase
+          .from('medical_reports')
+          .select('*')
+          .eq('appointment_id', appointmentId)
+          .maybeSingle() // Usar maybeSingle en vez de single para evitar errores
+
+        console.log('Error en búsqueda:', reportError)
+        console.log('Reporte encontrado:', report)
+
+        if (report) {
+          console.log('=== CARGANDO PROGRESO GUARDADO ===')
+          
+          setDraftId(report.id) // Guardar ID del reporte existente
+          
+          // Verificar si hay datos de consulta guardados en ai_suggestions
+          if (report.ai_suggestions?.consultationData) {
+            const savedData = report.ai_suggestions.consultationData
+            const savedStep = report.ai_suggestions.currentStep || 1
+            const savedCompletedSteps = report.ai_suggestions.completedSteps || []
+
+            console.log('Paso guardado:', savedStep)
+            console.log('Reporte IA guardado:', savedData?.reportData?.aiGeneratedReport ? 'SÍ' : 'NO')
+
+            setConsultationData(savedData)
+            setCurrentStep(savedStep)
+            setCompletedSteps(savedCompletedSteps)
+            
+            toast({
+              title: "Progreso restaurado",
+              description: "Se cargó el progreso guardado de esta consulta",
+            })
+          } else {
+            // Si existe reporte pero no tiene datos de consulta, ir al paso 5 (reporte final)
+            console.log('Reporte existe pero sin datos de consulta, ir al final')
+            setCurrentStep(5)
+            setCompletedSteps([1, 2, 3, 4])
+          }
+        } else {
+          console.log('No se encontró reporte, empezando desde el inicio')
+        }
+      } catch (error) {
+        console.error('Error cargando datos guardados:', error)
+      }
+    }
+
+    loadSavedData()
+  }, [appointmentId, toast])
+
+  // Guardar progreso automáticamente en Supabase
+  useEffect(() => {
+    const saveProgress = async () => {
+      if (!appointmentId || !patientId) return
+
+      try {
+        // Obtener doctor_id de la cita
+        const { data: appointment } = await supabase
+          .from('appointments')
+          .select('doctor_id')
+          .eq('id', appointmentId)
+          .single()
+
+        if (!appointment) {
+          console.error('No se encontró la cita')
+          return
+        }
+
+        console.log('=== GUARDANDO EN SUPABASE ===')
+        console.log('Paso actual:', currentStep)
+        console.log('¿Tiene reporte IA?:', consultationData?.reportData?.aiGeneratedReport ? 'SÍ' : 'NO')
+
+        const dataToSave = {
+          appointment_id: appointmentId,
+          patient_id: patientId,
+          doctor_id: appointment.doctor_id,
+          report_type: 'Consulta Médica',
+          title: `Consulta - ${patientName} - ${new Date().toLocaleDateString()}`,
+          content: consultationData?.reportData?.aiGeneratedReport || 'Consulta en progreso...',
+          original_transcript: consultationData?.recordingData?.processedTranscript || consultationData?.transcript || '',
+          ai_suggestions: {
+            consultationData,
+            currentStep,
+            completedSteps,
+            savedAt: new Date().toISOString()
+          },
+          compliance_status: consultationData?.reportData?.isCompliant || false
+        }
+
+        let result
+        if (draftId) {
+          // Actualizar reporte existente usando el ID guardado
+          console.log('Actualizando reporte existente con ID:', draftId)
+          result = await supabase
+            .from('medical_reports')
+            .update(dataToSave)
+            .eq('id', draftId)
+        } else {
+          // Verificar si ya existe un reporte para esta cita antes de crear uno nuevo
+          const { data: existingReport } = await supabase
+            .from('medical_reports')
+            .select('id')
+            .eq('appointment_id', appointmentId)
+            .maybeSingle()
+
+          if (existingReport) {
+            // Ya existe, actualizar
+            console.log('Reporte encontrado, actualizando:', existingReport.id)
+            setDraftId(existingReport.id)
+            result = await supabase
+              .from('medical_reports')
+              .update(dataToSave)
+              .eq('id', existingReport.id)
+          } else {
+            // Crear nuevo reporte
+            console.log('Creando nuevo reporte')
+            result = await supabase
+              .from('medical_reports')
+              .insert(dataToSave)
+              .select('id')
+              .single()
+            
+            if (result.data) {
+              setDraftId(result.data.id)
+            }
+          }
+        }
+        
+        if (result.error) {
+          console.error('❌ Error guardando:', result.error)
+        } else {
+          console.log('✅ Guardado exitosamente')
+        }
+      } catch (error) {
+        console.error('Error guardando progreso:', error)
+      }
+    }
+
+    // Guardar después de 2 segundos de cambios
+    const timeoutId = setTimeout(saveProgress, 2000)
+    return () => clearTimeout(timeoutId)
+  }, [appointmentId, patientId, patientName, currentStep, completedSteps, consultationData])
 
   const handleStepComplete = (stepId: number, data?: any) => {
     console.log('Step completed:', stepId, 'with data:', data)

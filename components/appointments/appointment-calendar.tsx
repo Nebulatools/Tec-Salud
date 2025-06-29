@@ -2,6 +2,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -11,7 +12,6 @@ import { useAuth } from "@/hooks/use-auth"
 import { ChevronLeft, ChevronRight, CalendarIcon, Clock, Plus, List } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import AddAppointmentForm from "./add-appointment-form"
-import ConsultationFlow from "./consultation-flow"
 
 interface Appointment {
   id: string
@@ -29,16 +29,13 @@ interface Appointment {
 
 export default function AppointmentCalendar() {
   const { user } = useAuth()
+  const router = useRouter()
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [loading, setLoading] = useState(true)
   const [currentDate, setCurrentDate] = useState(new Date())
   const [viewMode, setViewMode] = useState<"week" | "list">("week")
   const [selectedFilter, setSelectedFilter] = useState("Hoy")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
-  
-  // Add consultation flow state
-  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null)
-  const [isConsultationOpen, setIsConsultationOpen] = useState(false)
 
   useEffect(() => {
     fetchAppointments()
@@ -269,15 +266,8 @@ export default function AppointmentCalendar() {
   }
 
   const handleStartConsultation = (appointment: Appointment) => {
-    setSelectedAppointment(appointment)
-    setIsConsultationOpen(true)
-  }
-
-  const handleCloseConsultation = () => {
-    setSelectedAppointment(null)
-    setIsConsultationOpen(false)
-    // Refresh appointments to update status
-    fetchAppointments()
+    // Redireccionar a la página dedicada de consulta
+    router.push(`/consultas/${appointment.id}`)
   }
 
   if (loading) {
@@ -292,17 +282,6 @@ export default function AppointmentCalendar() {
     )
   }
 
-  // Show consultation flow if open
-  if (isConsultationOpen && selectedAppointment) {
-    return (
-      <ConsultationFlow
-        appointmentId={selectedAppointment.id}
-        patientName={`${selectedAppointment.patient.first_name} ${selectedAppointment.patient.last_name}`}
-        patientId={selectedAppointment.patient.id}
-        onClose={handleCloseConsultation}
-      />
-    )
-  }
 
   return (
     <div className="space-y-6">

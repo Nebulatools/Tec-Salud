@@ -1,10 +1,11 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Printer, Download, Save } from "lucide-react"
 import SuccessModal from "@/components/ui/success-modal"
+import { supabase } from "@/lib/supabase"
 
 interface FinalReportProps {
   appointmentId: string
@@ -16,10 +17,26 @@ interface FinalReportProps {
 export default function FinalReport({ appointmentId, consultationData, onComplete, onBack }: FinalReportProps) {
   const [isSaving, setIsSaving] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
+  const [hasChanges, setHasChanges] = useState(false)
+  const [isExistingReport, setIsExistingReport] = useState(false)
   
-  // Debug: Log the consultation data received
-  console.log('FinalReport received consultationData:', consultationData)
-  console.log('AI Generated Report:', consultationData?.reportData?.aiGeneratedReport)
+  // Debug: Log the consultation data received (development only)
+  if (process.env.NODE_ENV === 'development') {
+    console.log('FinalReport received consultationData:', consultationData)
+    console.log('AI Generated Report:', consultationData?.reportData?.aiGeneratedReport)
+  }
+
+  // Check if report has all necessary data to be considered "complete"
+  useEffect(() => {
+    const hasCompleteData = consultationData?.reportData?.aiGeneratedReport && 
+                          consultationData?.reportData?.aiGeneratedReport.length > 50
+    
+    if (hasCompleteData) {
+      setHasChanges(true) // Enable save button when we have complete data
+    } else {
+      setHasChanges(false) // Disable when data is incomplete
+    }
+  }, [consultationData])
 
   const handlePrint = () => {
     window.print()
@@ -29,12 +46,28 @@ export default function FinalReport({ appointmentId, consultationData, onComplet
     // Generar PDF con el reporte de IA y transcript original
     const reportContent = consultationData?.reportData?.aiGeneratedReport || 'No hay reporte generado'
     const originalTranscript = consultationData?.recordingData?.processedTranscript || consultationData?.transcript || 'No hay transcript disponible'
+    const suggestions = consultationData?.reportData?.suggestions || []
     
     // Crear contenido del PDF
-    const pdfContent = `
+    let pdfContent = `
 === REPORTE MÉDICO GENERADO POR IA ===
 
 ${reportContent}
+`
+
+    // Agregar sugerencias si existen
+    if (suggestions.length > 0) {
+      pdfContent += `
+
+=== SUGERENCIAS CLÍNICAS DE IA ===
+
+`
+      suggestions.forEach((suggestion: string, index: number) => {
+        pdfContent += `${index + 1}. ${suggestion}\n`
+      })
+    }
+
+    pdfContent += `
 
 === TRANSCRIPT ORIGINAL ===
 
@@ -58,30 +91,70 @@ ${originalTranscript}
     
     try {
       // Preparar datos del reporte para guardar - usar appointmentId como patient_id si no existe
-      console.log('=== DEBUG PATIENT ID ===')
-      console.log('consultationData?.patientInfo:', consultationData?.patientInfo)
-      console.log('consultationData?.patientInfo?.id:', consultationData?.patientInfo?.id)
-      console.log('appointmentId:', appointmentId)
+      if (process.env.NODE_ENV === 'development') {
+        console.log('=== DEBUG PATIENT ID ===')
+        console.log('consultationData?.patientInfo:', consultationData?.patientInfo)
+        console.log('consultationData?.patientInfo?.id:', consultationData?.patientInfo?.id)
+        console.log('appointmentId:', appointmentId)
+      }
       
       const patientId = consultationData?.patientInfo?.id || appointmentId || new Date().getTime().toString()
       
-      console.log('Final patientId selected:', patientId)
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Final patientId selected:', patientId)
+      }
       
+      // Asegurarse de que las sugerencias sean un array
+      const suggestions = consultationData?.reportData?.suggestions || []
+      if (process.env.NODE_ENV === 'development') {
+        console.log('=== DEBUGGING SUGGESTIONS ===')
+        console.log('Suggestions type:', typeof suggestions)
+        console.log('Suggestions value:', suggestions)
+        console.log('Is array?:', Array.isArray(suggestions))
+        console.log('Suggestions length:', suggestions.length)
+      }
+
+      // Construir el contenido completo del reporte incluyendo las sugerencias
+      let fullReportContent = consultationData?.reportData?.aiGeneratedReport || consultationData?.reportData?.reporte || 'Reporte médico generado por IA'
+      
+      // FORZAR la inclusión de las sugerencias en el contenido
+      if (process.env.NODE_ENV === 'development') {
+        console.log('=== BUILDING FULL REPORT WITH SUGGESTIONS ===')
+        console.log('Original content length:', fullReportContent.length)
+        console.log('Suggestions to add:', suggestions)
+      }
+      
+      // Agregar las sugerencias al final del contenido si existen
+      if (suggestions && suggestions.length > 0) {
+        fullReportContent += '\n\n### 🤖 Sugerencias Clínicas de IA\n\n'
+        suggestions.forEach((suggestion: string, index: number) => {
+          fullReportContent += `${index + 1}. ${suggestion}\n`
+        })
+        if (process.env.NODE_ENV === 'development') {
+          console.log('Content with suggestions length:', fullReportContent.length)
+        }
+      } else if (process.env.NODE_ENV === 'development') {
+        console.log('NO SUGGESTIONS TO ADD!')
+      }
+
       const reportToSave = {
         patient_id: patientId,
-        doctor_id: consultationData?.doctorId || null, // No enviar '1', dejar que el backend lo maneje
+        doctor_id: consultationData?.doctorId || null,
         appointment_id: appointmentId,
         report_type: 'Consulta Médica',
         title: `Consulta - ${patientName} - ${new Date().toLocaleDateString('es-MX')}`,
-        content: consultationData?.reportData?.aiGeneratedReport || consultationData?.reportData?.reporte || 'Reporte médico generado por IA',
+        content: fullReportContent, // YA INCLUYE LAS SUGERENCIAS
         original_transcript: consultationData?.recordingData?.processedTranscript || consultationData?.transcript || 'Sin transcript disponible',
-        ai_suggestions: consultationData?.reportData?.suggestions || [],
+        ai_suggestions: suggestions || [], // GUARDAR LAS SUGERENCIAS COMO ARRAY
         compliance_status: consultationData?.reportData?.isCompliant || false
       }
 
-      console.log('=== SAVING REPORT ===')
-      console.log('Report data to save:', reportToSave)
-      console.log('Full consultation data:', consultationData)
+      if (process.env.NODE_ENV === 'development') {
+        console.log('=== SAVING REPORT ===')
+        console.log('Report data to save:', reportToSave)
+        console.log('Full consultation data:', consultationData)
+        console.log('AI suggestions to save:', reportToSave.ai_suggestions)
+      }
 
       // Verificar datos requeridos
       if (!reportToSave.content || reportToSave.content.length < 10) {
@@ -89,7 +162,9 @@ ${originalTranscript}
       }
 
       // Guardar en la base de datos usando el API real
-      console.log('Calling API to save report...')
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Calling API to save report...')
+      }
       const response = await fetch('/api/medical-reports', {
         method: 'POST',
         headers: {
@@ -98,17 +173,25 @@ ${originalTranscript}
         body: JSON.stringify(reportToSave),
       })
 
-      console.log('API Response status:', response.status)
-      console.log('API Response headers:', response.headers)
+      if (process.env.NODE_ENV === 'development') {
+        console.log('API Response status:', response.status)
+        console.log('API Response headers:', response.headers)
+      }
 
       if (!response.ok) {
         const errorText = await response.text()
-        console.error('API Error response:', errorText)
+        if (process.env.NODE_ENV === 'development') {
+          console.error('API Error response:', errorText)
+        }
         throw new Error(`Error al guardar: ${response.status} - ${errorText}`)
       }
 
       const savedReport = await response.json()
-      console.log('Successfully saved report:', savedReport)
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Successfully saved report:', savedReport)
+      }
+      
+      setHasChanges(false) // Disable save button after successful save
       
       onComplete({
         reportSaved: true,
@@ -153,11 +236,11 @@ ${originalTranscript}
         </Button>
         <Button 
           onClick={handleSave}
-          disabled={isSaving}
-          className="bg-primary-400 hover:bg-primary-500 text-white"
+          disabled={isSaving || !hasChanges}
+          className={`${hasChanges ? 'bg-primary-400 hover:bg-primary-500' : 'bg-gray-400'} text-white`}
         >
           <Save className="w-4 h-4 mr-2" />
-          {isSaving ? "Guardando..." : "Guardar"}
+          {isSaving ? "Guardando..." : hasChanges ? "Guardar" : "Guardado"}
         </Button>
       </div>
 

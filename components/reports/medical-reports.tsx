@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/hooks/use-auth"
-import { FileText, Plus, Search, Download, Calendar } from "lucide-react"
+import { FileText, Plus, Search, Download, Calendar, Trash2 } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import AddReportForm from "./add-report-form"
 
@@ -35,6 +35,7 @@ export default function MedicalReports() {
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedReport, setSelectedReport] = useState<MedicalReport | null>(null)
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   useEffect(() => {
     fetchReports()
@@ -85,6 +86,41 @@ export default function MedicalReports() {
       month: "2-digit",
       year: "numeric",
     })
+  }
+
+  const handleDeleteReport = async (reportId: string) => {
+    if (!confirm('¿Estás seguro de que quieres eliminar este reporte? Esta acción no se puede deshacer.')) {
+      return
+    }
+
+    setIsDeleting(true)
+    try {
+      const { error } = await supabase
+        .from('medical_reports')
+        .delete()
+        .eq('id', reportId)
+
+      if (error) {
+        console.error('Error deleting report:', error)
+        alert('Error al eliminar el reporte')
+        return
+      }
+
+      // Refresh the reports list
+      fetchReports()
+      
+      // Clear selection if deleted report was selected
+      if (selectedReport?.id === reportId) {
+        setSelectedReport(null)
+      }
+
+      alert('Reporte eliminado exitosamente')
+    } catch (error) {
+      console.error('Error deleting report:', error)
+      alert('Error al eliminar el reporte')
+    } finally {
+      setIsDeleting(false)
+    }
   }
 
   if (loading) {
@@ -236,6 +272,15 @@ export default function MedicalReports() {
                       <Download className="mr-2 h-4 w-4" />
                       Descargar
                     </Button>
+                    <Button 
+                      variant="destructive" 
+                      size="sm"
+                      onClick={() => handleDeleteReport(selectedReport.id)}
+                      disabled={isDeleting}
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      {isDeleting ? 'Eliminando...' : 'Eliminar'}
+                    </Button>
                   </div>
                 </div>
               </CardHeader>
@@ -254,9 +299,16 @@ export default function MedicalReports() {
                 <div>
                   <h3 className="font-semibold text-gray-900 dark:text-white mb-2">Reporte Médico</h3>
                   <div className="prose dark:prose-invert max-w-none">
-                    <div className="whitespace-pre-wrap text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
-                      {selectedReport.content}
-                    </div>
+                    <div 
+                      className="whitespace-pre-wrap text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-800 p-4 rounded-lg"
+                      dangerouslySetInnerHTML={{ 
+                        __html: selectedReport.content
+                          .replace(/### 🤖 Sugerencias Clínicas de IA/g, '<h3 class="text-lg font-bold mt-4 mb-2">🤖 Sugerencias Clínicas de IA</h3>')
+                          .replace(/### /g, '<h3 class="text-lg font-bold mt-4 mb-2">')
+                          .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                          .replace(/\n/g, '<br />')
+                      }}
+                    />
                   </div>
                 </div>
 
@@ -273,7 +325,7 @@ export default function MedicalReports() {
                 )}
 
                 {/* Sugerencias de IA */}
-                {selectedReport.ai_suggestions && selectedReport.ai_suggestions.length > 0 && (
+                {selectedReport.ai_suggestions && Array.isArray(selectedReport.ai_suggestions) && selectedReport.ai_suggestions.length > 0 && (
                   <div>
                     <h3 className="font-semibold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
                       🤖 Sugerencias Clínicas de IA
