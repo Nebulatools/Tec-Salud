@@ -36,6 +36,10 @@ export default function ReportViewerModal({
   if (!report) return null
 
   const handleDownload = () => {
+    // Acceder a las sugerencias usando la misma lógica
+    const suggestions = (report.ai_suggestions as any)?.consultationData?.reportData?.suggestions || report.ai_suggestions;
+    const validSuggestions = Array.isArray(suggestions) ? suggestions : [];
+    
     const content = `
 ${report.title}
 
@@ -53,9 +57,9 @@ Tipo: ${report.report_type}
 
 ${report.content}
 
-${report.ai_suggestions && report.ai_suggestions.length > 0 ? `
+${validSuggestions.length > 0 ? `
 SUGERENCIAS CLÍNICAS:
-${report.ai_suggestions.map((suggestion, index) => `${index + 1}. ${suggestion}`).join('\n')}
+${validSuggestions.map((suggestion, index) => `${index + 1}. ${suggestion}`).join('\n')}
 ` : ''}
 
 ${report.original_transcript ? `
@@ -160,30 +164,44 @@ ${report.original_transcript}
               </div>
             </div>
 
-            {report.ai_suggestions && report.ai_suggestions.length > 0 && (
-              <div className="bg-amber-50 dark:bg-amber-900/20 rounded-lg p-6">
-                <h3 className="text-lg font-semibold text-amber-800 dark:text-amber-200 mb-4 flex items-center gap-2">
-                  🤖 Sugerencias Clínicas de IA ({report.ai_suggestions.length})
-                </h3>
-                <div className="space-y-3">
-                  {report.ai_suggestions.map((suggestion, index) => (
-                    <div
-                      key={index}
-                      className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-amber-200 dark:border-amber-800"
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="flex-shrink-0 w-6 h-6 bg-amber-500 text-white rounded-full flex items-center justify-center text-xs font-semibold">
-                          {index + 1}
+            {(() => {
+              // Acceder a las sugerencias en la ruta correcta - igual que en medical-reports.tsx
+              const suggestions = (report.ai_suggestions as any)?.consultationData?.reportData?.suggestions || report.ai_suggestions;
+              const isValidArray = Array.isArray(suggestions) && suggestions.length > 0;
+              
+              console.log('🔍 MODAL - Procesando sugerencias:', {
+                reportId: report.id,
+                rawAiSuggestions: report.ai_suggestions,
+                processedSuggestions: suggestions,
+                isValidArray,
+                suggestionsCount: suggestions?.length || 0
+              });
+              
+              return isValidArray ? (
+                <div className="bg-amber-50 dark:bg-amber-900/20 rounded-lg p-6">
+                  <h3 className="text-lg font-semibold text-amber-800 dark:text-amber-200 mb-4 flex items-center gap-2">
+                    🤖 Sugerencias Clínicas de IA ({suggestions.length})
+                  </h3>
+                  <div className="space-y-3">
+                    {suggestions.map((suggestion: string, index: number) => (
+                      <div
+                        key={index}
+                        className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-amber-200 dark:border-amber-800"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="flex-shrink-0 w-6 h-6 bg-amber-500 text-white rounded-full flex items-center justify-center text-xs font-semibold">
+                            {index + 1}
+                          </div>
+                          <p className="text-sm text-gray-700 dark:text-gray-300">
+                            {suggestion}
+                          </p>
                         </div>
-                        <p className="text-sm text-gray-700 dark:text-gray-300">
-                          {suggestion}
-                        </p>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              ) : null;
+            })()}
 
             {report.original_transcript && (
               <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-6">

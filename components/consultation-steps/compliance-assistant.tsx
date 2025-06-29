@@ -47,6 +47,7 @@ export default function ComplianceAssistant({
   const [suggestions, setSuggestions] = useState<string[]>([])
   const [doctorResponses, setDoctorResponses] = useState<Record<string, string>>({})
   const [isCompliant, setIsCompliant] = useState(false)
+  const [lastProcessedTranscript, setLastProcessedTranscript] = useState<string>('')
 
   useEffect(() => {
     // Si ya existe un reporte generado por IA, usar esos datos SIN regenerar
@@ -59,11 +60,17 @@ export default function ComplianceAssistant({
     }
 
     const transcript = consultationData.transcript || consultationData.recordingData?.processedTranscript
-    // Solo generar si hay transcript Y NO hay reporte previo Y NO hay datos de compliance
-    if (transcript && !report && !complianceData && !consultationData.reportData?.aiGeneratedReport) {
+    
+    // Detectar si la transcripción ha cambiado desde la última vez que se procesó
+    const transcriptChanged = transcript && transcript !== lastProcessedTranscript
+    
+    // Generar reporte si:
+    // 1. Hay transcript Y (NO hay reporte previo O la transcripción cambió)
+    if (transcript && ((!report && !complianceData && !consultationData.reportData?.aiGeneratedReport) || transcriptChanged)) {
+      console.log('🔄 Regenerando reporte de IA - Transcripción cambió:', transcriptChanged)
       performInitialAnalysis()
     }
-  }, [consultationData.transcript, consultationData.recordingData?.processedTranscript, consultationData.reportData?.aiGeneratedReport])
+  }, [consultationData.transcript, consultationData.recordingData?.processedTranscript, consultationData.reportData?.aiGeneratedReport, lastProcessedTranscript])
 
   const performInitialAnalysis = async () => {
     setLoading(true)
@@ -128,6 +135,9 @@ export default function ComplianceAssistant({
         ...consultationData,
         reportData: reportData
       })
+      
+      // Marcar esta transcripción como procesada
+      setLastProcessedTranscript(transcript || '')
       
       // NO auto-completar - que el usuario decida cuándo continuar
       // onComplete(reportData)
@@ -251,12 +261,27 @@ export default function ComplianceAssistant({
               <FileText className="h-5 w-5" />
               Reporte Médico
             </h3>
-            {isCompliant && (
-              <Badge variant="success" className="flex items-center gap-1">
-                <CheckCircle2 className="h-3 w-3" />
-                Cumple Normativa
-              </Badge>
-            )}
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  // Forzar regeneración eliminando el último transcript procesado
+                  setLastProcessedTranscript('')
+                  performInitialAnalysis()
+                }}
+                disabled={loading}
+                className="text-blue-600 border-blue-600 hover:bg-blue-50"
+              >
+                🔄 Regenerar con IA
+              </Button>
+              {isCompliant && (
+                <Badge variant="success" className="flex items-center gap-1">
+                  <CheckCircle2 className="h-3 w-3" />
+                  Cumple Normativa
+                </Badge>
+              )}
+            </div>
           </div>
           
           <div data-color-mode="light">

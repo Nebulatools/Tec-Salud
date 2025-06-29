@@ -11,6 +11,8 @@ import { useAuth } from "@/hooks/use-auth"
 import { FileText, Plus, Search, Download, Calendar, Trash2 } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import AddReportForm from "./add-report-form"
+import ConfirmDeleteModal from "@/components/ui/confirm-delete-modal"
+import NotificationModal from "@/components/ui/notification-modal"
 
 interface MedicalReport {
   id: string
@@ -36,6 +38,16 @@ export default function MedicalReports() {
   const [selectedReport, setSelectedReport] = useState<MedicalReport | null>(null)
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  
+  // Estados para los modales elegantes
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [reportToDelete, setReportToDelete] = useState<MedicalReport | null>(null)
+  const [showNotificationModal, setShowNotificationModal] = useState(false)
+  const [notificationData, setNotificationData] = useState<{
+    type: "success" | "error" | "warning"
+    title: string
+    description: string
+  } | null>(null)
 
   useEffect(() => {
     fetchReports()
@@ -88,21 +100,31 @@ export default function MedicalReports() {
     })
   }
 
-  const handleDeleteReport = async (reportId: string) => {
-    if (!confirm('¿Estás seguro de que quieres eliminar este reporte? Esta acción no se puede deshacer.')) {
-      return
-    }
+  const handleDeleteClick = (report: MedicalReport) => {
+    setReportToDelete(report)
+    setShowDeleteModal(true)
+  }
+
+  const handleConfirmDelete = async () => {
+    if (!reportToDelete) return
 
     setIsDeleting(true)
+    setShowDeleteModal(false)
+
     try {
       const { error } = await supabase
         .from('medical_reports')
         .delete()
-        .eq('id', reportId)
+        .eq('id', reportToDelete.id)
 
       if (error) {
         console.error('Error deleting report:', error)
-        alert('Error al eliminar el reporte')
+        setNotificationData({
+          type: "error",
+          title: "Error al eliminar",
+          description: `No se pudo eliminar el reporte "${reportToDelete.title}". Por favor, inténtalo de nuevo.`
+        })
+        setShowNotificationModal(true)
         return
       }
 
@@ -110,16 +132,27 @@ export default function MedicalReports() {
       fetchReports()
       
       // Clear selection if deleted report was selected
-      if (selectedReport?.id === reportId) {
+      if (selectedReport?.id === reportToDelete.id) {
         setSelectedReport(null)
       }
 
-      alert('Reporte eliminado exitosamente')
+      setNotificationData({
+        type: "success",
+        title: "Reporte eliminado",
+        description: `El reporte "${reportToDelete.title}" ha sido eliminado exitosamente.`
+      })
+      setShowNotificationModal(true)
     } catch (error) {
       console.error('Error deleting report:', error)
-      alert('Error al eliminar el reporte')
+      setNotificationData({
+        type: "error",
+        title: "Error inesperado",
+        description: "Ocurrió un error inesperado al eliminar el reporte. Por favor, inténtalo de nuevo."
+      })
+      setShowNotificationModal(true)
     } finally {
       setIsDeleting(false)
+      setReportToDelete(null)
     }
   }
 
@@ -219,25 +252,30 @@ export default function MedicalReports() {
 
                           </div>
                           <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{report.title}</p>
-                          {report.ai_suggestions && report.ai_suggestions.length > 0 && (
-                            <div className="mt-2 space-y-1">
-                              <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">
-                                🤖 {report.ai_suggestions.length} sugerencias de IA:
-                              </p>
-                              <div className="text-xs text-gray-600 dark:text-gray-400 space-y-1">
-                                {report.ai_suggestions.slice(0, 2).map((suggestion, index) => (
-                                  <p key={index} className="truncate">
-                                    • {suggestion}
+                                                      {(() => {
+                              const suggestions = (report.ai_suggestions as any)?.consultationData?.reportData?.suggestions || report.ai_suggestions;
+                              if (!Array.isArray(suggestions) || suggestions.length === 0) return null;
+                              
+                              return (
+                                <div className="mt-2 space-y-1">
+                                  <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">
+                                    🤖 {suggestions.length} sugerencias de IA:
                                   </p>
-                                ))}
-                                {report.ai_suggestions.length > 2 && (
-                                  <p className="text-blue-500 font-medium">
-                                    +{report.ai_suggestions.length - 2} más...
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-                          )}
+                                  <div className="text-xs text-gray-600 dark:text-gray-400 space-y-1">
+                                    {suggestions.slice(0, 2).map((suggestion: string, index: number) => (
+                                      <p key={index} className="truncate">
+                                        • {suggestion}
+                                      </p>
+                                    ))}
+                                    {suggestions.length > 2 && (
+                                      <p className="text-blue-500 font-medium">
+                                        +{suggestions.length - 2} más...
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })()}
                         </div>
                         <div className="text-right">
                           <p className="text-sm text-gray-500 dark:text-gray-400">{formatDate(report.created_at)}</p>
@@ -275,7 +313,7 @@ export default function MedicalReports() {
                     <Button 
                       variant="destructive" 
                       size="sm"
-                      onClick={() => handleDeleteReport(selectedReport.id)}
+                      onClick={() => handleDeleteClick(selectedReport)}
                       disabled={isDeleting}
                     >
                       <Trash2 className="mr-2 h-4 w-4" />
@@ -325,23 +363,29 @@ export default function MedicalReports() {
                 )}
 
                 {/* Sugerencias de IA */}
-                {selectedReport.ai_suggestions && Array.isArray(selectedReport.ai_suggestions) && selectedReport.ai_suggestions.length > 0 && (
-                  <div>
-                    <h3 className="font-semibold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
-                      🤖 Sugerencias Clínicas de IA
-                    </h3>
-                    <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
-                      <ul className="space-y-2">
-                        {selectedReport.ai_suggestions.map((suggestion, index) => (
-                          <li key={index} className="text-sm text-green-800 dark:text-green-200 flex items-start gap-2">
-                            <span className="inline-block w-1.5 h-1.5 bg-green-500 rounded-full mt-2 flex-shrink-0"></span>
-                            {suggestion}
-                          </li>
-                        ))}
-                      </ul>
+                {(() => {
+                  // Acceder a las sugerencias en la ruta correcta
+                  const suggestions = (selectedReport.ai_suggestions as any)?.consultationData?.reportData?.suggestions || selectedReport.ai_suggestions;
+                  const isValidArray = Array.isArray(suggestions) && suggestions.length > 0;
+                  
+                  return isValidArray ? (
+                    <div>
+                      <h3 className="font-semibold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
+                        🤖 Sugerencias Clínicas de IA
+                      </h3>
+                      <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
+                        <ul className="space-y-2">
+                          {suggestions.map((suggestion: string, index: number) => (
+                            <li key={index} className="text-sm text-green-800 dark:text-green-200 flex items-start gap-2">
+                              <span className="inline-block w-1.5 h-1.5 bg-green-500 rounded-full mt-2 flex-shrink-0"></span>
+                              {suggestion}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  ) : null;
+                })()}
               </CardContent>
             </Card>
           ) : (
@@ -358,6 +402,25 @@ export default function MedicalReports() {
           )}
         </div>
       </div>
+
+      {/* Modales elegantes */}
+      <ConfirmDeleteModal
+        isOpen={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        onConfirm={handleConfirmDelete}
+        title="Eliminar Reporte Médico"
+        description="¿Estás seguro de que quieres eliminar este reporte médico? Toda la información se perderá permanentemente."
+        itemName={reportToDelete?.title}
+        isLoading={isDeleting}
+      />
+
+      <NotificationModal
+        isOpen={showNotificationModal}
+        onClose={() => setShowNotificationModal(false)}
+        type={notificationData?.type || "success"}
+        title={notificationData?.title || ""}
+        description={notificationData?.description || ""}
+      />
     </div>
   )
 }

@@ -16,6 +16,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import EditPatientForm from "./edit-patient-form"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import ReportViewerModal from "@/components/reports/report-viewer-modal"
+import ConfirmDeleteModal from "@/components/ui/confirm-delete-modal"
+import NotificationModal from "@/components/ui/notification-modal"
 
 interface Patient {
   id: string
@@ -62,6 +64,17 @@ export default function PatientList() {
   const [loadingReports, setLoadingReports] = useState(false)
   const [selectedReport, setSelectedReport] = useState<any>(null)
   const [isReportModalOpen, setIsReportModalOpen] = useState(false)
+  
+  // Estados para los modales elegantes
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [patientToDelete, setPatientToDelete] = useState<Patient | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [showNotificationModal, setShowNotificationModal] = useState(false)
+  const [notificationData, setNotificationData] = useState<{
+    type: "success" | "error" | "warning"
+    title: string
+    description: string
+  } | null>(null)
 
   useEffect(() => {
     fetchPatients()
@@ -174,17 +187,45 @@ export default function PatientList() {
     return colors[index]
   }
 
-  const handleDeletePatient = async (patientId: string) => {
-    if (confirm("¿Estás seguro de que quieres eliminar este paciente?")) {
-      try {
-        const { error } = await supabase.from("patients").delete().eq("id", patientId)
-        if (error) throw error
+  const handleDeleteClick = (patient: Patient) => {
+    setPatientToDelete(patient)
+    setShowDeleteModal(true)
+  }
 
+  const handleConfirmDelete = async () => {
+    if (!patientToDelete) return
+
+    setIsDeleting(true)
+    setShowDeleteModal(false)
+
+    try {
+      const { error } = await supabase.from("patients").delete().eq("id", patientToDelete.id)
+      if (error) throw error
+
+      // Clear selection if deleted patient was selected
+      if (selectedPatient?.id === patientToDelete.id) {
         setSelectedPatient(null)
-        fetchPatients()
-      } catch (error) {
-        console.error("Error deleting patient:", error)
       }
+
+      fetchPatients()
+      
+      setNotificationData({
+        type: "success",
+        title: "Paciente eliminado",
+        description: `El paciente ${patientToDelete.first_name} ${patientToDelete.last_name} ha sido eliminado exitosamente.`
+      })
+      setShowNotificationModal(true)
+    } catch (error) {
+      console.error("Error deleting patient:", error)
+      setNotificationData({
+        type: "error",
+        title: "Error al eliminar",
+        description: `No se pudo eliminar el paciente ${patientToDelete.first_name} ${patientToDelete.last_name}. Por favor, inténtalo de nuevo.`
+      })
+      setShowNotificationModal(true)
+    } finally {
+      setIsDeleting(false)
+      setPatientToDelete(null)
     }
   }
 
@@ -359,7 +400,7 @@ export default function PatientList() {
                         Editar
                       </DropdownMenuItem>
                       <DropdownMenuItem
-                        onClick={() => handleDeletePatient(selectedPatient.id)}
+                        onClick={() => handleDeleteClick(selectedPatient)}
                         className="text-red-600"
                       >
                         <Trash2 className="mr-2 h-4 w-4" />
@@ -552,6 +593,25 @@ export default function PatientList() {
           setSelectedReport(null)
         }}
         report={selectedReport}
+      />
+
+      {/* Modales elegantes */}
+      <ConfirmDeleteModal
+        isOpen={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        onConfirm={handleConfirmDelete}
+        title="Eliminar Paciente"
+        description="¿Estás seguro de que quieres eliminar este paciente? Toda la información y reportes médicos asociados se perderán permanentemente."
+        itemName={patientToDelete ? `${patientToDelete.first_name} ${patientToDelete.last_name}` : undefined}
+        isLoading={isDeleting}
+      />
+
+      <NotificationModal
+        isOpen={showNotificationModal}
+        onClose={() => setShowNotificationModal(false)}
+        type={notificationData?.type || "success"}
+        title={notificationData?.title || ""}
+        description={notificationData?.description || ""}
       />
     </div>
   )
