@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
@@ -61,6 +61,12 @@ export default function ComplianceAssistant({
       setComplianceData(consultationData.reportData.complianceData || null)
       setSuggestions(consultationData.reportData.suggestions || [])
       setIsCompliant(consultationData.reportData.isCompliant || false)
+      
+      // También restaurar las preguntas si existen
+      if (consultationData.reportData.complianceData?.questionsForDoctor) {
+        setAllQuestions(consultationData.reportData.complianceData.questionsForDoctor)
+      }
+      
       return; // Salir temprano para evitar regeneración
     }
 
@@ -71,13 +77,20 @@ export default function ComplianceAssistant({
     
     // Generar reporte si:
     // 1. Hay transcript Y (NO hay reporte previo O la transcripción cambió)
-    if (transcript && ((!report && !complianceData && !consultationData.reportData?.aiGeneratedReport) || transcriptChanged)) {
+    if (transcript && !consultationData.reportData?.aiGeneratedReport && transcriptChanged) {
       // Silenciosamente regenerar reporte
       performInitialAnalysis()
     }
-  }, [consultationData.transcript, consultationData.recordingData?.processedTranscript, consultationData.reportData?.aiGeneratedReport, lastProcessedTranscript])
+  }, [
+    consultationData.transcript, 
+    consultationData.recordingData?.processedTranscript, 
+    consultationData.reportData?.aiGeneratedReport,
+    consultationData.reportData?.complianceData,
+    consultationData.reportData?.suggestions,
+    consultationData.reportData?.isCompliant
+  ])
 
-  const performInitialAnalysis = async () => {
+  const performInitialAnalysis = useCallback(async () => {
     setLoading(true)
     try {
       // Call compliance API
@@ -103,7 +116,8 @@ export default function ComplianceAssistant({
       setPreviousMissingCount(complianceResult.missingInformation?.length || 0)
       
       // Mantener un registro de todas las preguntas vistas
-      const newQuestions = [...allQuestions]
+      const existingQuestions = allQuestions.length > 0 ? allQuestions : []
+      const newQuestions = [...existingQuestions]
       complianceResult.questionsForDoctor?.forEach(q => {
         if (!newQuestions.includes(q)) {
           newQuestions.push(q)
@@ -164,7 +178,7 @@ export default function ComplianceAssistant({
     } finally {
       setLoading(false)
     }
-  }
+  }, [consultationData, allQuestions])
 
   const handleRevalidate = async () => {
     setValidating(true)
@@ -393,14 +407,14 @@ export default function ComplianceAssistant({
                 <div className="flex items-center justify-between text-sm text-gray-600">
                   <span>Campos completados:</span>
                   <span className="font-semibold">
-                    {completedFields.size} / {allQuestions.length || complianceData.questionsForDoctor?.length || 0}
+                    {completedFields.size} / {(complianceData.missingInformation?.length || 0) + completedFields.size}
                   </span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2">
                   <div 
                     className="bg-green-500 h-2 rounded-full transition-all duration-300"
                     style={{ 
-                      width: `${(completedFields.size / (allQuestions.length || complianceData.questionsForDoctor?.length || 1)) * 100}%` 
+                      width: `${(completedFields.size / ((complianceData.missingInformation?.length || 0) + completedFields.size || 1)) * 100}%` 
                     }}
                   />
                 </div>
@@ -409,7 +423,7 @@ export default function ComplianceAssistant({
               <ScrollArea className="h-[400px]">
                 <div className="space-y-3 pr-2">
                   {/* Mostrar todas las preguntas: completadas y pendientes */}
-                  {allQuestions.map((question, index) => {
+                  {(allQuestions.length > 0 ? allQuestions : complianceData.questionsForDoctor || []).map((question, index) => {
                     const isCompleted = completedFields.has(question)
                     const isPending = complianceData.questionsForDoctor?.includes(question) || false
                     const isExpanded = expandedField === question
