@@ -87,21 +87,51 @@ export default function MedicalReports() {
       
       console.log("Doctor found:", doctor.id)
 
-      // TEMPORARY: Fetch ALL reports to debug
-      const url = `/api/medical-reports`
-      console.log("Fetching ALL reports from:", url)
+      // Primero obtener los pacientes del doctor
+      const { data: patients, error: patientsError } = await supabase
+        .from("patients")
+        .select("id")
+        .eq("doctor_id", doctor.id)
       
-      const response = await fetch(url)
-      if (!response.ok) {
-        throw new Error('Error fetching reports')
+      if (patientsError) {
+        console.error("Error fetching patients:", patientsError)
+        return
       }
+
+      if (!patients || patients.length === 0) {
+        console.log("No patients found for doctor")
+        setReports([])
+        return
+      }
+
+      console.log(`Found ${patients.length} patients for doctor`)
+
+      // Ahora obtener TODOS los reportes de los pacientes del doctor
+      const patientIds = patients.map(p => p.id)
       
-      const data = await response.json()
-      console.log("Reports received:", data)
+      // Fetch all reports for the doctor's patients
+      const { data: reportsData, error: reportsError } = await supabase
+        .from('medical_reports')
+        .select(`
+          *,
+          patient:patients (
+            first_name,
+            last_name
+          )
+        `)
+        .in('patient_id', patientIds)
+        .order('created_at', { ascending: false })
+
+      if (reportsError) {
+        console.error("Error fetching reports:", reportsError)
+        return
+      }
+
+      console.log("Reports received:", reportsData?.length || 0)
       
-      if (data) {
-        setReports(data)
-        console.log("Reports set in state:", data.length)
+      if (reportsData) {
+        setReports(reportsData)
+        console.log("Reports set in state:", reportsData.length)
       }
     } catch (error) {
       console.error("Error fetching reports:", error)

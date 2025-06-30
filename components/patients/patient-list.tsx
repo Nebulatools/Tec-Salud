@@ -44,7 +44,7 @@ interface MedicalReport {
   doctor: {
     first_name: string
     last_name: string
-  }[]
+  } | null
   compliance_status: boolean
   ai_suggestions: string[]
   original_transcript: string
