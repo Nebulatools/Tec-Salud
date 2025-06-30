@@ -120,34 +120,21 @@ export default function PatientList() {
   const fetchPatientReports = async (patientId: string) => {
     setLoadingReports(true)
     try {
-      // Obtener el doctor actual
-      const { data: doctor } = await supabase.from("doctors").select("id").eq("user_id", user?.id).single()
-      if (!doctor) return
-
-      const { data, error } = await supabase
-        .from("medical_reports")
-        .select(`
-          id,
-          title,
-          report_type,
-          content,
-          created_at,
-          doctors (
-            first_name,
-            last_name
-          ),
-          compliance_status,
-          ai_suggestions,
-          original_transcript
-        `)
-        .eq("patient_id", patientId)
-        .eq("doctor_id", doctor.id)
-        .order("created_at", { ascending: false })
-
-      // No mostrar errores, simplemente setear data vacía si no hay reportes
+      // Usar la API para obtener reportes del paciente
+      const response = await fetch(`/api/medical-reports?patient_id=${patientId}`)
+      
+      if (!response.ok) {
+        console.error("Error fetching patient reports")
+        setPatientReports([])
+        return
+      }
+      
+      const data = await response.json()
+      console.log(`Reports found for patient ${patientId}:`, data.length)
       setPatientReports(data || [])
     } catch (error) {
       // Silenciosamente manejar el error
+      console.log("Error fetching reports:", error)
       setPatientReports([])
     } finally {
       setLoadingReports(false)
@@ -542,7 +529,7 @@ export default function PatientList() {
                                   </span>
                                                                       <span>•</span>
                                     <span>
-                                      Dr. {report.doctors[0]?.first_name} {report.doctors[0]?.last_name}
+                                      Dr. {report.doctor?.first_name} {report.doctor?.last_name}
                                     </span>
                                 </div>
                                 <div className="text-sm text-gray-600 dark:text-gray-300 line-clamp-3">

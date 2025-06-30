@@ -180,20 +180,24 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
+  console.log('=== MEDICAL REPORTS API - GET ===');
+  
   try {
     const { searchParams } = new URL(request.url);
     const patientId = searchParams.get('patient_id');
     const doctorId = searchParams.get('doctor_id');
+    
+    console.log('Query params:', { patientId, doctorId });
 
     let query = supabase
       .from('medical_reports')
       .select(`
         *,
-        patients (
+        patient:patients (
           first_name,
           last_name
         ),
-        doctors (
+        doctor:doctors (
           first_name,
           last_name
         )
@@ -216,6 +220,16 @@ export async function GET(request: NextRequest) {
         { error: 'Error fetching reports from database' },
         { status: 500 }
       );
+    }
+
+    console.log('Reports found:', data?.length || 0);
+    if (data && data.length > 0) {
+      console.log('First report sample:', {
+        id: data[0].id,
+        title: data[0].title,
+        patient: data[0].patient,
+        doctor_id: data[0].doctor_id
+      });
     }
 
     return NextResponse.json(data || []);

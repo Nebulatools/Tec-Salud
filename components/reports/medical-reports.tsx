@@ -63,27 +63,45 @@ export default function MedicalReports() {
   }, [reports, searchTerm])
 
   const fetchReports = async () => {
-    if (!user) return
+    if (!user) {
+      console.log("No user found")
+      return
+    }
 
     try {
       // Obtener el doctor actual
-      const { data: doctor } = await supabase.from("doctors").select("id").eq("user_id", user.id).single()
-      if (!doctor) return
+      console.log("Fetching doctor for user:", user.id)
+      const { data: doctor, error: doctorError } = await supabase.from("doctors").select("id").eq("user_id", user.id).single()
+      
+      if (doctorError) {
+        console.error("Error fetching doctor:", doctorError)
+        console.log("Doctor error code:", doctorError.code)
+        console.log("Doctor error details:", doctorError.details)
+        return
+      }
+      
+      if (!doctor) {
+        console.log("No doctor found for user")
+        return
+      }
+      
+      console.log("Doctor found:", doctor.id)
 
-      // Usar la nueva API con filtro por doctor
-      const response = await fetch(`/api/medical-reports?doctor_id=${doctor.id}`)
+      // TEMPORARY: Fetch ALL reports to debug
+      const url = `/api/medical-reports`
+      console.log("Fetching ALL reports from:", url)
+      
+      const response = await fetch(url)
       if (!response.ok) {
         throw new Error('Error fetching reports')
       }
       
       const data = await response.json()
+      console.log("Reports received:", data)
       
       if (data) {
-        const formattedReports = data.map((report: any) => ({
-          ...report,
-          patient: report.patients || { first_name: 'N/A', last_name: '' },
-        }))
-        setReports(formattedReports)
+        setReports(data)
+        console.log("Reports set in state:", data.length)
       }
     } catch (error) {
       console.error("Error fetching reports:", error)

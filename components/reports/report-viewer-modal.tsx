@@ -51,7 +51,7 @@ Fecha: ${new Date(report.created_at).toLocaleDateString("es-ES", {
   minute: "2-digit"
 })}
 
-Médico: Dr. ${report.doctors.first_name} ${report.doctors.last_name}
+Médico: Dr. ${report.doctor?.first_name} ${report.doctor?.last_name}
 
 Tipo: ${report.report_type}
 
@@ -107,7 +107,7 @@ ${report.original_transcript}
                     </Badge>
                   )}
                   <span className="text-xs text-gray-500 dark:text-gray-400">
-                    Dr. {report.doctors.first_name} {report.doctors.last_name}
+                    Dr. {report.doctor?.first_name} {report.doctor?.last_name}
                   </span>
                 </div>
               </div>
@@ -147,7 +147,7 @@ ${report.original_transcript}
             </div>
             <div className="flex items-center gap-1">
               <User className="h-4 w-4" />
-              Dr. {report.doctors.first_name} {report.doctors.last_name}
+              Dr. {report.doctor?.first_name} {report.doctor?.last_name}
             </div>
           </div>
         </DialogHeader>
