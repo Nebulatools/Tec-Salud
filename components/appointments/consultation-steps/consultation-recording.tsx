@@ -205,7 +205,7 @@ export default function ConsultationRecording({
                   ? "bg-red-500 hover:bg-red-600 animate-pulse"
                   : isTranscribing
                   ? "bg-blue-500 cursor-not-allowed"
-                  : "bg-primary-400 hover:bg-primary-500"
+                  : "bg-orange-500 hover:bg-orange-600"
               )}
             >
               {isTranscribing ? (
@@ -244,7 +244,7 @@ export default function ConsultationRecording({
               {transcript && !isTranscribing && (
                 <Button 
                   onClick={handleComplete}
-                  className="w-full bg-primary-500 hover:bg-primary-600"
+                  className="w-full bg-orange-500 hover:bg-orange-600"
                 >
                   Continuar con esta transcripción →
                 </Button>
@@ -338,7 +338,7 @@ export default function ConsultationRecording({
                 <Button 
                   onClick={handleComplete}
                   disabled={!transcript.trim()}
-                  className="flex-1 bg-primary-500 hover:bg-primary-600"
+                  className="flex-1 bg-orange-500 hover:bg-orange-600"
                 >
                   Continuar con esta transcripción →
                 </Button>

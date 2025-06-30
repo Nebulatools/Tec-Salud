@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -69,19 +70,29 @@ export default function Sidebar({ onCollapseChange }: { onCollapseChange?: (coll
       {/* Desktop Sidebar */}
       <div
         className={cn(
-          "hidden md:flex relative sidebar-bg transition-all duration-300 ease-in-out",
+          "hidden md:flex relative bg-blue-900 transition-all duration-300 ease-in-out",
           isCollapsed ? "w-16" : "w-64",
         )}
       >
         <div className="flex flex-col h-full w-full">
           {/* Logo and Collapse Button */}
           <div className="flex items-center justify-between p-4">
-            {!isCollapsed && <span className="text-xl font-bold text-gray-700">ezyai</span>}
+            {!isCollapsed && (
+              <div className="flex items-center justify-center w-full bg-white rounded-3xl p-3 shadow-lg">
+                <Image
+                  src="/tecsalud.png"
+                  alt="TecSalud"
+                  width={120}
+                  height={60}
+                  className="object-contain"
+                />
+              </div>
+            )}
             <Button
               variant="ghost"
               size="icon"
               onClick={toggleCollapsed}
-              className="text-gray-600 hover:bg-white/50 ml-auto"
+              className="text-white hover:bg-blue-800 ml-auto"
             >
               {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
             </Button>
@@ -98,8 +109,8 @@ export default function Sidebar({ onCollapseChange }: { onCollapseChange?: (coll
                   className={cn(
                     "flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium transition-all duration-200 group",
                     isActive
-                      ? "bg-primary-400 text-white shadow-lg"
-                      : "text-gray-600 hover:bg-white/50 hover:text-gray-700",
+                      ? "bg-orange-500 text-white shadow-lg"
+                      : "text-gray-300 hover:bg-blue-800 hover:text-white",
                     isCollapsed && "justify-center px-2",
                   )}
                   title={isCollapsed ? item.name : undefined}
@@ -121,13 +132,13 @@ export default function Sidebar({ onCollapseChange }: { onCollapseChange?: (coll
           {/* User info at bottom */}
           {!isCollapsed && (
             <div className="p-4">
-              <div className="flex items-center gap-2 p-3 bg-white/30 rounded-lg">
+              <div className="flex items-center gap-2 p-3 bg-blue-800 rounded-lg">
                 <div className="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center">
                   <span className="text-white text-sm font-bold">N</span>
                 </div>
                 <div className="flex-1">
-                  <p className="text-xs text-gray-600">Versión 1.0.0</p>
-                  <p className="text-xs text-gray-500">/ soporte</p>
+                  <p className="text-xs text-gray-300">Versión 1.0.0</p>
+                  <p className="text-xs text-gray-400">/ soporte</p>
                 </div>
               </div>
             </div>
@@ -138,14 +149,22 @@ export default function Sidebar({ onCollapseChange }: { onCollapseChange?: (coll
       {/* Mobile Sidebar */}
       <div
         className={cn(
-          "md:hidden fixed inset-y-0 left-0 z-40 w-64 sidebar-bg transform transition-transform duration-200 ease-in-out",
+          "md:hidden fixed inset-y-0 left-0 z-40 w-64 bg-blue-900 transform transition-transform duration-200 ease-in-out",
           isOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
         <div className="flex flex-col h-full">
           {/* Logo */}
-          <div className="flex items-center gap-2 p-6">
-            <span className="text-xl font-bold text-gray-700">ezyai</span>
+          <div className="flex items-center justify-center p-6">
+            <div className="bg-white rounded-3xl p-4 shadow-lg">
+              <Image
+                src="/tecsalud.png"
+                alt="TecSalud"
+                width={120}
+                height={60}
+                className="object-contain"
+              />
+            </div>
           </div>
 
           {/* Navigation */}
@@ -159,8 +178,8 @@ export default function Sidebar({ onCollapseChange }: { onCollapseChange?: (coll
                   className={cn(
                     "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200",
                     isActive
-                      ? "bg-primary-400 text-white shadow-lg"
-                      : "text-gray-600 hover:bg-white/50 hover:text-gray-700",
+                      ? "bg-orange-500 text-white shadow-lg"
+                      : "text-gray-300 hover:bg-blue-800 hover:text-white",
                   )}
                   onClick={() => setIsOpen(false)}
                 >
@@ -173,13 +192,13 @@ export default function Sidebar({ onCollapseChange }: { onCollapseChange?: (coll
 
           {/* Version info */}
           <div className="p-4">
-            <div className="flex items-center gap-2 p-3 bg-white/30 rounded-lg">
+            <div className="flex items-center gap-2 p-3 bg-blue-800 rounded-lg">
               <div className="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center">
                 <span className="text-white text-sm font-bold">N</span>
               </div>
               <div className="flex-1">
-                <p className="text-xs text-gray-600">Versión 1.0.0</p>
-                <p className="text-xs text-gray-500">/ soporte</p>
+                <p className="text-xs text-gray-300">Versión 1.0.0</p>
+                <p className="text-xs text-gray-400">/ soporte</p>
               </div>
             </div>
           </div>

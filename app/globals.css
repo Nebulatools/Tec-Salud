@@ -59,15 +59,11 @@
   }
 }
 
-/* Estilos personalizados para coincidir con la imagen */
-.sidebar-bg {
-  background: linear-gradient(180deg, #f0fdfa 0%, #ccfbf1 100%);
-}
-
+/* Estilos personalizados para TecSalud */
 .card-shadow {
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
 }
 
 .button-primary {
-  background: linear-gradient(135deg, #14b8a6 0%, #0d9488 100%);
+  background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
 }

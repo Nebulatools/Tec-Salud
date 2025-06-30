@@ -16,7 +16,7 @@ interface MedicalReport {
   ai_suggestions?: string[]
   compliance_status: boolean
   created_at: string
-  doctors: {
+  doctor: {
     first_name: string
     last_name: string
   }

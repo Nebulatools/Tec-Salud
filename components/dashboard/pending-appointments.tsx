@@ -146,7 +146,7 @@ export default function PendingAppointments() {
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="text-gray-700">Consultas Pendientes</CardTitle>
         <Link href="/consultas">
-          <Button variant="ghost" size="sm" className="text-primary-500 hover:text-primary-600">
+          <Button variant="ghost" size="sm" className="text-orange-500 hover:text-orange-600">
             Ver todas
             <ArrowRight className="ml-1 h-4 w-4" />
           </Button>
@@ -173,7 +173,7 @@ export default function PendingAppointments() {
                     <h4 className="font-medium text-gray-700">
                       {appointment.patient.first_name} {appointment.patient.last_name}
                     </h4>
-                    <Button size="sm" variant="ghost" className="text-primary-500">
+                    <Button size="sm" variant="ghost" className="text-orange-500">
                       <Plus className="h-4 w-4" />
                     </Button>
                   </div>

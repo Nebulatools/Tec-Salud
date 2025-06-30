@@ -2,7 +2,7 @@
 "use client"
 
 import type React from "react"
-
+import Image from "next/image"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useAuth } from "@/hooks/use-auth"
-import { Loader2, Stethoscope, CheckCircle } from "lucide-react"
+import { Loader2, CheckCircle } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 
 export default function LoginForm() {
@@ -172,16 +172,19 @@ export default function LoginForm() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 via-white to-primary-100 p-4">
-      <Card className="w-full max-w-md shadow-xl border-0 bg-white/80 backdrop-blur-sm">
+    <div className="min-h-screen flex items-center justify-center bg-blue-900 p-4">
+      <Card className="w-full max-w-md shadow-2xl border-0 bg-white">
         <CardHeader className="text-center pb-8">
           <div className="flex justify-center mb-6">
-            <div className="p-4 bg-gradient-to-br from-primary-100 to-primary-200 rounded-2xl shadow-lg">
-              <Stethoscope className="h-10 w-10 text-primary-600" />
-            </div>
+            <Image
+              src="/tecsalud.png"
+              alt="TecSalud"
+              width={120}
+              height={60}
+              className="object-contain"
+            />
           </div>
-          <CardTitle className="text-3xl font-bold text-gray-700 mb-2">ezyai</CardTitle>
-          <CardDescription className="text-gray-500 text-base">
+          <CardDescription className="text-gray-600 text-base">
             {isLogin ? "Inicia sesión en tu cuenta médica" : "Crea tu cuenta médica"}
           </CardDescription>
         </CardHeader>
@@ -191,7 +194,7 @@ export default function LoginForm() {
               <>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="firstName" className="text-gray-600 font-medium">
+                    <Label htmlFor="firstName" className="text-gray-700 font-medium">
                       Nombre
                     </Label>
                     <Input
@@ -200,11 +203,11 @@ export default function LoginForm() {
                       onChange={(e) => setFirstName(e.target.value)}
                       required={!isLogin}
                       disabled={loading}
-                      className="border-gray-200 focus:border-primary-400 focus:ring-primary-400 bg-gray-50 focus:bg-white transition-all"
+                      className="border-gray-300 focus:border-blue-500 focus:ring-blue-500 bg-gray-50 focus:bg-white transition-all"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="lastName" className="text-gray-600 font-medium">
+                    <Label htmlFor="lastName" className="text-gray-700 font-medium">
                       Apellido
                     </Label>
                     <Input
@@ -213,12 +216,12 @@ export default function LoginForm() {
                       onChange={(e) => setLastName(e.target.value)}
                       required={!isLogin}
                       disabled={loading}
-                      className="border-gray-200 focus:border-primary-400 focus:ring-primary-400 bg-gray-50 focus:bg-white transition-all"
+                      className="border-gray-300 focus:border-blue-500 focus:ring-blue-500 bg-gray-50 focus:bg-white transition-all"
                     />
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="specialty" className="text-gray-600 font-medium">
+                  <Label htmlFor="specialty" className="text-gray-700 font-medium">
                     Especialidad
                   </Label>
                   <select
@@ -227,7 +230,7 @@ export default function LoginForm() {
                     onChange={(e) => setSpecialty(e.target.value)}
                     required={!isLogin}
                     disabled={loading}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-primary-400 bg-gray-50 focus:bg-white transition-all text-gray-700"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-50 focus:bg-white transition-all text-gray-700"
                   >
                     <option value="">Selecciona una especialidad</option>
                     {specialties.map((spec) => (
@@ -241,7 +244,7 @@ export default function LoginForm() {
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-gray-600 font-medium">
+              <Label htmlFor="email" className="text-gray-700 font-medium">
                 Email
               </Label>
               <Input
@@ -252,12 +255,12 @@ export default function LoginForm() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 disabled={loading}
-                className="border-gray-200 focus:border-primary-400 focus:ring-primary-400 bg-gray-50 focus:bg-white transition-all"
+                className="border-gray-300 focus:border-blue-500 focus:ring-blue-500 bg-gray-50 focus:bg-white transition-all"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-gray-600 font-medium">
+              <Label htmlFor="password" className="text-gray-700 font-medium">
                 Contraseña
               </Label>
               <Input
@@ -268,7 +271,7 @@ export default function LoginForm() {
                 required
                 disabled={loading}
                 minLength={6}
-                className="border-gray-200 focus:border-primary-400 focus:ring-primary-400 bg-gray-50 focus:bg-white transition-all"
+                className="border-gray-300 focus:border-blue-500 focus:ring-blue-500 bg-gray-50 focus:bg-white transition-all"
               />
             </div>
 
@@ -287,7 +290,7 @@ export default function LoginForm() {
 
             <Button
               type="submit"
-              className="w-full button-primary text-white font-medium py-3 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-[1.02]"
+              className="w-full bg-orange-500 hover:bg-orange-600 text-white font-medium py-3 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-[1.02]"
               disabled={loading}
             >
               {loading ? (
@@ -310,7 +313,7 @@ export default function LoginForm() {
                   setError("")
                   setSuccess("")
                 }}
-                className="text-primary-600 hover:text-primary-700 font-medium transition-colors"
+                className="text-orange-500 hover:text-orange-600 font-medium transition-colors"
                 disabled={loading}
               >
                 {isLogin ? "¿No tienes cuenta? Regístrate" : "¿Ya tienes cuenta? Inicia sesión"}

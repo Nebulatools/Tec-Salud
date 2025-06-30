@@ -2,6 +2,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -41,17 +42,17 @@ export default function Header() {
   }
 
   return (
-    <header className="bg-white border-b border-gray-200 px-6 py-4">
+    <header className="bg-blue-900 border-b border-blue-800 px-6 py-4">
       <div className="flex items-center justify-between">
         {/* Search Bar */}
-        <div className="flex-1 max-w-md">
+        <div className="flex-1 max-w-md mx-8">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
-              placeholder="Search"
+              placeholder="Buscar pacientes, consultas..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 bg-gray-100 border-0 focus:bg-white focus:ring-2 focus:ring-primary-400"
+              className="pl-10 bg-white/90 border-0 focus:bg-white focus:ring-2 focus:ring-white/50"
             />
           </div>
         </div>
@@ -59,25 +60,25 @@ export default function Header() {
         {/* Right side - Notifications and User */}
         <div className="flex items-center gap-4">
           {/* Notifications */}
-          <Button variant="ghost" size="icon" className="relative">
-            <Bell className="h-5 w-5 text-gray-600" />
+          <Button variant="ghost" size="icon" className="relative hover:bg-blue-800">
+            <Bell className="h-5 w-5 text-white" />
             <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full"></span>
           </Button>
 
           {/* User Dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="flex items-center gap-2 hover:bg-gray-100">
+              <Button variant="ghost" className="flex items-center gap-2 hover:bg-blue-800 text-white">
                 <Avatar className="h-8 w-8">
-                  <AvatarFallback className="bg-primary-400 text-white">
+                  <AvatarFallback className="bg-orange-500 text-white">
                     {doctorInfo ? `${doctorInfo.first_name?.[0]}${doctorInfo.last_name?.[0]}` : 'Dr'}
                   </AvatarFallback>
                 </Avatar>
                 <div className="text-left">
-                  <p className="text-sm font-medium text-gray-900">
+                  <p className="text-sm font-medium text-white">
                     {doctorInfo ? `Dr. ${doctorInfo.first_name} ${doctorInfo.last_name}` : 'Dr.'}
                   </p>
-                  <p className="text-xs text-gray-500">{doctorInfo?.specialty || 'Cargando...'}</p>
+                  <p className="text-xs text-blue-200">{doctorInfo?.specialty || 'General Medicine'}</p>
                 </div>
               </Button>
             </DropdownMenuTrigger>

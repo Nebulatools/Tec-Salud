@@ -298,7 +298,7 @@ export default function AppointmentCalendar() {
               variant={viewMode === "list" ? "default" : "ghost"}
               size="sm"
               onClick={() => setViewMode("list")}
-              className={viewMode === "list" ? "bg-teal-600 hover:bg-teal-700" : ""}
+              className={viewMode === "list" ? "bg-orange-500 hover:bg-orange-600" : ""}
             >
               <List className="mr-2 h-4 w-4" />
               Lista
@@ -307,7 +307,7 @@ export default function AppointmentCalendar() {
               variant={viewMode === "week" ? "default" : "ghost"}
               size="sm"
               onClick={() => setViewMode("week")}
-              className={viewMode === "week" ? "bg-teal-600 hover:bg-teal-700" : ""}
+              className={viewMode === "week" ? "bg-orange-500 hover:bg-orange-600" : ""}
             >
               <CalendarIcon className="mr-2 h-4 w-4" />
               Calendario
@@ -327,7 +327,7 @@ export default function AppointmentCalendar() {
               onClick={() => setSelectedFilter(filter)}
               className={
                 selectedFilter === filter
-                  ? "bg-teal-100 text-teal-700 border-teal-300 dark:bg-teal-900 dark:text-teal-300"
+                  ? "bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-900 dark:text-orange-300"
                   : ""
               }
             >
@@ -338,7 +338,7 @@ export default function AppointmentCalendar() {
 
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-teal-600 hover:bg-teal-700">
+            <Button className="bg-orange-500 hover:bg-orange-600 text-white">
               <Plus className="mr-2 h-4 w-4" />
               Nueva consulta
             </Button>
@@ -473,7 +473,7 @@ export default function AppointmentCalendar() {
                             </Button>
                             <Button 
                               size="sm" 
-                              className="bg-teal-600 hover:bg-teal-700"
+                              className="bg-orange-500 hover:bg-orange-600 text-white"
                               onClick={() => handleStartConsultation(appointment)}
                             >
                               Iniciar consulta
@@ -705,7 +705,7 @@ export default function AppointmentCalendar() {
                       <Badge className={getStatusColor(appointment.status)}>{appointment.status}</Badge>
                       <Button 
                         size="sm" 
-                        className="bg-teal-600 hover:bg-teal-700"
+                        className="bg-orange-500 hover:bg-orange-600 text-white"
                         onClick={() => handleStartConsultation(appointment)}
                       >
                         Iniciar consulta

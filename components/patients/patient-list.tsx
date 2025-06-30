@@ -41,7 +41,7 @@ interface MedicalReport {
   report_type: string
   content: string
   created_at: string
-  doctors: {
+  doctor: {
     first_name: string
     last_name: string
   }[]
@@ -250,7 +250,7 @@ export default function PatientList() {
 
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="bg-teal-600 hover:bg-teal-700">
+              <Button className="bg-orange-500 hover:bg-orange-600 text-white">
                 <Plus className="mr-2 h-4 w-4" />
                 Nuevo Paciente
               </Button>

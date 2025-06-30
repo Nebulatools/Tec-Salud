@@ -237,7 +237,7 @@ ${originalTranscript}
         <Button 
           onClick={handleSave}
           disabled={isSaving || !hasChanges}
-          className={`${hasChanges ? 'bg-primary-400 hover:bg-primary-500' : 'bg-gray-400'} text-white`}
+          className={`${hasChanges ? 'bg-orange-500 hover:bg-orange-600' : 'bg-gray-400'} text-white`}
         >
           <Save className="w-4 h-4 mr-2" />
           {isSaving ? "Guardando..." : hasChanges ? "Guardar" : "Guardado"}

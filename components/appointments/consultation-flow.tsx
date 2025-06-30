@@ -358,11 +358,11 @@ export default function ConsultationFlow({ appointmentId, patientName, patientId
                     className={cn(
                       "flex items-center justify-center w-10 h-10 rounded-full border-2 transition-all duration-200",
                       isCompleted
-                        ? "bg-primary-400 border-primary-400 text-white"
+                        ? "bg-orange-500 border-orange-500 text-white"
                         : isCurrent
-                        ? "bg-primary-400 border-primary-400 text-white"
+                        ? "bg-orange-500 border-orange-500 text-white"
                         : "bg-white border-gray-300 text-gray-500",
-                      isClickable && "cursor-pointer hover:border-primary-300"
+                      isClickable && "cursor-pointer hover:border-orange-300"
                     )}
                     onClick={() => isClickable && handleStepNavigation(step.id)}
                   >
@@ -378,7 +378,7 @@ export default function ConsultationFlow({ appointmentId, patientName, patientId
                     <p
                       className={cn(
                         "text-sm font-medium",
-                        isCurrent ? "text-primary-600" : "text-gray-500"
+                        isCurrent ? "text-orange-600" : "text-gray-500"
                       )}
                     >
                       {step.title}

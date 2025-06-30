@@ -279,7 +279,7 @@ export default function EditPatientForm({ patient, onSuccess }: EditPatientFormP
         <Button type="button" variant="outline" disabled={loading}>
           Cancelar
         </Button>
-        <Button type="submit" className="bg-teal-600 hover:bg-teal-700" disabled={loading}>
+        <Button type="submit" className="bg-orange-500 hover:bg-orange-600 text-white" disabled={loading}>
           {loading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />

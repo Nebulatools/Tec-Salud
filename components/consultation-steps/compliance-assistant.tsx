@@ -495,7 +495,7 @@ export default function ComplianceAssistant({
               <Button
                 onClick={handleRevalidate}
                 disabled={validating || Object.keys(doctorResponses).filter(k => doctorResponses[k]?.trim()).length === 0}
-                className="w-full bg-primary-400 hover:bg-primary-500 text-white disabled:opacity-50"
+                className="w-full bg-orange-500 hover:bg-orange-600 text-white disabled:opacity-50"
                 size="lg"
               >
                 {validating ? (
@@ -542,7 +542,7 @@ export default function ComplianceAssistant({
           <Button
             onClick={handleNext}
             size="lg"
-            className="w-full bg-primary-400 hover:bg-primary-500 text-white"
+            className="w-full bg-orange-500 hover:bg-orange-600 text-white"
           >
             Continuar a Verificación Final
           </Button>

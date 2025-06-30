@@ -36,7 +36,7 @@ export default function SuccessModal({
         <div className="flex items-center justify-between p-6 border-b">
           <div className="flex items-center gap-4">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-100">
-              <CheckCircle className="h-8 w-8 text-primary-600" />
+              <CheckCircle className="h-8 w-8 text-orange-600" />
             </div>
             <h2 className="text-xl font-bold text-gray-900">
               {title}
@@ -59,7 +59,7 @@ export default function SuccessModal({
           <div className="flex justify-center">
             <Button
               onClick={handleButtonClick}
-              className="bg-primary-400 hover:bg-primary-500 text-white px-8 py-2"
+              className="bg-orange-500 hover:bg-orange-600 text-white px-8 py-2"
             >
               {confirmText}
             </Button>

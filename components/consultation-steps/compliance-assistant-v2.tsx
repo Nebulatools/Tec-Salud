@@ -204,7 +204,7 @@ export default function ComplianceAssistantV2({ consultationData, onComplete, on
         <Card className="shadow-sm">
           <CardContent className="pt-6">
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-primary-500" />
+                              <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
               <span className="ml-2 text-gray-600">Analizando cumplimiento...</span>
             </div>
           </CardContent>
@@ -321,7 +321,7 @@ export default function ComplianceAssistantV2({ consultationData, onComplete, on
               <Button
                 onClick={handleRevalidate}
                 disabled={isRevalidating}
-                className="w-full bg-primary-600 hover:bg-primary-700 text-white"
+                className="w-full bg-orange-500 hover:bg-orange-600 text-white"
               >
                 {isRevalidating ? (
                   <>
@@ -346,7 +346,7 @@ export default function ComplianceAssistantV2({ consultationData, onComplete, on
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-primary-600" />
+                <Sparkles className="h-5 w-5 text-orange-600" />
                 Sugerencias Clínicas
               </CardTitle>
               <Button
@@ -363,7 +363,7 @@ export default function ComplianceAssistantV2({ consultationData, onComplete, on
               <ul className="space-y-2">
                 {suggestions.map((suggestion, index) => (
                   <li key={index} className="flex items-start gap-2">
-                    <span className="text-primary-600 mt-0.5">•</span>
+                    <span className="text-orange-600 mt-0.5">•</span>
                     <span className="text-sm text-gray-600">{suggestion}</span>
                   </li>
                 ))}
@@ -384,7 +384,7 @@ export default function ComplianceAssistantV2({ consultationData, onComplete, on
         </Button>
         <Button
           onClick={handleComplete}
-          className="flex-1 bg-primary-600 hover:bg-primary-700 text-white"
+          className="flex-1 bg-orange-500 hover:bg-orange-600 text-white"
         >
           Continuar
         </Button>
