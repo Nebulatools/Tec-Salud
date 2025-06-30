@@ -1,7 +1,7 @@
 // Header component that works with collapsible sidebar
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -15,6 +15,25 @@ export default function Header() {
   const { user } = useAuth()
   const router = useRouter()
   const [searchTerm, setSearchTerm] = useState("")
+  const [doctorInfo, setDoctorInfo] = useState<{ first_name: string; last_name: string; specialty: string } | null>(null)
+
+  useEffect(() => {
+    const fetchDoctorInfo = async () => {
+      if (user) {
+        const { data, error } = await supabase
+          .from("doctors")
+          .select("first_name, last_name, specialty")
+          .eq("user_id", user.id)
+          .single()
+        
+        if (data && !error) {
+          setDoctorInfo(data)
+        }
+      }
+    }
+    
+    fetchDoctorInfo()
+  }, [user])
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -50,11 +69,15 @@ export default function Header() {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="flex items-center gap-2 hover:bg-gray-100">
                 <Avatar className="h-8 w-8">
-                  <AvatarFallback className="bg-primary-400 text-white">Dr.</AvatarFallback>
+                  <AvatarFallback className="bg-primary-400 text-white">
+                    {doctorInfo ? `${doctorInfo.first_name?.[0]}${doctorInfo.last_name?.[0]}` : 'Dr'}
+                  </AvatarFallback>
                 </Avatar>
                 <div className="text-left">
-                  <p className="text-sm font-medium text-gray-900">Dr.</p>
-                  <p className="text-xs text-gray-500">General Medicine</p>
+                  <p className="text-sm font-medium text-gray-900">
+                    {doctorInfo ? `Dr. ${doctorInfo.first_name} ${doctorInfo.last_name}` : 'Dr.'}
+                  </p>
+                  <p className="text-xs text-gray-500">{doctorInfo?.specialty || 'Cargando...'}</p>
                 </div>
               </Button>
             </DropdownMenuTrigger>
