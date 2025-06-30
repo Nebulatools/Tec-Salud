@@ -104,28 +104,48 @@ export default function ConsultationFlow({ appointmentId, patientName, patientId
           
           setDraftId(report.id) // Guardar ID del reporte existente
           
-          // Verificar si hay datos de consulta guardados en ai_suggestions
-          if (report.ai_suggestions?.consultationData) {
-            const savedData = report.ai_suggestions.consultationData
-            const savedStep = report.ai_suggestions.currentStep || 1
-            const savedCompletedSteps = report.ai_suggestions.completedSteps || []
+          // Verificar si hay datos de consulta guardados
+          if (report.content || report.original_transcript) {
+            console.log('=== RESTAURANDO DATOS DEL REPORTE ===')
+            
+            // Reconstruir consultationData desde el reporte guardado
+            const restoredData: ConsultationData = {
+              patientInfo: { id: patientId },
+              recordingData: null,
+              transcript: report.original_transcript || undefined,
+              reportData: {
+                reporte: report.content || '',
+                aiGeneratedReport: report.content || '',
+                complianceData: report.compliance_status ? JSON.parse(report.compliance_status) : null,
+                suggestions: report.ai_suggestions || [],
+                isCompliant: report.compliance_status?.includes('compliant') || false,
+                fecha: report.report_date || new Date().toISOString().split('T')[0]
+              },
+              finalReport: null
+            }
 
-            console.log('Paso guardado:', savedStep)
-            console.log('Reporte IA guardado:', savedData?.reportData?.aiGeneratedReport ? 'SÍ' : 'NO')
+            // Si hay datos guardados en ai_suggestions como JSON
+            if (report.ai_suggestions && typeof report.ai_suggestions === 'object' && report.ai_suggestions.consultationData) {
+              const savedData = report.ai_suggestions.consultationData
+              const savedStep = report.ai_suggestions.currentStep || 5
+              const savedCompletedSteps = report.ai_suggestions.completedSteps || [1, 2, 3, 4]
 
-            setConsultationData(savedData)
-            setCurrentStep(savedStep)
-            setCompletedSteps(savedCompletedSteps)
+              console.log('Datos complejos encontrados, restaurando...')
+              setConsultationData(savedData)
+              setCurrentStep(savedStep)
+              setCompletedSteps(savedCompletedSteps)
+            } else {
+              // Usar los datos reconstruidos
+              console.log('Usando datos reconstruidos del reporte')
+              setConsultationData(restoredData)
+              setCurrentStep(5) // Ir al paso final si hay reporte
+              setCompletedSteps([1, 2, 3, 4])
+            }
             
             toast({
-              title: "Progreso restaurado",
-              description: "Se cargó el progreso guardado de esta consulta",
+              title: "Reporte encontrado",
+              description: "Se cargó el reporte guardado de esta consulta",
             })
-          } else {
-            // Si existe reporte pero no tiene datos de consulta, ir al paso 5 (reporte final)
-            console.log('Reporte existe pero sin datos de consulta, ir al final')
-            setCurrentStep(5)
-            setCompletedSteps([1, 2, 3, 4])
           }
         } else {
           console.log('No se encontró reporte, empezando desde el inicio')
@@ -164,7 +184,7 @@ export default function ConsultationFlow({ appointmentId, patientName, patientId
           appointment_id: appointmentId,
           patient_id: patientId,
           doctor_id: appointment.doctor_id,
-          report_type: 'Consulta Médica',
+          report_type: 'BORRADOR',
           title: `Consulta - ${patientName} - ${new Date().toLocaleDateString()}`,
           content: consultationData?.reportData?.aiGeneratedReport || 'Consulta en progreso...',
           original_transcript: consultationData?.recordingData?.processedTranscript || consultationData?.transcript || '',
@@ -174,7 +194,7 @@ export default function ConsultationFlow({ appointmentId, patientName, patientId
             completedSteps,
             savedAt: new Date().toISOString()
           },
-          compliance_status: consultationData?.reportData?.isCompliant || false
+          compliance_status: consultationData?.reportData?.isCompliant ? 'compliant' : 'non-compliant'
         }
 
         let result
@@ -216,13 +236,9 @@ export default function ConsultationFlow({ appointmentId, patientName, patientId
           }
         }
         
-        if (result.error) {
-          console.error('❌ Error guardando:', result.error)
-        } else {
-          console.log('✅ Guardado exitosamente')
-        }
+        // Silenciosamente manejar el resultado sin mostrar logs
       } catch (error) {
-        console.error('Error guardando progreso:', error)
+        // Silenciosamente manejar errores
       }
     }
 

@@ -144,14 +144,10 @@ export default function PatientList() {
         .eq("doctor_id", doctor.id)
         .order("created_at", { ascending: false })
 
-      if (error) {
-        console.error("Error fetching reports:", error)
-        setPatientReports([])
-      } else {
-        setPatientReports(data || [])
-      }
+      // No mostrar errores, simplemente setear data vacía si no hay reportes
+      setPatientReports(data || [])
     } catch (error) {
-      console.error("Error fetching patient reports:", error)
+      // Silenciosamente manejar el error
       setPatientReports([])
     } finally {
       setLoadingReports(false)

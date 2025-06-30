@@ -6,8 +6,9 @@ import { Card } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
-import { Loader2, CheckCircle2, AlertCircle, Sparkles, Stethoscope, FileText, Bot } from 'lucide-react'
+import { Loader2, CheckCircle2, AlertCircle, Sparkles, Stethoscope, FileText, Bot, Check, X, ChevronDown, ChevronUp } from 'lucide-react'
 import { ConsultationData } from '@/types/consultation'
+import { cn } from '@/lib/utils'
 import dynamic from 'next/dynamic'
 
 const MDEditor = dynamic(
@@ -48,6 +49,10 @@ export default function ComplianceAssistant({
   const [doctorResponses, setDoctorResponses] = useState<Record<string, string>>({})
   const [isCompliant, setIsCompliant] = useState(false)
   const [lastProcessedTranscript, setLastProcessedTranscript] = useState<string>('')
+  const [previousMissingCount, setPreviousMissingCount] = useState<number | null>(null)
+  const [completedFields, setCompletedFields] = useState<Set<string>>(new Set())
+  const [expandedField, setExpandedField] = useState<string | null>(null)
+  const [allQuestions, setAllQuestions] = useState<string[]>([]) // Mantener todas las preguntas vistas
 
   useEffect(() => {
     // Si ya existe un reporte generado por IA, usar esos datos SIN regenerar
@@ -67,7 +72,7 @@ export default function ComplianceAssistant({
     // Generar reporte si:
     // 1. Hay transcript Y (NO hay reporte previo O la transcripción cambió)
     if (transcript && ((!report && !complianceData && !consultationData.reportData?.aiGeneratedReport) || transcriptChanged)) {
-      console.log('🔄 Regenerando reporte de IA - Transcripción cambió:', transcriptChanged)
+      // Silenciosamente regenerar reporte
       performInitialAnalysis()
     }
   }, [consultationData.transcript, consultationData.recordingData?.processedTranscript, consultationData.reportData?.aiGeneratedReport, lastProcessedTranscript])
@@ -94,7 +99,17 @@ export default function ComplianceAssistant({
       const complianceResult: ComplianceResponse = await complianceResponse.json()
       setComplianceData(complianceResult)
       setReport(complianceResult.improvedReport)
-      setIsCompliant(complianceResult.missingInformation.length === 0)
+      setIsCompliant(complianceResult.missingInformation?.length === 0)
+      setPreviousMissingCount(complianceResult.missingInformation?.length || 0)
+      
+      // Mantener un registro de todas las preguntas vistas
+      const newQuestions = [...allQuestions]
+      complianceResult.questionsForDoctor?.forEach(q => {
+        if (!newQuestions.includes(q)) {
+          newQuestions.push(q)
+        }
+      })
+      setAllQuestions(newQuestions)
 
       // Call suggestions API
       let suggestionsResult: SuggestionsResponse | null = null
@@ -143,7 +158,7 @@ export default function ComplianceAssistant({
       // onComplete(reportData)
 
     } catch (error) {
-      console.error('Error during initial analysis:', error)
+      // Silenciosamente manejar error
       // Mostrar error al usuario
       alert(`Error al analizar la transcripción: ${error instanceof Error ? error.message : 'Error desconocido'}. Por favor, inténtalo de nuevo.`)
     } finally {
@@ -154,25 +169,26 @@ export default function ComplianceAssistant({
   const handleRevalidate = async () => {
     setValidating(true)
     try {
-      // Append doctor responses to the report
-      let enrichedReport = report
-      if (Object.keys(doctorResponses).length > 0) {
-        enrichedReport += '\n\n## Información Adicional Proporcionada por el Médico\n\n'
-        Object.entries(doctorResponses).forEach(([question, response]) => {
-          if (response.trim()) {
-            enrichedReport += `**${question}**\n${response}\n\n`
-          }
-        })
+      // Filtrar solo las respuestas con contenido
+      const answeredQuestions = Object.entries(doctorResponses)
+        .filter(([_, answer]) => answer?.trim())
+        .map(([question, answer]) => ({ question, answer }))
+      
+      // Si no hay respuestas, salir temprano
+      if (answeredQuestions.length === 0) {
+        setValidating(false)
+        return
       }
 
-      // Call compliance API again
+      // Llamar a la API con las respuestas adicionales usando el nuevo formato
       const complianceResponse = await fetch('/api/enrich-report', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          transcript: enrichedReport
+          transcript: consultationData.transcript || consultationData.recordingData?.processedTranscript || '',
+          additionalInfo: answeredQuestions
         }),
       })
 
@@ -181,9 +197,47 @@ export default function ComplianceAssistant({
       }
 
       const complianceResult: ComplianceResponse = await complianceResponse.json()
-      setComplianceData(complianceResult)
-      setReport(complianceResult.improvedReport)
-      setIsCompliant(complianceResult.missingInformation.length === 0)
+      
+      // Control de consistencia: NUNCA debe aumentar el número de campos faltantes
+      let finalComplianceResult = complianceResult
+      
+      // Control silencioso de consistencia
+      if (previousMissingCount !== null && complianceResult.missingInformation.length > previousMissingCount) {
+        // FORZAR mantener los campos anteriores - no permitir aumento
+        if (complianceData) {
+          finalComplianceResult = {
+            improvedReport: complianceResult.improvedReport, // Usar el nuevo reporte
+            missingInformation: complianceData.missingInformation, // Mantener campos anteriores
+            questionsForDoctor: complianceData.questionsForDoctor // Mantener preguntas anteriores
+          }
+        }
+      }
+      
+      // Actualizar campos completados
+      const newCompletedFields = new Set(completedFields)
+      
+      // Marcar como completadas las preguntas que ya no están en la lista de faltantes
+      answeredQuestions.forEach(({ question }) => {
+        if (!finalComplianceResult.questionsForDoctor.includes(question)) {
+          newCompletedFields.add(question)
+        }
+      })
+      
+      // Mantener un registro de todas las preguntas vistas
+      const newAllQuestions = [...allQuestions]
+      finalComplianceResult.questionsForDoctor.forEach(q => {
+        if (!newAllQuestions.includes(q)) {
+          newAllQuestions.push(q)
+        }
+      })
+      
+      setCompletedFields(newCompletedFields)
+      setAllQuestions(newAllQuestions)
+      
+      setComplianceData(finalComplianceResult)
+      setReport(finalComplianceResult.improvedReport)
+      setIsCompliant(finalComplianceResult.missingInformation.length === 0)
+      setPreviousMissingCount(finalComplianceResult.missingInformation.length)
 
       // Get new suggestions
       const suggestionsResponse = await fetch('/api/get-clinical-suggestions', {
@@ -204,11 +258,25 @@ export default function ComplianceAssistant({
         }
       }
 
-      // Clear doctor responses after validation
-      setDoctorResponses({})
+      // NO borrar las respuestas, mantenerlas visibles
+      
+      // Actualizar los datos guardados con la nueva validación
+      const reportData = {
+        ...consultationData.reportData,
+        reporte: complianceResult.improvedReport,
+        aiGeneratedReport: complianceResult.improvedReport,
+        complianceData: complianceResult,
+        suggestions: suggestions,
+        isCompliant: complianceResult.missingInformation.length === 0,
+      }
+
+      onDataUpdate({
+        ...consultationData,
+        reportData: reportData
+      })
 
     } catch (error) {
-      console.error('Error during revalidation:', error)
+      // Silenciosamente manejar error de revalidación
       // Mostrar error al usuario
       alert(`Error al revalidar el reporte: ${error instanceof Error ? error.message : 'Error desconocido'}. Por favor, inténtalo de nuevo.`)
     } finally {
@@ -306,43 +374,114 @@ export default function ComplianceAssistant({
             </h4>
           </div>
           
-          {complianceData && complianceData.missingInformation.length > 0 ? (
+          {complianceData && complianceData.missingInformation && complianceData.missingInformation.length > 0 ? (
             <div className="space-y-4">
-              <div className="flex items-start gap-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
-                <AlertCircle className="h-6 w-6 text-amber-500 mt-0.5" />
-                <div>
-                  <p className="text-base font-semibold text-amber-800">
-                    Faltan {complianceData.missingInformation.length} campos requeridos
-                  </p>
-                  <p className="text-sm text-amber-700 mt-1">
-                    Complete la información faltante para mejorar el cumplimiento
-                  </p>
+              <div className="space-y-3">
+                <div className="flex items-start gap-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
+                  <AlertCircle className="h-6 w-6 text-amber-500 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="text-base font-semibold text-amber-800">
+                      Faltan {complianceData.missingInformation?.length || 0} campos requeridos
+                    </p>
+                    <p className="text-sm text-amber-700 mt-1">
+                      Complete la información faltante para mejorar el cumplimiento
+                    </p>
+                  </div>
+                </div>
+                
+                {/* Progress indicator */}
+                <div className="flex items-center justify-between text-sm text-gray-600">
+                  <span>Campos completados:</span>
+                  <span className="font-semibold">
+                    {completedFields.size} / {allQuestions.length || complianceData.questionsForDoctor?.length || 0}
+                  </span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div 
+                    className="bg-green-500 h-2 rounded-full transition-all duration-300"
+                    style={{ 
+                      width: `${(completedFields.size / (allQuestions.length || complianceData.questionsForDoctor?.length || 1)) * 100}%` 
+                    }}
+                  />
                 </div>
               </div>
               
-              <ScrollArea className="h-64">
-                <div className="space-y-4 pr-2">
-                  {complianceData.questionsForDoctor.map((question, index) => (
-                    <div key={index} className="space-y-2 p-3 bg-gray-50 rounded-lg border">
-                      <p className="text-sm font-semibold text-gray-800">{question}</p>
-                      <Textarea
-                        placeholder="Respuesta del médico..."
-                        value={doctorResponses[question] || ''}
-                        onChange={(e) => setDoctorResponses({
-                          ...doctorResponses,
-                          [question]: e.target.value
-                        })}
-                        className="min-h-[70px] bg-white"
-                      />
-                    </div>
-                  ))}
+              <ScrollArea className="h-[400px]">
+                <div className="space-y-3 pr-2">
+                  {/* Mostrar todas las preguntas: completadas y pendientes */}
+                  {allQuestions.map((question, index) => {
+                    const isCompleted = completedFields.has(question)
+                    const isPending = complianceData.questionsForDoctor?.includes(question) || false
+                    const isExpanded = expandedField === question
+                    const hasAnswer = doctorResponses[question]?.trim()
+                    
+                    // Si no está ni completada ni pendiente, skip
+                    if (!isCompleted && !isPending) return null
+                    
+                    return (
+                      <div 
+                        key={`${question}-${index}`} 
+                        className={cn(
+                          "rounded-lg border transition-all",
+                          isCompleted ? "bg-green-50 border-green-200" : "bg-orange-50 border-orange-200"
+                        )}
+                      >
+                        <div 
+                          className="p-3 cursor-pointer"
+                          onClick={() => setExpandedField(isExpanded ? null : question)}
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex items-start gap-2 flex-1">
+                              {isCompleted ? (
+                                <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
+                              ) : (
+                                <AlertCircle className="h-4 w-4 text-orange-600 mt-0.5 flex-shrink-0" />
+                              )}
+                              <p className={cn(
+                                "text-sm font-medium",
+                                isCompleted ? "text-green-800 line-through" : "text-gray-800"
+                              )}>
+                                {question}
+                              </p>
+                            </div>
+                            <button className="ml-2">
+                              {isExpanded ? (
+                                <ChevronUp className="h-4 w-4 text-gray-500" />
+                              ) : (
+                                <ChevronDown className="h-4 w-4 text-gray-500" />
+                              )}
+                            </button>
+                          </div>
+                          {hasAnswer && !isExpanded && (
+                            <p className="text-xs text-gray-600 mt-1 ml-6 truncate">
+                              {doctorResponses[question]}
+                            </p>
+                          )}
+                        </div>
+                        
+                        {isExpanded && (
+                          <div className="px-3 pb-3">
+                            <Textarea
+                              placeholder="Escriba la respuesta del médico..."
+                              value={doctorResponses[question] || ''}
+                              onChange={(e) => setDoctorResponses({
+                                ...doctorResponses,
+                                [question]: e.target.value
+                              })}
+                              className="min-h-[80px] bg-white mt-2"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
                 </div>
               </ScrollArea>
               
               <Button
                 onClick={handleRevalidate}
-                disabled={validating}
-                className="w-full bg-primary-400 hover:bg-primary-500 text-white"
+                disabled={validating || Object.keys(doctorResponses).filter(k => doctorResponses[k]?.trim()).length === 0}
+                className="w-full bg-primary-400 hover:bg-primary-500 text-white disabled:opacity-50"
                 size="lg"
               >
                 {validating ? (
@@ -357,6 +496,12 @@ export default function ComplianceAssistant({
                   </>
                 )}
               </Button>
+              
+              {Object.keys(doctorResponses).filter(k => doctorResponses[k]?.trim()).length === 0 && (
+                <p className="text-xs text-gray-500 text-center">
+                  Responda al menos una pregunta para revalidar
+                </p>
+              )}
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center text-center py-12 px-4">

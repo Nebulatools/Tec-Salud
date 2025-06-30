@@ -88,23 +88,21 @@ export default function LoginForm() {
 
         console.log("Usuario creado:", authData.user.id)
 
-        // 2. Actualizar perfil existente (el trigger ya lo creó)
+        // 2. Asegurar que el perfil del doctor existe
         try {
           // Esperamos un poco para que el trigger termine
-          await new Promise(resolve => setTimeout(resolve, 500))
+          await new Promise(resolve => setTimeout(resolve, 1000))
           
-          const { error: updateError } = await supabase
+          // Primero verificar si el doctor existe
+          const { data: existingDoctor, error: checkError } = await supabase
             .from("doctors")
-            .update({
-              first_name: firstName,
-              last_name: lastName,
-              specialty: specialty,
-            })
+            .select("id")
             .eq("user_id", authData.user.id)
+            .maybeSingle()
 
-          if (updateError) {
-            console.error("Error actualizando perfil:", updateError)
-            // Si hay error actualizando, intentar crear uno nuevo
+          if (!existingDoctor) {
+            // Si no existe el doctor, crearlo
+            console.log("Doctor no encontrado, creando nuevo perfil...")
             const { error: insertError } = await supabase.from("doctors").insert({
               user_id: authData.user.id,
               first_name: firstName,
@@ -113,10 +111,28 @@ export default function LoginForm() {
               specialty: specialty,
             })
             
-            if (insertError && !insertError.message.includes('duplicate key')) {
-              setError("Hubo un problema al completar el registro. Por favor intenta nuevamente.")
-              setLoading(false)
-              return
+            if (insertError) {
+              console.error("Error creando perfil:", insertError)
+              if (!insertError.message.includes('duplicate key')) {
+                setError("Hubo un problema al completar el registro. Por favor intenta nuevamente.")
+                setLoading(false)
+                return
+              }
+            }
+          } else {
+            // Si existe, actualizarlo
+            console.log("Doctor encontrado, actualizando perfil...")
+            const { error: updateError } = await supabase
+              .from("doctors")
+              .update({
+                first_name: firstName,
+                last_name: lastName,
+                specialty: specialty,
+              })
+              .eq("user_id", authData.user.id)
+
+            if (updateError) {
+              console.error("Error actualizando perfil:", updateError)
             }
           }
 

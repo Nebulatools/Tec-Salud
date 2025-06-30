@@ -141,7 +141,7 @@ ${originalTranscript}
         patient_id: patientId,
         doctor_id: consultationData?.doctorId || null,
         appointment_id: appointmentId,
-        report_type: 'Consulta Médica',
+        report_type: 'FINAL',
         title: `Consulta - ${patientName} - ${new Date().toLocaleDateString('es-MX')}`,
         content: fullReportContent, // YA INCLUYE LAS SUGERENCIAS
         original_transcript: consultationData?.recordingData?.processedTranscript || consultationData?.transcript || 'Sin transcript disponible',

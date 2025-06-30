@@ -6,16 +6,20 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 const COMPLIANCE_PROMPT = `ROL Y MISIÓN
 Eres un Asistente de Documentación Médica especializado en Cumplimiento Normativo. Tu misión es tomar la transcripción de una consulta médica y transformarla en un reporte profesional que cumpla rigurosamente con los estándares de documentación requeridos. Eres un experto en estructurar información clínica y en identificar lagunas de información de acuerdo a un marco regulatorio estricto.
 
+IMPORTANTE: CONTEXTO Y CONSISTENCIA
+- Debes ser CONSISTENTE en tu evaluación. Si la transcripción ya incluye respuestas a preguntas previamente identificadas, debes reconocerlas y NO volver a pedirlas.
+- Si encuentras información adicional proporcionada por el médico (marcada como "INFORMACIÓN ADICIONAL PROPORCIONADA POR EL MÉDICO"), debes incorporarla al reporte y actualizar tu evaluación.
+- El número de campos faltantes debe DISMINUIR o mantenerse igual, NUNCA aumentar cuando se proporciona información adicional.
+
 CONTEXTO REGULATORIO Y FUENTE DE VERDAD
-Tu única y exclusiva fuente de verdad para el contenido y la estructura del reporte médico es la siguiente lista de requerimientos obligatorios, extraída del Apéndice A ("Documentation Contents of the Medical Record"). No debes asumir, inferir o añadir ninguna sección o campo que no esté explícitamente en esta lista.
+Tu única y exclusiva fuente de verdad para el contenido y la estructura del reporte médico es la siguiente lista de requerimientos obligatorios, extraída del Apéndice A ("Documentation Contents of the Medical Record"). Solo solicita campos que sean relevantes y aplicables al tipo de consulta.
 
 LISTA DE CAMPOS OBLIGATORIOS DEL REPORTE MÉDICO:
 
-  * Información de Identificación: Nombre del paciente, Dirección en admisión, Número de identificación (Medicare, Medi-Cal, Hospital, etc.), Edad, Sexo, Estado Civil, Estatus Legal, Nombre de soltera de la madre, Lugar de nacimiento, Autorización legal para admisión (si aplica), Grado escolar (si aplica), Preferencia religiosa, Fecha y hora de admisión/llegada, Fecha y hora de alta/salida, Nombre/dirección/teléfono de responsable, Nombre del médico tratante, Idioma principal.
-  * Información Clínica Principal: Impresión diagnóstica inicial, Diagnóstico final/de alta, Registro de alergias, Directivas anticipadas (si aplica), Historial Médico (inmunización, pruebas, nutrición, psiquiátrico, quirúrgico, médico pasado, social, familiar, neonatal), Examen Físico, Reportes de consultas, Órdenes (medicamentos, tratamientos, recetas, dieta, etc.), Notas de progreso (con diagnóstico actual), Notas de enfermería, Hoja de signos vitales.
-  * Resultados y Procedimientos: Resultados de laboratorio, Resultados de Rayos X, Formularios de consentimiento, Registro de Emergencias, Lista de problemas, Registro de anestesia, Reporte de operaciones/procedimientos, Reporte de patología, Instrucciones pre/postoperatorias.
-  * Registros Específicos (si aplica): Registro de parto, Terapia física/ocupacional/respiratoria, Plan de Educación, Fotografías del paciente, Instrucciones de alta, Resumen de alta.
-  * Comunicaciones: Copias de cartas a pacientes, Encuentros telefónicos documentados.
+  * Información de Identificación: Nombre del paciente, Edad, Sexo, Fecha y hora de consulta, Nombre del médico tratante.
+  * Información Clínica Principal: Motivo de consulta, Historia de la enfermedad actual, Antecedentes médicos relevantes, Registro de alergias, Medicamentos actuales, Examen Físico, Diagnóstico/Impresión diagnóstica, Plan de tratamiento, Indicaciones para el paciente.
+  * Resultados y Procedimientos (solo si aplican): Resultados de laboratorio, Resultados de estudios, Interconsultas solicitadas.
+  * Seguimiento: Próxima cita o instrucciones de seguimiento.
 
 METODOLOGÍA: PROCESO OBLIGATORIO DE DOS PASOS
 Debes procesar el input del usuario siguiendo rigurosamente estas dos fases en orden.
@@ -59,14 +63,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { transcript } = await request.json();
+    const { transcript, additionalInfo } = await request.json();
     console.log('Received transcript length:', transcript?.length || 0);
+    console.log('Additional info provided:', additionalInfo?.length || 0);
 
     if (!transcript) {
       return NextResponse.json(
         { error: 'Transcript is required' },
         { status: 400 }
       );
+    }
+
+    // Si hay información adicional, agrégala a la transcripción
+    let fullTranscript = transcript;
+    if (additionalInfo && additionalInfo.length > 0) {
+      fullTranscript += "\n\n=== INFORMACIÓN ADICIONAL PROPORCIONADA POR EL MÉDICO ===\n";
+      additionalInfo.forEach((info: { question: string, answer: string }) => {
+        fullTranscript += `\nPregunta: ${info.question}\nRespuesta: ${info.answer}\n`;
+      });
     }
 
     console.log('Initializing Gemini model...');
@@ -82,7 +96,7 @@ export async function POST(request: NextRequest) {
     });
 
     console.log('Calling Gemini API...');
-    const result = await model.generateContent(COMPLIANCE_PROMPT + "\n\nTRANSCRIPCIÓN:\n" + transcript);
+    const result = await model.generateContent(COMPLIANCE_PROMPT + "\n\nTRANSCRIPCIÓN:\n" + fullTranscript);
     
     console.log('Getting response...');
     const response = await result.response;
