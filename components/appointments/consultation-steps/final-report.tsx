@@ -137,6 +137,7 @@ ${originalTranscript}
         console.log('NO SUGGESTIONS TO ADD!')
       }
 
+      const isCompliant = !!consultationData?.reportData?.isCompliant
       const reportToSave = {
         patient_id: patientId,
         doctor_id: consultationData?.doctorId || null,
@@ -146,7 +147,7 @@ ${originalTranscript}
         content: fullReportContent, // YA INCLUYE LAS SUGERENCIAS
         original_transcript: consultationData?.recordingData?.processedTranscript || consultationData?.transcript || 'Sin transcript disponible',
         ai_suggestions: suggestions || [], // GUARDAR LAS SUGERENCIAS COMO ARRAY
-        compliance_status: consultationData?.reportData?.isCompliant || false
+        compliance_status: isCompliant ? 'compliant' : 'non-compliant'
       }
 
       if (process.env.NODE_ENV === 'development') {

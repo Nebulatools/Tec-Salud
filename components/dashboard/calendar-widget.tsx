@@ -63,9 +63,13 @@ export default function CalendarWidget() {
         .order("appointment_date", { ascending: true })
 
       if (data) {
-        const formattedAppointments = data.map((apt) => ({
-          ...apt,
-          patient: apt.patients,
+        const formattedAppointments: Appointment[] = data.map((apt: any) => ({
+          id: apt.id,
+          appointment_date: apt.appointment_date,
+          start_time: apt.start_time,
+          end_time: apt.end_time,
+          status: apt.status,
+          patient: Array.isArray(apt.patients) ? apt.patients[0] : apt.patients,
         }))
         setAppointments(formattedAppointments)
       }

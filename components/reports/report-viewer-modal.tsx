@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -14,8 +14,9 @@ interface MedicalReport {
   content: string
   original_transcript?: string
   ai_suggestions?: string[]
-  compliance_status: boolean
+  compliance_status: string | boolean
   created_at: string
+  appointment_id?: string | null
   doctor: {
     first_name: string
     last_name: string
@@ -35,10 +36,36 @@ export default function ReportViewerModal({
 }: ReportViewerModalProps) {
   if (!report) return null
 
+  const [extraction, setExtraction] = useState<any | null>(null)
+  const [loadingExtraction, setLoadingExtraction] = useState(false)
+
+  useEffect(() => {
+    const loadExtraction = async () => {
+      try {
+        setLoadingExtraction(true)
+        setExtraction(null)
+        const appointmentId = (report as any)?.appointment_id
+        if (!appointmentId) return
+        const res = await fetch(`/api/clinical-extractions?appointment_id=${appointmentId}&limit=1`)
+        if (!res.ok) return
+        const data = await res.json()
+        if (Array.isArray(data) && data.length > 0) {
+          setExtraction(data[0])
+        }
+      } catch (e) {
+        // Silent fail; keep UI non-intrusive
+      } finally {
+        setLoadingExtraction(false)
+      }
+    }
+
+    if (isOpen && report) {
+      loadExtraction()
+    }
+  }, [isOpen, report])
+
   const handleDownload = () => {
-    // Acceder a las sugerencias usando la misma lógica
-    const suggestions = (report.ai_suggestions as any)?.consultationData?.reportData?.suggestions || report.ai_suggestions;
-    const validSuggestions = Array.isArray(suggestions) ? suggestions : [];
+    const validSuggestions = Array.isArray(report.ai_suggestions) ? report.ai_suggestions : [];
     
     const content = `
 ${report.title}
@@ -100,7 +127,7 @@ ${report.original_transcript}
                   <Badge variant="outline" className="text-xs">
                     {report.report_type}
                   </Badge>
-                  {report.compliance_status && (
+                  {String(report.compliance_status || '').includes('compliant') && (
                     <Badge variant="default" className="text-xs bg-green-600 hover:bg-green-700 flex items-center gap-1">
                       <CheckCircle className="h-3 w-3" />
                       ✓ Cumple Normativa
@@ -164,26 +191,57 @@ ${report.original_transcript}
               </div>
             </div>
 
+            {extraction && (
+              <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Resumen estructurado (MVP)</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="text-gray-500 dark:text-gray-400">Paciente</p>
+                    <p className="text-gray-900 dark:text-white">
+                      {(extraction.patient_snapshot?.name as string) || '—'}
+                      <span className="text-gray-400 dark:text-gray-500">{extraction.patient_snapshot?.id ? ` (${extraction.patient_snapshot.id})` : ''}</span>
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500 dark:text-gray-400">Síntomas/Signos</p>
+                    <p className="text-gray-900 dark:text-white">{Array.isArray(extraction.symptoms) && extraction.symptoms.length ? extraction.symptoms.join(', ') : '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500 dark:text-gray-400">Diagnósticos</p>
+                    <p className="text-gray-900 dark:text-white">{Array.isArray(extraction.diagnoses) && extraction.diagnoses.length ? extraction.diagnoses.join(', ') : '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500 dark:text-gray-400">Tratamiento/Medicación</p>
+                    {Array.isArray(extraction.medications) && extraction.medications.length ? (
+                      <ul className="list-disc pl-5 text-gray-900 dark:text-white space-y-1">
+                        {extraction.medications.map((m: any, idx: number) => (
+                          <li key={idx}>
+                            {m?.name || ''}
+                            {m?.dose ? ` • ${m.dose}` : ''}
+                            {m?.route ? ` • ${m.route}` : ''}
+                            {m?.frequency ? ` • ${m.frequency}` : ''}
+                            {m?.duration ? ` • ${m.duration}` : ''}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-gray-900 dark:text-white">—</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {(() => {
-              // Acceder a las sugerencias en la ruta correcta - igual que en medical-reports.tsx
-              const suggestions = (report.ai_suggestions as any)?.consultationData?.reportData?.suggestions || report.ai_suggestions;
-              const isValidArray = Array.isArray(suggestions) && suggestions.length > 0;
-              
-              console.log('🔍 MODAL - Procesando sugerencias:', {
-                reportId: report.id,
-                rawAiSuggestions: report.ai_suggestions,
-                processedSuggestions: suggestions,
-                isValidArray,
-                suggestionsCount: suggestions?.length || 0
-              });
-              
+              const suggestions = Array.isArray(report.ai_suggestions) ? report.ai_suggestions : []
+              const isValidArray = suggestions.length > 0
               return isValidArray ? (
                 <div className="bg-amber-50 dark:bg-amber-900/20 rounded-lg p-6">
                   <h3 className="text-lg font-semibold text-amber-800 dark:text-amber-200 mb-4 flex items-center gap-2">
                     🤖 Sugerencias Clínicas de IA ({suggestions.length})
                   </h3>
                   <div className="space-y-3">
-                    {suggestions.map((suggestion: string, index: number) => (
+                    {suggestions.map((suggestion, index) => (
                       <div
                         key={index}
                         className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-amber-200 dark:border-amber-800"

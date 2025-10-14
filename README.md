@@ -74,7 +74,7 @@
 ### Requisitos Previos
 
 - Node.js 18+ 
-- pnpm (recomendado) o npm
+- pnpm
 - Cuenta en [Supabase](https://supabase.com)
 - API Key de [Google AI Studio](https://makersuite.google.com/app/apikey)
 
@@ -88,11 +88,8 @@ cd tec-salud-v0
 ### 2. Instalar Dependencias
 
 ```bash
-# Con pnpm (recomendado)
+# Instalar dependencias
 pnpm install
-
-# O con npm
-npm install
 ```
 
 ### 3. Configurar Variables de Entorno
@@ -118,11 +115,15 @@ GEMINI_API_KEY=tu_gemini_api_key_aquí
 ### 5. Ejecutar la Aplicación
 
 ```bash
-# Modo desarrollo
+# Comandos
 pnpm dev
-
-# O con npm
-npm run dev
+pnpm build
+pnpm start
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm test:e2e
+pnpm test:all
 ```
 
 La aplicación estará disponible en [http://localhost:3000](http://localhost:3000)

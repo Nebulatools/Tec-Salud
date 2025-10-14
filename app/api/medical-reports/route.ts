@@ -77,12 +77,29 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Asegurarse de que ai_suggestions sea un array válido
+    // Asegurarse de que ai_suggestions sea un array válido de strings
     let aiSuggestions = reportData.ai_suggestions;
-    if (aiSuggestions && !Array.isArray(aiSuggestions)) {
-      console.warn('ai_suggestions is not an array, converting...');
+    if (!Array.isArray(aiSuggestions)) {
       aiSuggestions = [];
+    } else {
+      aiSuggestions = aiSuggestions
+        .map((v: any) => (typeof v === 'string' ? v : ''))
+        .filter((v: string) => !!v);
     }
+
+    // Alinear compliance_status como TEXT coherente
+    let complianceStatus: string | null = null;
+    if (typeof reportData.compliance_status === 'string') {
+      complianceStatus = reportData.compliance_status;
+    } else if (typeof reportData.compliance_status === 'boolean') {
+      complianceStatus = reportData.compliance_status ? 'compliant' : 'non-compliant';
+    } else if (typeof reportData.isCompliant === 'boolean') {
+      complianceStatus = reportData.isCompliant ? 'compliant' : 'non-compliant';
+    }
+
+    const originalTranscript = typeof reportData.original_transcript === 'string'
+      ? reportData.original_transcript
+      : null;
 
     const insertData = {
       patient_id: patientId, // Usar el patientId validado
@@ -91,9 +108,9 @@ export async function POST(request: NextRequest) {
       report_type: reportData.report_type || 'Consulta Médica',
       title: reportData.title || 'Reporte sin título',
       content: reportData.content,
-      original_transcript: reportData.original_transcript,
-      ai_suggestions: aiSuggestions || [],
-      compliance_status: reportData.compliance_status || false,
+      original_transcript: originalTranscript,
+      ai_suggestions: aiSuggestions,
+      compliance_status: complianceStatus,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };

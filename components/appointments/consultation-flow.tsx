@@ -116,7 +116,7 @@ export default function ConsultationFlow({ appointmentId, patientName, patientId
               reportData: {
                 reporte: report.content || '',
                 aiGeneratedReport: report.content || '',
-                complianceData: report.compliance_status ? JSON.parse(report.compliance_status) : null,
+                complianceData: null,
                 suggestions: report.ai_suggestions || [],
                 isCompliant: report.compliance_status?.includes('compliant') || false,
                 fecha: report.report_date || new Date().toISOString().split('T')[0]
@@ -188,12 +188,7 @@ export default function ConsultationFlow({ appointmentId, patientName, patientId
           title: `Consulta - ${patientName} - ${new Date().toLocaleDateString()}`,
           content: consultationData?.reportData?.aiGeneratedReport || 'Consulta en progreso...',
           original_transcript: consultationData?.recordingData?.processedTranscript || consultationData?.transcript || '',
-          ai_suggestions: {
-            consultationData,
-            currentStep,
-            completedSteps,
-            savedAt: new Date().toISOString()
-          },
+          ai_suggestions: consultationData?.reportData?.suggestions || [],
           compliance_status: consultationData?.reportData?.isCompliant ? 'compliant' : 'non-compliant'
         }
 

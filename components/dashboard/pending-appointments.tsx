@@ -17,7 +17,7 @@ interface Appointment {
   end_time: string
   status: string
   patient_id: string
-  patients: {
+  patient: {
     id: string
     first_name: string
     last_name: string
@@ -80,8 +80,13 @@ export default function PendingAppointments() {
       }
 
       if (data) {
-        const formattedAppointments = data.map((apt) => ({
-          ...apt,
+        const formattedAppointments: Appointment[] = (data as any[]).map((apt: any) => ({
+          id: apt.id,
+          appointment_date: apt.appointment_date,
+          start_time: apt.start_time,
+          end_time: apt.end_time,
+          status: apt.status,
+          patient_id: apt.patient_id,
           patient: Array.isArray(apt.patients) ? apt.patients[0] : apt.patients,
         }))
         setAppointments(formattedAppointments)

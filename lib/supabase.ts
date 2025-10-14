@@ -16,9 +16,7 @@ export type Database = {
           first_name: string
           last_name: string
           email: string
-          phone: string | null
           specialty: string
-          license_number: string | null
           created_at: string
           updated_at: string
         }
@@ -28,9 +26,7 @@ export type Database = {
           first_name: string
           last_name: string
           email: string
-          phone?: string | null
           specialty: string
-          license_number?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -40,9 +36,7 @@ export type Database = {
           first_name?: string
           last_name?: string
           email?: string
-          phone?: string | null
           specialty?: string
-          license_number?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -157,8 +151,8 @@ export type Database = {
           title: string
           content: string
           original_transcript: string | null
-          ai_suggestions: any | null
-          compliance_status: boolean | null
+          ai_suggestions: string[] | null
+          compliance_status: string | null
           created_at: string
           updated_at: string
         }
@@ -171,8 +165,8 @@ export type Database = {
           title: string
           content: string
           original_transcript?: string | null
-          ai_suggestions?: any | null
-          compliance_status?: boolean | null
+          ai_suggestions?: string[] | null
+          compliance_status?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -185,10 +179,63 @@ export type Database = {
           title?: string
           content?: string
           original_transcript?: string | null
-          ai_suggestions?: any | null
-          compliance_status?: boolean | null
+          ai_suggestions?: string[] | null
+          compliance_status?: string | null
           created_at?: string
           updated_at?: string
+        }
+      }
+      clinical_extractions: {
+        Row: {
+          id: string
+          appointment_id: string | null
+          patient_id: string | null
+          doctor_id: string | null
+          extracted_at: string
+          patient_snapshot: unknown | null
+          symptoms: string[]
+          diagnoses: string[]
+          medications: {
+            name: string
+            dose?: string | null
+            route?: string | null
+            frequency?: string | null
+            duration?: string | null
+          }[]
+        }
+        Insert: {
+          id?: string
+          appointment_id?: string | null
+          patient_id?: string | null
+          doctor_id?: string | null
+          extracted_at?: string
+          patient_snapshot?: unknown | null
+          symptoms?: string[]
+          diagnoses?: string[]
+          medications?: {
+            name: string
+            dose?: string | null
+            route?: string | null
+            frequency?: string | null
+            duration?: string | null
+          }[]
+        }
+        Update: {
+          id?: string
+          appointment_id?: string | null
+          patient_id?: string | null
+          doctor_id?: string | null
+          extracted_at?: string
+          patient_snapshot?: unknown | null
+          symptoms?: string[]
+          diagnoses?: string[]
+          medications?: {
+            name: string
+            dose?: string | null
+            route?: string | null
+            frequency?: string | null
+            duration?: string | null
+          }[]
         }
       }
     }

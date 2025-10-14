@@ -25,3 +25,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# tests artifacts
+/.vitest/
+/coverage/
+/playwright-report/
+/test-results/
+
+# pnpm store
+.pnpm-store

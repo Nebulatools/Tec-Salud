@@ -11,6 +11,7 @@ interface ConsultationRecordingProps {
   appointmentId: string
   consultationData: any
   onComplete: (data: any) => void
+  onDataUpdate?: (updater: any) => void
   onRecordingStateChange: (isRecording: boolean) => void
   onNavigateToStep: (step: number) => void
 }
@@ -19,6 +20,7 @@ export default function ConsultationRecording({
   appointmentId, 
   consultationData, 
   onComplete, 
+  onDataUpdate,
   onRecordingStateChange,
   onNavigateToStep 
 }: ConsultationRecordingProps) {
@@ -29,6 +31,16 @@ export default function ConsultationRecording({
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [manualTranscriptMode, setManualTranscriptMode] = useState(false)
+  const [isParsing, setIsParsing] = useState(false)
+  const [parseError, setParseError] = useState<string | null>(null)
+  const [extractionPreview, setExtractionPreview] = useState<{
+    patient: { id: string; name: string }
+    symptoms: string[]
+    diagnoses: string[]
+    medications: { name: string; dose?: string; route?: string; frequency?: string; duration?: string }[]
+  } | null>(null)
+
+  const lastParsedRef = useRef<string>("")
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
@@ -88,9 +100,10 @@ export default function ConsultationRecording({
           streamRef.current.getTracks().forEach(track => track.stop())
         }
         
-        // Start transcription
-        await transcribeAudio(audioBlob)
-      }
+      // Start transcription
+      await transcribeAudio(audioBlob)
+      // parse is triggered via effect after transcription completes
+    }
 
       // Start recording
       mediaRecorder.start(1000) // Collect data every second
@@ -109,6 +122,72 @@ export default function ConsultationRecording({
       mediaRecorderRef.current.stop()
       setIsRecording(false)
       onRecordingStateChange(false)
+    }
+  }
+
+  // Helper: trigger parse + persist silently
+  const triggerParseAndPersist = async (text: string) => {
+    try {
+      if (!text?.trim()) return
+      if (lastParsedRef.current === text) return
+      setIsParsing(true)
+      setParseError(null)
+
+      const patientId = consultationData?.patientInfo?.id || ""
+      const payload = { transcript: text, appointmentId, patientId }
+      const res = await fetch('/api/parse-transcript', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+      if (!res.ok) {
+        throw new Error(`Parse error ${res.status}`)
+      }
+      const parsed = await res.json()
+
+      // Basic sanitize
+      const safe = {
+        patient: {
+          id: typeof parsed?.patient?.id === 'string' ? parsed.patient.id : (patientId || ''),
+          name: typeof parsed?.patient?.name === 'string' ? parsed.patient.name : ''
+        },
+        symptoms: Array.isArray(parsed?.symptoms) ? parsed.symptoms.filter((s: any) => typeof s === 'string') : [],
+        diagnoses: Array.isArray(parsed?.diagnoses) ? parsed.diagnoses.filter((s: any) => typeof s === 'string') : [],
+        medications: Array.isArray(parsed?.medications)
+          ? parsed.medications.map((m: any) => ({
+              name: typeof m?.name === 'string' ? m.name : '',
+              dose: typeof m?.dose === 'string' ? m.dose : '',
+              route: typeof m?.route === 'string' ? m.route : '',
+              frequency: typeof m?.frequency === 'string' ? m.frequency : '',
+              duration: typeof m?.duration === 'string' ? m.duration : ''
+            }))
+          : []
+      }
+
+      setExtractionPreview(safe)
+      lastParsedRef.current = text
+
+      // Push into shared state (non-blocking)
+      if (typeof (onDataUpdate as any) === 'function') {
+        try {
+          (onDataUpdate as any)((prev: any) => ({ ...prev, extractionPreview: safe }))
+        } catch {}
+      }
+
+      // Persist silently
+      const saveRes = await fetch('/api/clinical-extractions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ appointmentId, patientId, extraction: safe })
+      })
+      if (!saveRes.ok) {
+        console.warn('Failed to save clinical extraction')
+      }
+    } catch (e: any) {
+      console.error('Auto-parse error:', e)
+      setParseError('No se pudo procesar la transcripción automáticamente.')
+    } finally {
+      setIsParsing(false)
     }
   }
 
@@ -144,6 +223,22 @@ export default function ConsultationRecording({
       setIsTranscribing(false)
     }
   }
+
+  // Auto-parse when transcription finished (audio flow)
+  useEffect(() => {
+    if (!isTranscribing && transcript && !manualTranscriptMode) {
+      const t = setTimeout(() => triggerParseAndPersist(transcript), 150)
+      return () => clearTimeout(t)
+    }
+  }, [isTranscribing, transcript, manualTranscriptMode])
+
+  // Debounced auto-parse for manual transcript
+  useEffect(() => {
+    if (manualTranscriptMode && transcript && transcript.trim().length > 10) {
+      const t = setTimeout(() => triggerParseAndPersist(transcript), 1000)
+      return () => clearTimeout(t)
+    }
+  }, [manualTranscriptMode, transcript])
 
   const handleComplete = () => {
     const recordingData = {
@@ -241,6 +336,43 @@ export default function ConsultationRecording({
                 disabled={isTranscribing}
               />
 
+              {extractionPreview && (
+                <div className="rounded-lg border border-gray-200 p-4 text-left bg-white">
+                  <p className="text-sm font-semibold text-gray-900 mb-2">Extracción clínica (preview)</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <p className="text-gray-500">Paciente</p>
+                      <p className="text-gray-900">{extractionPreview.patient.name || '—'} <span className="text-gray-400">({extractionPreview.patient.id || '—'})</span></p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Síntomas/Signos</p>
+                      <p className="text-gray-900">{extractionPreview.symptoms.length ? extractionPreview.symptoms.join(', ') : '—'}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Diagnósticos</p>
+                      <p className="text-gray-900">{extractionPreview.diagnoses.length ? extractionPreview.diagnoses.join(', ') : '—'}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Tratamiento/Medicación</p>
+                      {extractionPreview.medications.length ? (
+                        <ul className="list-disc pl-5 text-gray-900 space-y-1">
+                          {extractionPreview.medications.map((m, idx) => (
+                            <li key={idx}>{m.name}{m.dose?` • ${m.dose}`:''}{m.route?` • ${m.route}`:''}{m.frequency?` • ${m.frequency}`:''}{m.duration?` • ${m.duration}`:''}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="text-gray-900">—</p>
+                      )}
+                    </div>
+                  </div>
+                  {(isParsing || parseError) && (
+                    <div className="mt-2 text-xs text-gray-500">
+                      {isParsing ? 'Procesando extracción...' : parseError}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {transcript && !isTranscribing && (
                 <Button 
                   onClick={handleComplete}
@@ -323,6 +455,43 @@ export default function ConsultationRecording({
                 placeholder="Escriba aquí la transcripción de la consulta médica..."
                 className="min-h-[200px] text-sm border-gray-300 focus:ring-primary-500 focus:border-primary-500"
               />
+
+              {extractionPreview && (
+                <div className="rounded-lg border border-gray-200 p-4 text-left bg-white">
+                  <p className="text-sm font-semibold text-gray-900 mb-2">Extracción clínica (preview)</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <p className="text-gray-500">Paciente</p>
+                      <p className="text-gray-900">{extractionPreview.patient.name || '—'} <span className="text-gray-400">({extractionPreview.patient.id || '—'})</span></p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Síntomas/Signos</p>
+                      <p className="text-gray-900">{extractionPreview.symptoms.length ? extractionPreview.symptoms.join(', ') : '—'}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Diagnósticos</p>
+                      <p className="text-gray-900">{extractionPreview.diagnoses.length ? extractionPreview.diagnoses.join(', ') : '—'}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Tratamiento/Medicación</p>
+                      {extractionPreview.medications.length ? (
+                        <ul className="list-disc pl-5 text-gray-900 space-y-1">
+                          {extractionPreview.medications.map((m, idx) => (
+                            <li key={idx}>{m.name}{m.dose?` • ${m.dose}`:''}{m.route?` • ${m.route}`:''}{m.frequency?` • ${m.frequency}`:''}{m.duration?` • ${m.duration}`:''}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="text-gray-900">—</p>
+                      )}
+                    </div>
+                  </div>
+                  {(isParsing || parseError) && (
+                    <div className="mt-2 text-xs text-gray-500">
+                      {isParsing ? 'Procesando extracción...' : parseError}
+                    </div>
+                  )}
+                </div>
+              )}
               
               <div className="flex gap-3">
                 <Button 

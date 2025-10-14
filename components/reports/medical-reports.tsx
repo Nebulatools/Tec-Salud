@@ -21,7 +21,7 @@ interface MedicalReport {
   content: string
   original_transcript?: string
   ai_suggestions?: string[]
-  compliance_status?: boolean
+  compliance_status?: string | boolean | null
   created_at: string
   patient: {
     first_name: string
@@ -301,16 +301,15 @@ export default function MedicalReports() {
                           </div>
                           <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{report.title}</p>
                                                       {(() => {
-                              const suggestions = (report.ai_suggestions as any)?.consultationData?.reportData?.suggestions || report.ai_suggestions;
-                              if (!Array.isArray(suggestions) || suggestions.length === 0) return null;
-                              
+                              const suggestions = Array.isArray(report.ai_suggestions) ? report.ai_suggestions : []
+                              if (suggestions.length === 0) return null
                               return (
                                 <div className="mt-2 space-y-1">
                                   <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">
                                     🤖 {suggestions.length} sugerencias de IA:
                                   </p>
                                   <div className="text-xs text-gray-600 dark:text-gray-400 space-y-1">
-                                    {suggestions.slice(0, 2).map((suggestion: string, index: number) => (
+                                    {suggestions.slice(0, 2).map((suggestion, index) => (
                                       <p key={index} className="truncate">
                                         • {suggestion}
                                       </p>
@@ -322,7 +321,7 @@ export default function MedicalReports() {
                                     )}
                                   </div>
                                 </div>
-                              );
+                              )
                             })()}
                         </div>
                         <div className="text-right">
@@ -374,7 +373,7 @@ export default function MedicalReports() {
                 <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
                   <Calendar className="h-4 w-4" />
                   Creado el {formatDate(selectedReport.created_at)}
-                  {selectedReport.compliance_status && (
+                  {String(selectedReport.compliance_status || '').includes('compliant') && (
                     <Badge variant="success" className="ml-2">
                       ✓ Cumple Normativa
                     </Badge>
@@ -412,10 +411,8 @@ export default function MedicalReports() {
 
                 {/* Sugerencias de IA */}
                 {(() => {
-                  // Acceder a las sugerencias en la ruta correcta
-                  const suggestions = (selectedReport.ai_suggestions as any)?.consultationData?.reportData?.suggestions || selectedReport.ai_suggestions;
-                  const isValidArray = Array.isArray(suggestions) && suggestions.length > 0;
-                  
+                  const suggestions = Array.isArray(selectedReport.ai_suggestions) ? selectedReport.ai_suggestions : []
+                  const isValidArray = suggestions.length > 0
                   return isValidArray ? (
                     <div>
                       <h3 className="font-semibold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
@@ -423,7 +420,7 @@ export default function MedicalReports() {
                       </h3>
                       <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
                         <ul className="space-y-2">
-                          {suggestions.map((suggestion: string, index: number) => (
+                          {suggestions.map((suggestion, index) => (
                             <li key={index} className="text-sm text-green-800 dark:text-green-200 flex items-start gap-2">
                               <span className="inline-block w-1.5 h-1.5 bg-green-500 rounded-full mt-2 flex-shrink-0"></span>
                               {suggestion}
