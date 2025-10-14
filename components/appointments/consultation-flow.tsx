@@ -180,11 +180,14 @@ export default function ConsultationFlow({ appointmentId, patientName, patientId
         console.log('Paso actual:', currentStep)
         console.log('¿Tiene reporte IA?:', consultationData?.reportData?.aiGeneratedReport ? 'SÍ' : 'NO')
 
+        const isFinalStep = currentStep >= 5
+        let reportType: 'BORRADOR' | 'FINAL' = isFinalStep ? 'FINAL' : 'BORRADOR'
+
         const dataToSave = {
           appointment_id: appointmentId,
           patient_id: patientId,
           doctor_id: appointment.doctor_id,
-          report_type: 'BORRADOR',
+          report_type: reportType,
           title: `Consulta - ${patientName} - ${new Date().toLocaleDateString()}`,
           content: consultationData?.reportData?.aiGeneratedReport || 'Consulta en progreso...',
           original_transcript: consultationData?.recordingData?.processedTranscript || consultationData?.transcript || '',
@@ -196,6 +199,16 @@ export default function ConsultationFlow({ appointmentId, patientName, patientId
         if (draftId) {
           // Actualizar reporte existente usando el ID guardado
           console.log('Actualizando reporte existente con ID:', draftId)
+          try {
+            const { data: existing } = await supabase
+              .from('medical_reports')
+              .select('report_type')
+              .eq('id', draftId)
+              .single()
+            if (existing?.report_type === 'FINAL') {
+              (dataToSave as any).report_type = 'FINAL'
+            }
+          } catch {}
           result = await supabase
             .from('medical_reports')
             .update(dataToSave)
@@ -204,7 +217,7 @@ export default function ConsultationFlow({ appointmentId, patientName, patientId
           // Verificar si ya existe un reporte para esta cita antes de crear uno nuevo
           const { data: existingReport } = await supabase
             .from('medical_reports')
-            .select('id')
+            .select('id, report_type')
             .eq('appointment_id', appointmentId)
             .maybeSingle()
 
@@ -212,6 +225,9 @@ export default function ConsultationFlow({ appointmentId, patientName, patientId
             // Ya existe, actualizar
             console.log('Reporte encontrado, actualizando:', existingReport.id)
             setDraftId(existingReport.id)
+            if (existingReport.report_type === 'FINAL') {
+              (dataToSave as any).report_type = 'FINAL'
+            }
             result = await supabase
               .from('medical_reports')
               .update(dataToSave)
