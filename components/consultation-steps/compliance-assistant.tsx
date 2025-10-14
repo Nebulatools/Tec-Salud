@@ -9,6 +9,8 @@ import { Badge } from '@/components/ui/badge'
 import { Loader2, CheckCircle2, AlertCircle, Sparkles, Stethoscope, FileText, Bot, Check, X, ChevronDown, ChevronUp } from 'lucide-react'
 import { ConsultationData } from '@/types/consultation'
 import { cn } from '@/lib/utils'
+import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/hooks/use-auth'
 import dynamic from 'next/dynamic'
 
 const MDEditor = dynamic(
@@ -41,6 +43,7 @@ export default function ComplianceAssistant({
   onNext,
   onBack
 }: ComplianceAssistantProps) {
+  const { user } = useAuth()
   const [report, setReport] = useState(consultationData.reportData?.reporte || '')
   const [loading, setLoading] = useState(false)
   const [validating, setValidating] = useState(false)
@@ -53,6 +56,18 @@ export default function ComplianceAssistant({
   const [completedFields, setCompletedFields] = useState<Set<string>>(new Set())
   const [expandedField, setExpandedField] = useState<string | null>(null)
   const [allQuestions, setAllQuestions] = useState<string[]>([]) // Mantener todas las preguntas vistas
+  const [doctorName, setDoctorName] = useState<string>('')
+
+  useEffect(() => {
+    const loadDoctor = async () => {
+      try {
+        if (!user?.id) return
+        const { data } = await supabase.from('doctors').select('first_name, last_name').eq('user_id', user.id).maybeSingle()
+        if (data) setDoctorName(`${data.first_name} ${data.last_name}`.trim())
+      } catch {}
+    }
+    loadDoctor()
+  }, [user?.id])
 
   useEffect(() => {
     // Si ya existe un reporte generado por IA, usar esos datos SIN regenerar
@@ -93,6 +108,22 @@ export default function ComplianceAssistant({
   const performInitialAnalysis = useCallback(async () => {
     setLoading(true)
     try {
+      // Prefill known answers from DB/UI for compliance
+      const answers: { question: string, answer: string }[] = []
+      const appt = (consultationData as any)?.appointmentDetails
+      if (appt?.appointment_date && appt?.start_time) {
+        answers.push({
+          question: '¿Cuál fue la fecha y hora exacta de esta consulta?',
+          answer: `${appt.appointment_date} ${appt.start_time}`
+        })
+      }
+      if (doctorName) {
+        answers.push({
+          question: '¿Cuál es el nombre completo del médico tratante?',
+          answer: doctorName
+        })
+      }
+
       // Call compliance API
       const transcript = consultationData.transcript || consultationData.recordingData?.processedTranscript
       const complianceResponse = await fetch('/api/enrich-report', {
@@ -101,7 +132,8 @@ export default function ComplianceAssistant({
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          transcript: transcript
+          transcript: transcript,
+          additionalInfo: answers
         }),
       })
 

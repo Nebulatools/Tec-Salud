@@ -17,6 +17,7 @@ interface MedicalReport {
   compliance_status: string | boolean
   created_at: string
   appointment_id?: string | null
+  patient_id?: string | null
   doctor: {
     first_name: string
     last_name: string
@@ -45,13 +46,20 @@ export default function ReportViewerModal({
         setLoadingExtraction(true)
         setExtraction(null)
         const appointmentId = (report as any)?.appointment_id
-        if (!appointmentId) return
-        const res = await fetch(`/api/clinical-extractions?appointment_id=${appointmentId}&limit=1`)
+        const patientId = (report as any)?.patient_id
+        let url = ''
+        if (appointmentId) {
+          url = `/api/clinical-extractions?appointment_id=${appointmentId}&limit=1`
+        } else if (patientId) {
+          url = `/api/clinical-extractions?patient_id=${patientId}&limit=1`
+        } else {
+          return
+        }
+        const res = await fetch(url)
         if (!res.ok) return
         const data = await res.json()
-        if (Array.isArray(data) && data.length > 0) {
-          setExtraction(data[0])
-        }
+        const list = Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : []
+        if (list.length > 0) setExtraction(list[0])
       } catch (e) {
         // Silent fail; keep UI non-intrusive
       } finally {
@@ -193,14 +201,11 @@ ${report.original_transcript}
 
             {extraction && (
               <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Resumen estructurado (MVP)</h3>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Resumen estructurado</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                   <div>
                     <p className="text-gray-500 dark:text-gray-400">Paciente</p>
-                    <p className="text-gray-900 dark:text-white">
-                      {(extraction.patient_snapshot?.name as string) || '—'}
-                      <span className="text-gray-400 dark:text-gray-500">{extraction.patient_snapshot?.id ? ` (${extraction.patient_snapshot.id})` : ''}</span>
-                    </p>
+                    <p className="text-gray-900 dark:text-white">{(extraction.patient_snapshot?.name as string) || '—'}</p>
                   </div>
                   <div>
                     <p className="text-gray-500 dark:text-gray-400">Síntomas/Signos</p>

@@ -41,6 +41,8 @@ interface MedicalReport {
   report_type: string
   content: string
   created_at: string
+  appointment_id?: string | null
+  patient_id?: string | null
   doctor: {
     first_name: string
     last_name: string
@@ -64,6 +66,7 @@ export default function PatientList() {
   const [loadingReports, setLoadingReports] = useState(false)
   const [selectedReport, setSelectedReport] = useState<any>(null)
   const [isReportModalOpen, setIsReportModalOpen] = useState(false)
+  const [extractionsByReport, setExtractionsByReport] = useState<Record<string, any>>({})
   
   // Estados para los modales elegantes
   const [showDeleteModal, setShowDeleteModal] = useState(false)
@@ -132,6 +135,29 @@ export default function PatientList() {
       const data = await response.json()
       console.log(`Reports found for patient ${patientId}:`, data.length)
       setPatientReports(data || [])
+      // Prefetch clinical extractions for nicer previews
+      try {
+        const entries = await Promise.all(
+          (data || []).map(async (r: any) => {
+            const aId = r.appointment_id
+            const pId = r.patient_id || patientId
+            let url = ''
+            if (aId) url = `/api/clinical-extractions?appointment_id=${aId}&limit=1`
+            else if (pId) url = `/api/clinical-extractions?patient_id=${pId}&limit=1`
+            if (!url) return [r.id, null] as const
+            const res = await fetch(url)
+            if (!res.ok) return [r.id, null] as const
+            const json = await res.json()
+            const list = Array.isArray(json) ? json : Array.isArray(json?.data) ? json.data : []
+            return [r.id, list[0] || null] as const
+          })
+        )
+        const map: Record<string, any> = {}
+        entries.forEach(([id, ex]) => { if (ex) map[id] = ex })
+        setExtractionsByReport(map)
+      } catch (e) {
+        console.log('Prefetch extractions failed', e)
+      }
     } catch (error) {
       // Silenciosamente manejar el error
       console.log("Error fetching reports:", error)
@@ -139,6 +165,43 @@ export default function PatientList() {
     } finally {
       setLoadingReports(false)
     }
+  }
+
+  const cleanMarkdown = (md: string) =>
+    md
+      .replace(/^#+\s/gm, '')
+      .replace(/\*\*(.*?)\*\*/g, '$1')
+      .replace(/\*(.*?)\*/g, '$1')
+      .replace(/`{1,3}[^`]*`{1,3}/g, '')
+      .replace(/\n{2,}/g, ' ')
+      .trim()
+
+  const renderPreview = (report: MedicalReport) => {
+    const ex = extractionsByReport[report.id]
+    if (ex) {
+      const symptoms = Array.isArray(ex.symptoms) ? ex.symptoms.join(', ') : ''
+      const diagnoses = Array.isArray(ex.diagnoses) ? ex.diagnoses.join(', ') : ''
+      const meds = Array.isArray(ex.medications) ? ex.medications.slice(0, 2) : []
+      return (
+        <div className="text-sm text-gray-700 dark:text-gray-300 space-y-1">
+          {symptoms && (
+            <p><span className="text-gray-500">Síntomas:</span> {symptoms}</p>
+          )}
+          {diagnoses && (
+            <p><span className="text-gray-500">Diagnósticos:</span> {diagnoses}</p>
+          )}
+          {meds.length > 0 && (
+            <ul className="list-disc pl-5">
+              {meds.map((m: any, i: number) => (
+                <li key={i}>{m?.name}{m?.dose?` • ${m.dose}`:''}{m?.route?` • ${m.route}`:''}{m?.frequency?` • ${m.frequency}`:''}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )
+    }
+    const text = cleanMarkdown(report.content).slice(0, 240)
+    return <div className="text-sm text-gray-600 dark:text-gray-300 line-clamp-3">{text}…</div>
   }
 
   const calculateAge = (birthDate: string) => {
@@ -532,9 +595,7 @@ export default function PatientList() {
                                       Dr. {report.doctor?.first_name} {report.doctor?.last_name}
                                     </span>
                                 </div>
-                                <div className="text-sm text-gray-600 dark:text-gray-300 line-clamp-3">
-                                  {report.content.slice(0, 200)}...
-                                </div>
+                                {renderPreview(report)}
                               </div>
                               <Button 
                                 variant="outline" 

@@ -23,6 +23,8 @@ interface MedicalReport {
   ai_suggestions?: string[]
   compliance_status?: string | boolean | null
   created_at: string
+  appointment_id?: string | null
+  patient_id?: string | null
   patient: {
     first_name: string
     last_name: string
@@ -38,6 +40,8 @@ export default function MedicalReports() {
   const [selectedReport, setSelectedReport] = useState<MedicalReport | null>(null)
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [extraction, setExtraction] = useState<any | null>(null)
+  const [loadingExtraction, setLoadingExtraction] = useState(false)
   
   // Estados para los modales elegantes
   const [showDeleteModal, setShowDeleteModal] = useState(false)
@@ -139,6 +143,30 @@ export default function MedicalReports() {
       setLoading(false)
     }
   }
+
+  // Load clinical extraction for selected report (inline summary)
+  useEffect(() => {
+    const loadExtraction = async () => {
+      try {
+        setLoadingExtraction(true)
+        setExtraction(null)
+        if (!selectedReport) return
+        const appointmentId = (selectedReport as any)?.appointment_id
+        const patientId = (selectedReport as any)?.patient_id
+        let url = ''
+        if (appointmentId) url = `/api/clinical-extractions?appointment_id=${appointmentId}&limit=1`
+        else if (patientId) url = `/api/clinical-extractions?patient_id=${patientId}&limit=1`
+        else return
+        const res = await fetch(url)
+        if (!res.ok) return
+        const data = await res.json()
+        const list = Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : []
+        if (list.length > 0) setExtraction(list[0])
+      } catch {}
+      finally { setLoadingExtraction(false) }
+    }
+    loadExtraction()
+  }, [selectedReport])
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("es-ES", {
@@ -370,6 +398,39 @@ export default function MedicalReports() {
                 </div>
               </CardHeader>
               <CardContent className="space-y-6">
+                {/* Resumen estructurado (MVP) */}
+                {extraction && (
+                  <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                    <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Resumen estructurado</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <p className="text-gray-500 dark:text-gray-400">Paciente</p>
+                        <p className="text-gray-900 dark:text-white">{extraction.patient_snapshot?.name || '—'}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-500 dark:text-gray-400">Síntomas/Signos</p>
+                        <p className="text-gray-900 dark:text-white">{Array.isArray(extraction.symptoms) && extraction.symptoms.length ? extraction.symptoms.join(', ') : '—'}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-500 dark:text-gray-400">Diagnósticos</p>
+                        <p className="text-gray-900 dark:text-white">{Array.isArray(extraction.diagnoses) && extraction.diagnoses.length ? extraction.diagnoses.join(', ') : '—'}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-500 dark:text-gray-400">Tratamiento/Medicación</p>
+                        {Array.isArray(extraction.medications) && extraction.medications.length ? (
+                          <ul className="list-disc pl-5 text-gray-900 dark:text-white space-y-1">
+                            {extraction.medications.map((m: any, idx: number) => (
+                              <li key={idx}>{m?.name}{m?.dose?` • ${m.dose}`:''}{m?.route?` • ${m.route}`:''}{m?.frequency?` • ${m.frequency}`:''}{m?.duration?` • ${m.duration}`:''}</li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="text-gray-900 dark:text-white">—</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
                   <Calendar className="h-4 w-4" />
                   Creado el {formatDate(selectedReport.created_at)}

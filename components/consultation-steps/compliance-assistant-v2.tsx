@@ -20,6 +20,8 @@ import {
   Plus
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/hooks/use-auth'
 
 interface ComplianceResponse {
   improvedReport: string
@@ -41,6 +43,7 @@ interface ComplianceAssistantProps {
 }
 
 export default function ComplianceAssistantV2({ consultationData, onComplete, onSkip }: ComplianceAssistantProps) {
+  const { user } = useAuth()
   const [report, setReport] = useState('')
   const [missingFields, setMissingFields] = useState<MissingField[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -49,6 +52,18 @@ export default function ComplianceAssistantV2({ consultationData, onComplete, on
   const [compliancePercentage, setCompliancePercentage] = useState(0)
   const [suggestions, setSuggestions] = useState<string[]>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
+  const [doctorName, setDoctorName] = useState('')
+
+  useEffect(() => {
+    const loadDoctor = async () => {
+      try {
+        if (!user?.id) return
+        const { data } = await supabase.from('doctors').select('first_name, last_name').eq('user_id', user.id).maybeSingle()
+        if (data) setDoctorName(`${data.first_name} ${data.last_name}`.trim())
+      } catch {}
+    }
+    loadDoctor()
+  }, [user?.id])
 
   // Analizar compliance inicial
   const analyzeCompliance = useCallback(async () => {
@@ -59,7 +74,15 @@ export default function ComplianceAssistantV2({ consultationData, onComplete, on
       const response = await fetch('/api/enrich-report', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transcript }),
+        body: JSON.stringify({ 
+          transcript,
+          additionalInfo: [
+            ...(consultationData?.appointmentDetails?.appointment_date && consultationData?.appointmentDetails?.start_time
+              ? [{ question: '¿Cuál fue la fecha y hora exacta de esta consulta?', answer: `${consultationData.appointmentDetails.appointment_date} ${consultationData.appointmentDetails.start_time}` }] 
+              : []),
+            ...(doctorName ? [{ question: '¿Cuál es el nombre completo del médico tratante?', answer: doctorName }] : [])
+          ]
+        }),
       })
 
       if (!response.ok) throw new Error('Failed to analyze compliance')

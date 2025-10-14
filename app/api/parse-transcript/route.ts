@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
     }
 
     const model = genAI.getGenerativeModel({
-      model: 'gemini-1.5-pro',
+      model: process.env.GEMINI_MODEL || 'gemini-1.5-pro-002',
       generationConfig: {
         temperature: 0.1,
         topK: 1,
@@ -89,16 +89,42 @@ export async function POST(request: NextRequest) {
     console.log('AI extraction response length:', text?.length || 0);
     console.log('AI extraction preview:', text?.substring(0, 200));
 
-    let raw: any;
-    try {
-      raw = JSON.parse(text || '{}');
-    } catch (parseError) {
-      console.error('Error parsing extraction AI response:', parseError);
-      console.error('Raw extraction AI response:', text);
-      return NextResponse.json(
-        { error: 'Invalid response format from AI', details: text?.substring(0, 500) },
-        { status: 500 }
-      );
+    const trySafeParse = (t: string) => {
+      try {
+        return JSON.parse(t);
+      } catch {}
+      // Heurística: recorta a partir del primer '{' y cierra llaves/corchetes abiertos
+      const start = t.indexOf('{');
+      if (start === -1) return null;
+      let candidate = t.slice(start);
+      // Si hay texto después de la última '}'/']', intenta recortar al último '}'
+      const lastBrace = candidate.lastIndexOf('}');
+      const lastBracket = candidate.lastIndexOf(']');
+      const lastCloser = Math.max(lastBrace, lastBracket);
+      if (lastCloser > 0 && lastCloser < candidate.length - 1) {
+        candidate = candidate.slice(0, lastCloser + 1);
+      }
+      // Balanceo básico de llaves/corchetes (ignora comillas para simplicidad)
+      let openCurly = 0, openSquare = 0;
+      for (const ch of candidate) {
+        if (ch === '{') openCurly++;
+        else if (ch === '}') openCurly = Math.max(0, openCurly - 1);
+        else if (ch === '[') openSquare++;
+        else if (ch === ']') openSquare = Math.max(0, openSquare - 1);
+      }
+      candidate += '}'.repeat(openCurly) + ']'.repeat(openSquare);
+      try {
+        return JSON.parse(candidate);
+      } catch {
+        return null;
+      }
+    };
+
+    let raw: any = trySafeParse(text || '{}');
+    if (!raw) {
+      console.error('Error parsing extraction AI response. Raw text (truncated):', text?.substring(0, 500));
+      // Devolver estructura mínima válida para no romper el flujo
+      raw = { patient: { id: patientId || '', name: patientName || '' }, symptoms: [], diagnoses: [], medications: [] };
     }
 
     // Sanitize output
@@ -137,4 +163,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-

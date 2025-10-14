@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Printer, Download, Save } from "lucide-react"
+import { useRouter } from "next/navigation"
 import SuccessModal from "@/components/ui/success-modal"
 import { supabase } from "@/lib/supabase"
 
@@ -15,6 +16,7 @@ interface FinalReportProps {
 }
 
 export default function FinalReport({ appointmentId, consultationData, onComplete, onBack }: FinalReportProps) {
+  const router = useRouter()
   const [isSaving, setIsSaving] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [hasChanges, setHasChanges] = useState(false)
@@ -192,6 +194,21 @@ ${originalTranscript}
         console.log('Successfully saved report:', savedReport)
       }
       
+      // Marcar la cita como Completada
+      if (appointmentId) {
+        try {
+          const { error: apptError } = await supabase
+            .from('appointments')
+            .update({ status: 'Completada', updated_at: new Date().toISOString() })
+            .eq('id', appointmentId)
+          if (apptError) {
+            console.warn('No se pudo actualizar el estado de la cita:', apptError.message)
+          }
+        } catch (e) {
+          console.warn('Error actualizando estado de cita:', e)
+        }
+      }
+
       setHasChanges(false) // Disable save button after successful save
       
       onComplete({
@@ -402,7 +419,9 @@ ${originalTranscript}
         title="¡Reporte Guardado!"
         message="El reporte médico se ha guardado exitosamente en la base de datos. Ahora puedes encontrarlo en la sección de Expedientes del paciente."
         onConfirm={() => {
-          // Opcional: navegar a expedientes o cerrar consulta
+          const pid = consultationData?.patientInfo?.id
+          const url = pid ? `/expedientes?patient_id=${pid}` : "/expedientes"
+          router.push(url)
         }}
         confirmText="Ver en Expedientes"
       />

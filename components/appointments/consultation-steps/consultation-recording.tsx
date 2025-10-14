@@ -342,7 +342,7 @@ export default function ConsultationRecording({
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                     <div>
                       <p className="text-gray-500">Paciente</p>
-                      <p className="text-gray-900">{extractionPreview.patient.name || '—'} <span className="text-gray-400">({extractionPreview.patient.id || '—'})</span></p>
+                      <p className="text-gray-900">{extractionPreview.patient.name || '—'}</p>
                     </div>
                     <div>
                       <p className="text-gray-500">Síntomas/Signos</p>
