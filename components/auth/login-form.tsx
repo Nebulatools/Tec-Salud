@@ -179,10 +179,10 @@ export default function LoginForm() {
             <Image
               src="/tecsalud.png"
               alt="TecSalud"
-              width={120}
-              height={60}
-              className="object-contain"
-            />
+              width={240}
+              height={100}
+              className="object-contain w-56 sm:w-64 h-auto"
+              />
           </div>
           <CardDescription className="text-gray-600 text-base">
             {isLogin ? "Inicia sesión en tu cuenta médica" : "Crea tu cuenta médica"}

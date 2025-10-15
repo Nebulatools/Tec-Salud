@@ -78,13 +78,13 @@ export default function Sidebar({ onCollapseChange }: { onCollapseChange?: (coll
           {/* Logo and Collapse Button */}
           <div className="flex items-center justify-between p-4">
             {!isCollapsed && (
-              <div className="flex items-center justify-center w-full bg-white rounded-3xl p-3 shadow-lg">
+              <div className="flex items-center justify-center w-full bg-white rounded-3xl p-4 shadow-lg">
                 <Image
                   src="/tecsalud.png"
                   alt="TecSalud"
-                  width={120}
-                  height={60}
-                  className="object-contain"
+                  width={220}
+                  height={90}
+                  className="object-contain w-48 xl:w-56 h-auto"
                 />
               </div>
             )}
@@ -156,13 +156,13 @@ export default function Sidebar({ onCollapseChange }: { onCollapseChange?: (coll
         <div className="flex flex-col h-full">
           {/* Logo */}
           <div className="flex items-center justify-center p-6">
-            <div className="bg-white rounded-3xl p-4 shadow-lg">
+            <div className="bg-white rounded-3xl p-5 shadow-lg w-full flex items-center justify-center">
               <Image
                 src="/tecsalud.png"
                 alt="TecSalud"
-                width={120}
-                height={60}
-                className="object-contain"
+                width={200}
+                height={80}
+                className="object-contain w-44 h-auto"
               />
             </div>
           </div>

@@ -8,9 +8,9 @@ import { ThemeProvider } from "@/components/theme-provider"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "EzyAI - Sistema de Gestión Médica",
+  title: "TecSalud",
   description: "Sistema completo para la gestión de pacientes y consultas médicas",
-    generator: 'v0.dev'
+  generator: 'v0.dev'
 }
 
 export default function RootLayout({
