@@ -156,3 +156,9 @@ Tu respuesta final DEBE ser un único objeto JSON con la siguiente estructura:
   - [ ] El bucle de re-validación funciona: el doctor puede llenar información, hacer clic en "Re-validar", y la UI se actualiza con la nueva respuesta de la API de cumplimiento.
   - [ ] El botón "Continuar a Verificación Final" solo se activa cuando `/api/enrich-report` devuelve `missingInformation` como un array vacío.
   - [ ] Los datos del reporte final, validados y enriquecidos, se pasan correctamente a los pasos finales del flujo de consulta.
+
+---
+
+## Notas de despliegue (PR de confirmación de cancelación)
+
+Este commit prepara un Pull Request desde branch para que el owner pueda hacer "Squash & merge" y así firmar el commit final, habilitando el auto‑deploy en Vercel cuando hay políticas que requieren que el autor sea miembro del proyecto. No modifica la lógica de IA; documenta el cambio de UX de confirmación de cancelación en los formularios de creación/edición.
