@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
@@ -49,6 +49,9 @@ export default function ComplianceAssistant({
   const [validating, setValidating] = useState(false)
   const [complianceData, setComplianceData] = useState<ComplianceResponse | null>(null)
   const [suggestions, setSuggestions] = useState<string[]>([])
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false)
+  const suggestionsFetchingRef = useRef(false)
+  const lastSuggestionsForRef = useRef<string>('')
   const [doctorResponses, setDoctorResponses] = useState<Record<string, string>>({})
   const [isCompliant, setIsCompliant] = useState(false)
   const [lastProcessedTranscript, setLastProcessedTranscript] = useState<string>('')
@@ -118,45 +121,21 @@ export default function ComplianceAssistant({
       const c = consultationData.reportData.complianceData || null
       setComplianceData(c)
       if (c?.questionsForDoctor) setAllQuestions(c.questionsForDoctor)
-      // Sugerencias: si faltan, pedirlas
       const currentSuggestions = consultationData.reportData.suggestions || []
       setSuggestions(currentSuggestions)
       setIsCompliant(consultationData.reportData.isCompliant || false)
       if (!currentSuggestions || currentSuggestions.length === 0) {
-        ;(async () => {
-          try {
-            const resp = await fetch('/api/get-clinical-suggestions', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ reportText: fixed })
-            })
-            if (resp.ok) {
-              const json: SuggestionsResponse = await resp.json()
-              const list = Array.isArray(json?.suggestions) ? json.suggestions.filter(s => typeof s === 'string') : []
-              setSuggestions(list)
-              onDataUpdate({
-                ...consultationData,
-                reportData: {
-                  ...consultationData.reportData,
-                  aiGeneratedReport: fixed,
-                  reporte: fixed,
-                  suggestions: list,
-                }
-              })
-            }
-          } catch {}
-        })()
-      } else {
-        // Asegurar que guardamos el reporte normalizado
-        onDataUpdate({
-          ...consultationData,
-          reportData: {
-            ...consultationData.reportData,
-            aiGeneratedReport: fixed,
-            reporte: fixed,
-          }
-        })
+        ensureSuggestions(fixed)
       }
+      // Asegurar que guardamos el reporte normalizado
+      onDataUpdate({
+        ...consultationData,
+        reportData: {
+          ...consultationData.reportData,
+          aiGeneratedReport: fixed,
+          reporte: fixed,
+        }
+      })
       return
     }
 
@@ -179,11 +158,49 @@ export default function ComplianceAssistant({
     consultationData.recordingData?.processedTranscript, 
     consultationData.reportData?.aiGeneratedReport,
     consultationData.reportData?.complianceData,
-    consultationData.reportData?.suggestions,
     consultationData.reportData?.isCompliant,
     patientProfile?.gender,
     consultationData.patientInfo && (consultationData as any).patientInfo.gender
   ])
+
+  // Single flight suggestions fetcher with de-duplication
+  const ensureSuggestions = useCallback(async (reportText: string) => {
+    try {
+      if (!reportText) return
+      if (suggestionsFetchingRef.current) return
+      // Avoid refetching for the same exact report
+      if (lastSuggestionsForRef.current === reportText && (suggestions?.length ?? 0) > 0) return
+
+      suggestionsFetchingRef.current = true
+      setSuggestionsLoading(true)
+      const resp = await fetch('/api/get-clinical-suggestions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reportText })
+      })
+      if (resp.ok) {
+        const json: SuggestionsResponse = await resp.json()
+        const list = Array.isArray(json?.suggestions) ? json.suggestions.filter(s => typeof s === 'string') : []
+        setSuggestions(list)
+        lastSuggestionsForRef.current = reportText
+        // Persist in consultation data
+        onDataUpdate({
+          ...consultationData,
+          reportData: {
+            ...consultationData.reportData,
+            aiGeneratedReport: reportText,
+            reporte: reportText,
+            suggestions: list,
+          }
+        })
+      }
+    } catch (e) {
+      console.warn('Suggestions fetch failed:', e)
+    } finally {
+      suggestionsFetchingRef.current = false
+      setSuggestionsLoading(false)
+    }
+  }, [consultationData, onDataUpdate, suggestions?.length])
 
   const performInitialAnalysis = useCallback(async () => {
     setLoading(true)
@@ -368,25 +385,8 @@ export default function ComplianceAssistant({
       })
       setAllQuestions(newQuestions)
 
-      // Call suggestions API
-      let suggestionsResult: SuggestionsResponse | null = null
-      const suggestionsResponse = await fetch('/api/get-clinical-suggestions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          reportText: complianceResult.improvedReport
-        }),
-      })
-
-      if (suggestionsResponse.ok) {
-        suggestionsResult = await suggestionsResponse.json()
-        // Ensure suggestions is an array of strings
-        if (suggestionsResult && suggestionsResult.suggestions && Array.isArray(suggestionsResult.suggestions)) {
-          setSuggestions(suggestionsResult.suggestions.filter(s => typeof s === 'string'))
-        }
-      }
+      // Generar sugerencias en un solo lugar y una sola vez por texto
+      await ensureSuggestions(fixedReport)
 
       // Auto-marcar como completado cuando se termine el análisis inicial
       const reportData = {
@@ -394,7 +394,7 @@ export default function ComplianceAssistant({
         reporte: fixedReport,
         aiGeneratedReport: fixedReport,
         complianceData: complianceResult,
-        suggestions: suggestionsResult?.suggestions?.filter(s => typeof s === 'string') || [],
+        suggestions: suggestions || [],
         isCompliant: complianceResult.missingInformation.length === 0,
         fecha: new Date().toISOString().split('T')[0],
         hora: new Date().toLocaleTimeString('es-MX', { 
@@ -543,24 +543,8 @@ export default function ComplianceAssistant({
       setIsCompliant(finalComplianceResultPatched.missingInformation.length === 0)
       setPreviousMissingCount(finalComplianceResultPatched.missingInformation.length)
 
-      // Get new suggestions
-      const suggestionsResponse = await fetch('/api/get-clinical-suggestions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          reportText: finalComplianceResultPatched.improvedReport
-        }),
-      })
-
-      if (suggestionsResponse.ok) {
-        const suggestionsResult: SuggestionsResponse = await suggestionsResponse.json()
-        // Ensure suggestions is an array of strings
-        if (suggestionsResult && suggestionsResult.suggestions && Array.isArray(suggestionsResult.suggestions)) {
-          setSuggestions(suggestionsResult.suggestions.filter(s => typeof s === 'string'))
-        }
-      }
+      // Sugerencias con single-flight
+      await ensureSuggestions(finalComplianceResultPatched.improvedReport)
 
       // NO borrar las respuestas, mantenerlas visibles
       
@@ -828,16 +812,24 @@ export default function ComplianceAssistant({
         </Card>
 
         {/* Sugerencias clínicas de IA */}
-        {suggestions && suggestions.length > 0 && (
+        {(suggestionsLoading || (suggestions && suggestions.length > 0)) && (
           <Card className="p-4 bg-blue-50 border border-blue-200">
             <h4 className="text-sm font-semibold text-blue-700 flex items-center gap-2">
               <Bot className="h-4 w-4" /> Sugerencias clínicas de IA
             </h4>
-            <ul className="mt-2 space-y-1 text-sm text-blue-900">
-              {suggestions.map((s, i) => (
-                <li key={i}>• {s}</li>
-              ))}
-            </ul>
+            {suggestionsLoading ? (
+              <div className="mt-3 space-y-2">
+                <div className="h-3 bg-blue-100 rounded animate-pulse" />
+                <div className="h-3 bg-blue-100 rounded animate-pulse w-11/12" />
+                <div className="h-3 bg-blue-100 rounded animate-pulse w-10/12" />
+              </div>
+            ) : (
+              <ul className="mt-2 space-y-1 text-sm text-blue-900">
+                {suggestions.map((s, i) => (
+                  <li key={i}>• {s}</li>
+                ))}
+              </ul>
+            )}
           </Card>
         )}
 
