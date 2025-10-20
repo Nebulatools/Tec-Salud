@@ -19,6 +19,7 @@ interface PatientInfo {
   first_name: string
   last_name: string
   date_of_birth: string
+  gender?: string
   phone: string
   email: string
   medical_history: string | null
@@ -84,6 +85,7 @@ export default function PatientSummary({ appointmentId, consultationData, onComp
             first_name,
             last_name,
             date_of_birth,
+            gender,
             phone,
             email,
             medical_history,

@@ -96,17 +96,68 @@ export default function ComplianceAssistant({
   useEffect(() => {
     // Si ya existe un reporte generado por IA, usar esos datos SIN regenerar
     if (consultationData.reportData?.aiGeneratedReport) {
-      setReport(consultationData.reportData.aiGeneratedReport)
-      setComplianceData(consultationData.reportData.complianceData || null)
-      setSuggestions(consultationData.reportData.suggestions || [])
-      setIsCompliant(consultationData.reportData.isCompliant || false)
-      
-      // También restaurar las preguntas si existen
-      if (consultationData.reportData.complianceData?.questionsForDoctor) {
-        setAllQuestions(consultationData.reportData.complianceData.questionsForDoctor)
+      const baseReport = consultationData.reportData.aiGeneratedReport
+      const p = (patientProfile || (consultationData as any)?.patientInfo) || {}
+      const safeDoctor = (doctorName || '').trim()
+      let fixed = baseReport
+      if (p?.gender) {
+        fixed = fixed.replace(/\*\s*\*\*Sexo:\*\*\s*\[Faltante\]/i, `*  **Sexo:** ${String(p.gender)}`)
+        if (!/\*\s*\*\*Sexo:\*\*/i.test(fixed) && /\*\s*\*\*Edad:\*\*/i.test(fixed)) {
+          fixed = fixed.replace(/(\*\s*\*\*Edad:\*\*.*\n)/i, `$1*  **Sexo:** ${String(p.gender)}\n`)
+        }
       }
-      
-      return; // Salir temprano para evitar regeneración
+      if (safeDoctor) {
+        if (/\*\s*\*\*Nombre del médico tratante:\*\*/i.test(fixed)) {
+          fixed = fixed.replace(/(\*\s*\*\*Nombre del médico tratante:\*\*\s*).*/i, `$1${safeDoctor}`)
+        } else if (/\*\s*\*\*Fecha y hora de consulta:\*\*/i.test(fixed)) {
+          fixed = fixed.replace(/(\*\s*\*\*Fecha y hora de consulta:\*\*.*\n)/i, `$1*  **Nombre del médico tratante:** ${safeDoctor}\n`)
+        }
+      }
+      setReport(fixed)
+      // complianceData y preguntas previas
+      const c = consultationData.reportData.complianceData || null
+      setComplianceData(c)
+      if (c?.questionsForDoctor) setAllQuestions(c.questionsForDoctor)
+      // Sugerencias: si faltan, pedirlas
+      const currentSuggestions = consultationData.reportData.suggestions || []
+      setSuggestions(currentSuggestions)
+      setIsCompliant(consultationData.reportData.isCompliant || false)
+      if (!currentSuggestions || currentSuggestions.length === 0) {
+        ;(async () => {
+          try {
+            const resp = await fetch('/api/get-clinical-suggestions', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ reportText: fixed })
+            })
+            if (resp.ok) {
+              const json: SuggestionsResponse = await resp.json()
+              const list = Array.isArray(json?.suggestions) ? json.suggestions.filter(s => typeof s === 'string') : []
+              setSuggestions(list)
+              onDataUpdate({
+                ...consultationData,
+                reportData: {
+                  ...consultationData.reportData,
+                  aiGeneratedReport: fixed,
+                  reporte: fixed,
+                  suggestions: list,
+                }
+              })
+            }
+          } catch {}
+        })()
+      } else {
+        // Asegurar que guardamos el reporte normalizado
+        onDataUpdate({
+          ...consultationData,
+          reportData: {
+            ...consultationData.reportData,
+            aiGeneratedReport: fixed,
+            reporte: fixed,
+          }
+        })
+      }
+      return
     }
 
     const transcript = consultationData.transcript || consultationData.recordingData?.processedTranscript
@@ -776,8 +827,22 @@ export default function ComplianceAssistant({
           )}
         </Card>
 
+        {/* Sugerencias clínicas de IA */}
+        {suggestions && suggestions.length > 0 && (
+          <Card className="p-4 bg-blue-50 border border-blue-200">
+            <h4 className="text-sm font-semibold text-blue-700 flex items-center gap-2">
+              <Bot className="h-4 w-4" /> Sugerencias clínicas de IA
+            </h4>
+            <ul className="mt-2 space-y-1 text-sm text-blue-900">
+              {suggestions.map((s, i) => (
+                <li key={i}>• {s}</li>
+              ))}
+            </ul>
+          </Card>
+        )}
+
         {/* Action Buttons */}
-        <div className="space-y-3">
+      <div className="space-y-3">
           <Button
             onClick={handleNext}
             size="lg"

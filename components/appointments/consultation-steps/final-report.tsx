@@ -236,9 +236,22 @@ ${originalTranscript}
     })
   }
 
-  const patientName = (consultationData?.patientInfo?.first_name && consultationData?.patientInfo?.last_name) 
+  // Fallbacks desde el reporte IA por si el patientInfo viene incompleto
+  const aiText: string = consultationData?.reportData?.aiGeneratedReport || ''
+  const pick = (re: RegExp) => {
+    const m = aiText.match(re)
+    return m ? m[1].trim() : ''
+  }
+  const nameFromAI = pick(/\*\*\s*Nombre del paciente:\s*\*\*\s*(.+)/i)
+  const fechaHoraAI = pick(/\*\*\s*Fecha y hora de consulta:\s*\*\*\s*(.+)/i)
+
+  const patientName = (consultationData?.patientInfo?.first_name && consultationData?.patientInfo?.last_name)
     ? `${consultationData.patientInfo.first_name} ${consultationData.patientInfo.last_name}`
-    : consultationData?.patientInfo?.first_name || consultationData?.patientInfo?.last_name || "Paciente"
+    : (consultationData?.patientInfo?.first_name || consultationData?.patientInfo?.last_name || nameFromAI || "Paciente")
+
+  const headerConsultDate = consultationData?.onsetDate
+    ? new Date(consultationData.onsetDate).toLocaleDateString('es-ES')
+    : (fechaHoraAI ? new Date(fechaHoraAI).toLocaleDateString('es-ES') : getCurrentDate())
 
   return (
     <div className="space-y-6">
@@ -300,7 +313,7 @@ ${originalTranscript}
                   <div className="space-y-3">
                     <div>
                       <span className="text-sm font-medium text-gray-600">Fecha de Consulta:</span>
-                      <p className="text-gray-900">{consultationData?.onsetDate ? new Date(consultationData.onsetDate).toLocaleDateString("es-ES") : getCurrentDate()}</p>
+                      <p className="text-gray-900">{headerConsultDate}</p>
                     </div>
                     <div>
                       <span className="text-sm font-medium text-gray-600">Centro Médico:</span>

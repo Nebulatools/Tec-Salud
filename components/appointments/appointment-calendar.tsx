@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import AddAppointmentForm from "./add-appointment-form"
 import ConfirmCancelModal from "@/components/ui/confirm-cancel-modal"
 import ConfirmDeleteModal from "@/components/ui/confirm-delete-modal"
+import { Switch } from "@/components/ui/switch"
 
 interface Appointment {
   id: string
@@ -41,6 +42,21 @@ export default function AppointmentCalendar() {
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [appointmentToDelete, setAppointmentToDelete] = useState<Appointment | null>(null)
+  const [hideCompletedToday, setHideCompletedToday] = useState<boolean>(true)
+
+  // Persist toggle in localStorage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('hideCompletedToday')
+      if (saved !== null) setHideCompletedToday(saved === 'true')
+    } catch {}
+  }, [])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('hideCompletedToday', String(hideCompletedToday))
+    } catch {}
+  }, [hideCompletedToday])
 
   useEffect(() => {
     fetchAppointments()
@@ -190,6 +206,14 @@ export default function AppointmentCalendar() {
   const getAppointmentsForDate = (date: Date) => {
     const dateString = date.toISOString().split("T")[0]
     return appointments.filter((apt) => apt.appointment_date === dateString)
+  }
+
+  const isToday = (dateStr: string) => {
+    try {
+      const d = new Date(dateStr)
+      const now = new Date()
+      return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate()
+    } catch { return false }
   }
 
   const formatTime = (timeString: string) => {
@@ -464,9 +488,13 @@ export default function AppointmentCalendar() {
 
                 {/* Today's appointments */}
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                    Consultas de hoy
-                  </h3>
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Consultas de hoy</h3>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-gray-600">Ocultar completadas de hoy</span>
+                      <Switch checked={hideCompletedToday} onCheckedChange={setHideCompletedToday} />
+                    </div>
+                  </div>
                   
                   {getAppointmentsForDate(new Date()).length === 0 ? (
                     <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-lg">
@@ -480,7 +508,9 @@ export default function AppointmentCalendar() {
                     </div>
                   ) : (
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                      {getAppointmentsForDate(new Date()).map((appointment) => (
+                      {getAppointmentsForDate(new Date())
+                        .filter((apt) => !(hideCompletedToday && apt.status === 'Completada' && isToday(apt.appointment_date)))
+                        .map((appointment) => (
                         <div
                           key={appointment.id}
                           className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:shadow-lg transition-all duration-200 hover:border-teal-300 dark:hover:border-teal-600 cursor-pointer"
@@ -708,11 +738,19 @@ export default function AppointmentCalendar() {
         /* List View */
         <Card>
           <CardHeader>
-            <CardTitle>
-              {selectedFilter === "Hoy" && "Consultas de hoy"}
-              {selectedFilter === "Esta semana" && "Consultas de esta semana"}
-              {selectedFilter === "Este mes" && "Consultas de este mes"}
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle>
+                {selectedFilter === "Hoy" && "Consultas de hoy"}
+                {selectedFilter === "Esta semana" && "Consultas de esta semana"}
+                {selectedFilter === "Este mes" && "Consultas de este mes"}
+              </CardTitle>
+              {selectedFilter === 'Hoy' && (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-600">Ocultar completadas de hoy</span>
+                  <Switch checked={hideCompletedToday} onCheckedChange={setHideCompletedToday} />
+                </div>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             {appointments.length === 0 ? (
@@ -724,7 +762,10 @@ export default function AppointmentCalendar() {
               </div>
             ) : (
               <div className="space-y-4">
-                {appointments.map((appointment) => (
+                {(selectedFilter === 'Hoy'
+                    ? appointments.filter(a => !(hideCompletedToday && a.status === 'Completada' && isToday(a.appointment_date)))
+                    : appointments
+                  ).map((appointment) => (
                   <div
                     key={appointment.id}
                     className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
