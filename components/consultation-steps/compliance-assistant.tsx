@@ -61,6 +61,9 @@ export default function ComplianceAssistant({
   const [allQuestions, setAllQuestions] = useState<string[]>([]) // Mantener todas las preguntas vistas
   const [doctorName, setDoctorName] = useState<string>('')
   const [patientProfile, setPatientProfile] = useState<any | null>(null)
+  // Guards to avoid repeated analysis/suggestions
+  const analysisInFlightRef = useRef(false)
+  const lastAnalyzedForRef = useRef<string>('')
 
   useEffect(() => {
     const loadDoctor = async () => {
@@ -96,72 +99,60 @@ export default function ComplianceAssistant({
     loadPatient()
   }, [consultationData?.patientInfo?.id])
 
+  // Ruta de reutilización del reporte IA: normaliza una sola vez
   useEffect(() => {
-    // Si ya existe un reporte generado por IA, usar esos datos SIN regenerar
-    if (consultationData.reportData?.aiGeneratedReport) {
-      const baseReport = consultationData.reportData.aiGeneratedReport
-      const p = (patientProfile || (consultationData as any)?.patientInfo) || {}
-      const safeDoctor = (doctorName || '').trim()
-      let fixed = baseReport
-      if (p?.gender) {
-        fixed = fixed.replace(/\*\s*\*\*Sexo:\*\*\s*\[Faltante\]/i, `*  **Sexo:** ${String(p.gender)}`)
-        if (!/\*\s*\*\*Sexo:\*\*/i.test(fixed) && /\*\s*\*\*Edad:\*\*/i.test(fixed)) {
-          fixed = fixed.replace(/(\*\s*\*\*Edad:\*\*.*\n)/i, `$1*  **Sexo:** ${String(p.gender)}\n`)
-        }
+    const baseReport = consultationData.reportData?.aiGeneratedReport
+    if (!baseReport) return
+    const p = (patientProfile || (consultationData as any)?.patientInfo) || {}
+    const safeDoctor = (doctorName || '').trim()
+    let fixed = baseReport
+    if (p?.gender) {
+      fixed = fixed.replace(/\*\s*\*\*Sexo:\*\*\s*\[Faltante\]/i, `*  **Sexo:** ${String(p.gender)}`)
+      if (!/\*\s*\*\*Sexo:\*\*/i.test(fixed) && /\*\s*\*\*Edad:\*\*/i.test(fixed)) {
+        fixed = fixed.replace(/(\*\s*\*\*Edad:\*\*.*\n)/i, `$1*  **Sexo:** ${String(p.gender)}\n`)
       }
-      if (safeDoctor) {
-        if (/\*\s*\*\*Nombre del médico tratante:\*\*/i.test(fixed)) {
-          fixed = fixed.replace(/(\*\s*\*\*Nombre del médico tratante:\*\*\s*).*/i, `$1${safeDoctor}`)
-        } else if (/\*\s*\*\*Fecha y hora de consulta:\*\*/i.test(fixed)) {
-          fixed = fixed.replace(/(\*\s*\*\*Fecha y hora de consulta:\*\*.*\n)/i, `$1*  **Nombre del médico tratante:** ${safeDoctor}\n`)
-        }
+    }
+    if (safeDoctor) {
+      if (/\*\s*\*\*Nombre del médico tratante:\*\*/i.test(fixed)) {
+        fixed = fixed.replace(/(\*\s*\*\*Nombre del médico tratante:\*\*\s*).*/i, `$1${safeDoctor}`)
+      } else if (/\*\s*\*\*Fecha y hora de consulta:\*\*/i.test(fixed)) {
+        fixed = fixed.replace(/(\*\s*\*\*Fecha y hora de consulta:\*\*.*\n)/i, `$1*  **Nombre del médico tratante:** ${safeDoctor}\n`)
       }
-      setReport(fixed)
-      // complianceData y preguntas previas
-      const c = consultationData.reportData.complianceData || null
-      setComplianceData(c)
-      if (c?.questionsForDoctor) setAllQuestions(c.questionsForDoctor)
-      const currentSuggestions = consultationData.reportData.suggestions || []
-      setSuggestions(currentSuggestions)
-      setIsCompliant(consultationData.reportData.isCompliant || false)
-      if (!currentSuggestions || currentSuggestions.length === 0) {
-        ensureSuggestions(fixed)
-      }
-      // Asegurar que guardamos el reporte normalizado
+    }
+    setReport(fixed)
+    setComplianceData(consultationData.reportData?.complianceData || null)
+    setAllQuestions(consultationData.reportData?.complianceData?.questionsForDoctor || [])
+    setIsCompliant(consultationData.reportData?.isCompliant || false)
+    const currentSuggestions = consultationData.reportData?.suggestions || []
+    setSuggestions(currentSuggestions)
+    if (!currentSuggestions || currentSuggestions.length === 0) ensureSuggestions(fixed)
+    // Persistir normalización solo si cambió
+    if (fixed !== baseReport) {
       onDataUpdate({
         ...consultationData,
-        reportData: {
-          ...consultationData.reportData,
-          aiGeneratedReport: fixed,
-          reporte: fixed,
-        }
+        reportData: { ...consultationData.reportData, aiGeneratedReport: fixed, reporte: fixed }
       })
-      return
     }
+  }, [consultationData.reportData?.aiGeneratedReport, doctorName, patientProfile])
 
+  // Ruta de análisis inicial con gating estricto
+  useEffect(() => {
     const transcript = consultationData.transcript || consultationData.recordingData?.processedTranscript
     const profile = (patientProfile || (consultationData as any)?.patientInfo) || {}
     const genderKnown = Boolean(profile?.gender)
-    
-    // Detectar si la transcripción ha cambiado desde la última vez que se procesó
-    const transcriptChanged = transcript && transcript !== lastProcessedTranscript
-    
-    // Generar reporte si:
-    // 1. Hay transcript Y (NO hay reporte previo O la transcripción cambió)
-    // 2. Tenemos al menos el género del paciente cargado para no marcarlo como faltante por ausencia de perfil
-    if (transcript && !consultationData.reportData?.aiGeneratedReport && transcriptChanged && genderKnown) {
-      // Silenciosamente regenerar reporte
-      performInitialAnalysis()
-    }
-  }, [
-    consultationData.transcript, 
-    consultationData.recordingData?.processedTranscript, 
-    consultationData.reportData?.aiGeneratedReport,
-    consultationData.reportData?.complianceData,
-    consultationData.reportData?.isCompliant,
-    patientProfile?.gender,
-    consultationData.patientInfo && (consultationData as any).patientInfo.gender
-  ])
+    const doctorKnown = Boolean(doctorName)
+    if (!transcript || !genderKnown || !doctorKnown) return
+    if (consultationData.reportData?.aiGeneratedReport) return
+    if (analysisInFlightRef.current) return
+    if (lastAnalyzedForRef.current === transcript) return
+
+    analysisInFlightRef.current = true
+    performInitialAnalysis()
+      .finally(() => {
+        analysisInFlightRef.current = false
+        lastAnalyzedForRef.current = transcript
+      })
+  }, [consultationData.transcript, consultationData.recordingData?.processedTranscript, patientProfile?.gender, doctorName])
 
   // Single flight suggestions fetcher with de-duplication
   const ensureSuggestions = useCallback(async (reportText: string) => {
@@ -171,13 +162,22 @@ export default function ComplianceAssistant({
       // Avoid refetching for the same exact report
       if (lastSuggestionsForRef.current === reportText && (suggestions?.length ?? 0) > 0) return
 
+      // fetch with timeout to avoid long hangs
+      const fetchWithTimeout = async (input: RequestInfo, init: RequestInit = {}, timeoutMs = 20000) => {
+        const ac = new AbortController()
+        const id = setTimeout(() => ac.abort(), timeoutMs)
+        try {
+          return await fetch(input, { ...init, signal: ac.signal })
+        } finally { clearTimeout(id) }
+      }
+
       suggestionsFetchingRef.current = true
       setSuggestionsLoading(true)
-      const resp = await fetch('/api/get-clinical-suggestions', {
+      const resp = await fetchWithTimeout('/api/get-clinical-suggestions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reportText })
-      })
+      }, 20000)
       if (resp.ok) {
         const json: SuggestionsResponse = await resp.json()
         const list = Array.isArray(json?.suggestions) ? json.suggestions.filter(s => typeof s === 'string') : []
