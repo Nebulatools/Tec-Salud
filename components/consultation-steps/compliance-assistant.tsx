@@ -57,6 +57,7 @@ export default function ComplianceAssistant({
   const [expandedField, setExpandedField] = useState<string | null>(null)
   const [allQuestions, setAllQuestions] = useState<string[]>([]) // Mantener todas las preguntas vistas
   const [doctorName, setDoctorName] = useState<string>('')
+  const [patientProfile, setPatientProfile] = useState<any | null>(null)
 
   useEffect(() => {
     const loadDoctor = async () => {
@@ -69,30 +70,107 @@ export default function ComplianceAssistant({
     loadDoctor()
   }, [user?.id])
 
+  // Cargar el perfil del paciente si no viene completo en consultationData
+  useEffect(() => {
+    const loadPatient = async () => {
+      try {
+        const pid = (consultationData as any)?.patientInfo?.id
+        const p = (consultationData as any)?.patientInfo
+        if (!pid) return
+        // Si faltan campos clave, intentar traerlos de BD
+        if (!p?.first_name || !p?.last_name || !p?.date_of_birth || !p?.gender) {
+          const { data } = await supabase
+            .from('patients')
+            .select('first_name,last_name,date_of_birth,gender,phone,email,address,emergency_contact_name,emergency_contact_phone,medical_history,allergies,current_medications')
+            .eq('id', pid)
+            .maybeSingle()
+          if (data) setPatientProfile(data)
+        } else {
+          setPatientProfile(p)
+        }
+      } catch {}
+    }
+    loadPatient()
+  }, [consultationData?.patientInfo?.id])
+
   useEffect(() => {
     // Si ya existe un reporte generado por IA, usar esos datos SIN regenerar
     if (consultationData.reportData?.aiGeneratedReport) {
-      setReport(consultationData.reportData.aiGeneratedReport)
-      setComplianceData(consultationData.reportData.complianceData || null)
-      setSuggestions(consultationData.reportData.suggestions || [])
-      setIsCompliant(consultationData.reportData.isCompliant || false)
-      
-      // También restaurar las preguntas si existen
-      if (consultationData.reportData.complianceData?.questionsForDoctor) {
-        setAllQuestions(consultationData.reportData.complianceData.questionsForDoctor)
+      const baseReport = consultationData.reportData.aiGeneratedReport
+      const p = (patientProfile || (consultationData as any)?.patientInfo) || {}
+      const safeDoctor = (doctorName || '').trim()
+      let fixed = baseReport
+      if (p?.gender) {
+        fixed = fixed.replace(/\*\s*\*\*Sexo:\*\*\s*\[Faltante\]/i, `*  **Sexo:** ${String(p.gender)}`)
+        if (!/\*\s*\*\*Sexo:\*\*/i.test(fixed) && /\*\s*\*\*Edad:\*\*/i.test(fixed)) {
+          fixed = fixed.replace(/(\*\s*\*\*Edad:\*\*.*\n)/i, `$1*  **Sexo:** ${String(p.gender)}\n`)
+        }
       }
-      
-      return; // Salir temprano para evitar regeneración
+      if (safeDoctor) {
+        if (/\*\s*\*\*Nombre del médico tratante:\*\*/i.test(fixed)) {
+          fixed = fixed.replace(/(\*\s*\*\*Nombre del médico tratante:\*\*\s*).*/i, `$1${safeDoctor}`)
+        } else if (/\*\s*\*\*Fecha y hora de consulta:\*\*/i.test(fixed)) {
+          fixed = fixed.replace(/(\*\s*\*\*Fecha y hora de consulta:\*\*.*\n)/i, `$1*  **Nombre del médico tratante:** ${safeDoctor}\n`)
+        }
+      }
+      setReport(fixed)
+      // complianceData y preguntas previas
+      const c = consultationData.reportData.complianceData || null
+      setComplianceData(c)
+      if (c?.questionsForDoctor) setAllQuestions(c.questionsForDoctor)
+      // Sugerencias: si faltan, pedirlas
+      const currentSuggestions = consultationData.reportData.suggestions || []
+      setSuggestions(currentSuggestions)
+      setIsCompliant(consultationData.reportData.isCompliant || false)
+      if (!currentSuggestions || currentSuggestions.length === 0) {
+        ;(async () => {
+          try {
+            const resp = await fetch('/api/get-clinical-suggestions', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ reportText: fixed })
+            })
+            if (resp.ok) {
+              const json: SuggestionsResponse = await resp.json()
+              const list = Array.isArray(json?.suggestions) ? json.suggestions.filter(s => typeof s === 'string') : []
+              setSuggestions(list)
+              onDataUpdate({
+                ...consultationData,
+                reportData: {
+                  ...consultationData.reportData,
+                  aiGeneratedReport: fixed,
+                  reporte: fixed,
+                  suggestions: list,
+                }
+              })
+            }
+          } catch {}
+        })()
+      } else {
+        // Asegurar que guardamos el reporte normalizado
+        onDataUpdate({
+          ...consultationData,
+          reportData: {
+            ...consultationData.reportData,
+            aiGeneratedReport: fixed,
+            reporte: fixed,
+          }
+        })
+      }
+      return
     }
 
     const transcript = consultationData.transcript || consultationData.recordingData?.processedTranscript
+    const profile = (patientProfile || (consultationData as any)?.patientInfo) || {}
+    const genderKnown = Boolean(profile?.gender)
     
     // Detectar si la transcripción ha cambiado desde la última vez que se procesó
     const transcriptChanged = transcript && transcript !== lastProcessedTranscript
     
     // Generar reporte si:
     // 1. Hay transcript Y (NO hay reporte previo O la transcripción cambió)
-    if (transcript && !consultationData.reportData?.aiGeneratedReport && transcriptChanged) {
+    // 2. Tenemos al menos el género del paciente cargado para no marcarlo como faltante por ausencia de perfil
+    if (transcript && !consultationData.reportData?.aiGeneratedReport && transcriptChanged && genderKnown) {
       // Silenciosamente regenerar reporte
       performInitialAnalysis()
     }
@@ -102,15 +180,86 @@ export default function ComplianceAssistant({
     consultationData.reportData?.aiGeneratedReport,
     consultationData.reportData?.complianceData,
     consultationData.reportData?.suggestions,
-    consultationData.reportData?.isCompliant
+    consultationData.reportData?.isCompliant,
+    patientProfile?.gender,
+    consultationData.patientInfo && (consultationData as any).patientInfo.gender
   ])
 
   const performInitialAnalysis = useCallback(async () => {
     setLoading(true)
     try {
+      const ensureIdentification = (
+        reportMd: string,
+        patient: any,
+        appt?: any,
+        doctorName?: string
+      ): string => {
+        let out = reportMd || ''
+        const name = `${patient?.first_name ?? ''} ${patient?.last_name ?? ''}`.trim()
+        const dob = patient?.date_of_birth
+        const gender = patient?.gender
+        const age = (() => {
+          if (!dob) return ''
+          const d = new Date(dob)
+          if (Number.isNaN(d.getTime())) return ''
+          const today = new Date()
+          let a = today.getFullYear() - d.getFullYear()
+          const m = today.getMonth() - d.getMonth()
+          if (m < 0 || (m === 0 && today.getDate() < d.getDate())) a--
+          return String(a)
+        })()
+
+        // Reemplazos directos de [Faltante]
+        if (gender) {
+          out = out.replace(/\*\s*\*\*Sexo:\*\*\s*\[Faltante\]/i, `*  **Sexo:** ${gender}`)
+        }
+        if (name) {
+          out = out.replace(/\*\s*\*\*Nombre del paciente:\*\*\s*\[Faltante\]/i, `*  **Nombre del paciente:** ${name}`)
+        }
+        if (age) {
+          out = out.replace(/\*\s*\*\*Edad:\*\*\s*\[Faltante\]/i, `*  **Edad:** ${age} años`)
+        }
+
+        // Si no existe línea de Sexo, intentar insertarla tras Edad
+        if (gender && !/\*\s*\*\*Sexo:\*\*/i.test(out)) {
+          out = out.replace(/(\*\s*\*\*Edad:\*\*.*\n)/i, `$1*  **Sexo:** ${gender}\n`)
+        }
+
+        // Normalizar nombre del médico tratante forzando el del usuario autenticado
+        if (doctorName && doctorName.trim()) {
+          const safeDoctor = doctorName.trim()
+          if (/\*\s*\*\*Nombre del médico tratante:\*\*/i.test(out)) {
+            // Reemplazar cualquier valor existente por el correcto
+            out = out.replace(/(\*\s*\*\*Nombre del médico tratante:\*\*\s*).*/i, `$1${safeDoctor}`)
+          } else {
+            // Insertar tras la fecha y hora si no existe
+            if (/\*\s*\*\*Fecha y hora de consulta:\*\*/i.test(out)) {
+              out = out.replace(/(\*\s*\*\*Fecha y hora de consulta:\*\*.*\n)/i, `$1*  **Nombre del médico tratante:** ${safeDoctor}\n`)
+            } else {
+              // Insertar al final del bloque de identificación como fallback
+              out += `\n*  **Nombre del médico tratante:** ${safeDoctor}`
+            }
+          }
+        }
+        return out
+      }
+      // Helper to compute age from DOB
+      const ageFromDob = (dob?: string) => {
+        if (!dob) return ''
+        const d = new Date(dob)
+        if (Number.isNaN(d.getTime())) return ''
+        const today = new Date()
+        let age = today.getFullYear() - d.getFullYear()
+        const m = today.getMonth() - d.getMonth()
+        if (m < 0 || (m === 0 && today.getDate() < d.getDate())) age--
+        return String(age)
+      }
+
       // Prefill known answers from DB/UI for compliance
       const answers: { question: string, answer: string }[] = []
       const appt = (consultationData as any)?.appointmentDetails
+      const patient = (patientProfile || (consultationData as any)?.patientInfo) || {}
+
       if (appt?.appointment_date && appt?.start_time) {
         answers.push({
           question: '¿Cuál fue la fecha y hora exacta de esta consulta?',
@@ -122,6 +271,45 @@ export default function ComplianceAssistant({
           question: '¿Cuál es el nombre completo del médico tratante?',
           answer: doctorName
         })
+      }
+      if (patient?.first_name || patient?.last_name) {
+        const fullName = `${patient.first_name ?? ''} ${patient.last_name ?? ''}`.trim()
+        if (fullName) {
+          answers.push({
+            question: '¿Cuál es el nombre completo de la paciente?',
+            answer: fullName
+          })
+        }
+      }
+      if (patient?.date_of_birth) {
+        const age = ageFromDob(patient.date_of_birth)
+        if (age) {
+          answers.push({
+            question: '¿Cuál es la edad de la paciente?',
+            answer: `${age}`
+          })
+        }
+      }
+      if (patient?.gender) {
+        answers.push({
+          question: '¿Cuál es el sexo/ género del paciente?',
+          answer: String(patient.gender)
+        })
+      }
+      if (patient?.phone) {
+        answers.push({ question: '¿Cuál es el teléfono del paciente?', answer: String(patient.phone) })
+      }
+      if (patient?.address) {
+        answers.push({ question: '¿Cuál es la dirección del paciente?', answer: String(patient.address) })
+      }
+      if (patient?.allergies) {
+        answers.push({ question: 'Alergias documentadas del paciente', answer: String(patient.allergies) })
+      }
+      if (patient?.current_medications) {
+        answers.push({ question: 'Medicamentos actuales del paciente', answer: String(patient.current_medications) })
+      }
+      if (patient?.medical_history) {
+        answers.push({ question: 'Antecedentes médicos relevantes del paciente', answer: String(patient.medical_history) })
       }
 
       // Call compliance API
@@ -142,15 +330,38 @@ export default function ComplianceAssistant({
       }
 
       const complianceResult: ComplianceResponse = await complianceResponse.json()
-      setComplianceData(complianceResult)
-      setReport(complianceResult.improvedReport)
-      setIsCompliant(complianceResult.missingInformation?.length === 0)
-      setPreviousMissingCount(complianceResult.missingInformation?.length || 0)
+      const fixedReport = ensureIdentification(
+        complianceResult.improvedReport,
+        patient,
+        appt,
+        doctorName
+      )
+      // Filtrar preguntas/missing que ya conocemos por expediente
+      const p = (patientProfile || (consultationData as any)?.patientInfo) || {}
+      const hasName = Boolean((p.first_name || p.last_name))
+      const hasAge = Boolean(p.date_of_birth)
+      const hasGender = Boolean(p.gender)
+      const filterKnown = (items?: string[]) => {
+        if (!Array.isArray(items)) return []
+        return items.filter((q) => {
+          const s = (q || '').toLowerCase()
+          if (hasName && (s.includes('nombre del paciente') || s.includes('nombre de la paciente'))) return false
+          if (hasAge && s.includes('edad')) return false
+          if (hasGender && (s.includes('sexo') || s.includes('género'))) return false
+          return true
+        })
+      }
+      const cleanedMissing = filterKnown(complianceResult.missingInformation)
+      const cleanedQuestions = filterKnown(complianceResult.questionsForDoctor)
+      setComplianceData({ ...complianceResult, missingInformation: cleanedMissing, questionsForDoctor: cleanedQuestions })
+      setReport(fixedReport)
+      setIsCompliant(cleanedMissing.length === 0)
+      setPreviousMissingCount(cleanedMissing.length || 0)
       
       // Mantener un registro de todas las preguntas vistas
       const existingQuestions = allQuestions.length > 0 ? allQuestions : []
       const newQuestions = [...existingQuestions]
-      complianceResult.questionsForDoctor?.forEach(q => {
+      cleanedQuestions?.forEach(q => {
         if (!newQuestions.includes(q)) {
           newQuestions.push(q)
         }
@@ -180,8 +391,8 @@ export default function ComplianceAssistant({
       // Auto-marcar como completado cuando se termine el análisis inicial
       const reportData = {
         ...consultationData.reportData,
-        reporte: complianceResult.improvedReport,
-        aiGeneratedReport: complianceResult.improvedReport,
+        reporte: fixedReport,
+        aiGeneratedReport: fixedReport,
         complianceData: complianceResult,
         suggestions: suggestionsResult?.suggestions?.filter(s => typeof s === 'string') || [],
         isCompliant: complianceResult.missingInformation.length === 0,
@@ -215,6 +426,34 @@ export default function ComplianceAssistant({
   const handleRevalidate = async () => {
     setValidating(true)
     try {
+      // Baseline known answers (patient, appt, doctor) again so the model no los considere faltantes
+      const baseline: { question: string, answer: string }[] = []
+      const appt = (consultationData as any)?.appointmentDetails
+      const patient = (patientProfile || (consultationData as any)?.patientInfo) || {}
+      const ageFromDob = (dob?: string) => {
+        if (!dob) return ''
+        const d = new Date(dob)
+        if (Number.isNaN(d.getTime())) return ''
+        const today = new Date()
+        let age = today.getFullYear() - d.getFullYear()
+        const m = today.getMonth() - d.getMonth()
+        if (m < 0 || (m === 0 && today.getDate() < d.getDate())) age--
+        return String(age)
+      }
+      if (appt?.appointment_date && appt?.start_time) baseline.push({ question: '¿Cuál fue la fecha y hora exacta de esta consulta?', answer: `${appt.appointment_date} ${appt.start_time}` })
+      if (doctorName) baseline.push({ question: '¿Cuál es el nombre completo del médico tratante?', answer: doctorName })
+      if (patient?.first_name || patient?.last_name) baseline.push({ question: '¿Cuál es el nombre completo de la paciente?', answer: `${patient.first_name ?? ''} ${patient.last_name ?? ''}`.trim() })
+      if (patient?.date_of_birth) {
+        const age = ageFromDob(patient.date_of_birth)
+        if (age) baseline.push({ question: '¿Cuál es la edad de la paciente?', answer: `${age}` })
+      }
+      if (patient?.gender) baseline.push({ question: '¿Cuál es el sexo/ género del paciente?', answer: String(patient.gender) })
+      if (patient?.phone) baseline.push({ question: '¿Cuál es el teléfono del paciente?', answer: String(patient.phone) })
+      if (patient?.address) baseline.push({ question: '¿Cuál es la dirección del paciente?', answer: String(patient.address) })
+      if (patient?.allergies) baseline.push({ question: 'Alergias documentadas del paciente', answer: String(patient.allergies) })
+      if (patient?.current_medications) baseline.push({ question: 'Medicamentos actuales del paciente', answer: String(patient.current_medications) })
+      if (patient?.medical_history) baseline.push({ question: 'Antecedentes médicos relevantes del paciente', answer: String(patient.medical_history) })
+
       // Filtrar solo las respuestas con contenido
       const answeredQuestions = Object.entries(doctorResponses)
         .filter(([_, answer]) => answer?.trim())
@@ -234,7 +473,7 @@ export default function ComplianceAssistant({
         },
         body: JSON.stringify({
           transcript: consultationData.transcript || consultationData.recordingData?.processedTranscript || '',
-          additionalInfo: answeredQuestions
+          additionalInfo: [...baseline, ...answeredQuestions]
         }),
       })
 
@@ -280,10 +519,29 @@ export default function ComplianceAssistant({
       setCompletedFields(newCompletedFields)
       setAllQuestions(newAllQuestions)
       
-      setComplianceData(finalComplianceResult)
-      setReport(finalComplianceResult.improvedReport)
-      setIsCompliant(finalComplianceResult.missingInformation.length === 0)
-      setPreviousMissingCount(finalComplianceResult.missingInformation.length)
+      // Inyectar demográficos si el modelo todavía los marca como [Faltante]
+      let fixedFinalReport = finalComplianceResult.improvedReport
+        .replace(/\*\s*\*\*Sexo:\*\*\s*\[Faltante\]/i, patient?.gender ? `*  **Sexo:** ${String(patient.gender)}` : '*  **Sexo:** [Faltante]')
+        .replace(/\*\s*\*\*Nombre del paciente:\*\*\s*\[Faltante\]/i, (patient?.first_name || patient?.last_name) ? `*  **Nombre del paciente:** ${(patient.first_name ?? '') + ' ' + (patient.last_name ?? '')}`.trim() : '*  **Nombre del paciente:** [Faltante]')
+      // Normalizar médico tratante
+      if (doctorName && doctorName.trim()) {
+        const safeDoctor = doctorName.trim()
+        if (/\*\s*\*\*Nombre del médico tratante:\*\*/i.test(fixedFinalReport)) {
+          fixedFinalReport = fixedFinalReport.replace(/(\*\s*\*\*Nombre del médico tratante:\*\*\s*).*/i, `$1${safeDoctor}`)
+        } else if (/\*\s*\*\*Fecha y hora de consulta:\*\*/i.test(fixedFinalReport)) {
+          fixedFinalReport = fixedFinalReport.replace(/(\*\s*\*\*Fecha y hora de consulta:\*\*.*\n)/i, `$1*  **Nombre del médico tratante:** ${safeDoctor}\n`)
+        } else {
+          fixedFinalReport += `\n*  **Nombre del médico tratante:** ${safeDoctor}`
+        }
+      }
+      const finalComplianceResultPatched = {
+        ...finalComplianceResult,
+        improvedReport: fixedFinalReport
+      }
+      setComplianceData(finalComplianceResultPatched)
+      setReport(fixedFinalReport)
+      setIsCompliant(finalComplianceResultPatched.missingInformation.length === 0)
+      setPreviousMissingCount(finalComplianceResultPatched.missingInformation.length)
 
       // Get new suggestions
       const suggestionsResponse = await fetch('/api/get-clinical-suggestions', {
@@ -292,7 +550,7 @@ export default function ComplianceAssistant({
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          reportText: complianceResult.improvedReport
+          reportText: finalComplianceResultPatched.improvedReport
         }),
       })
 
@@ -309,9 +567,9 @@ export default function ComplianceAssistant({
       // Actualizar los datos guardados con la nueva validación
       const reportData = {
         ...consultationData.reportData,
-        reporte: complianceResult.improvedReport,
-        aiGeneratedReport: complianceResult.improvedReport,
-        complianceData: complianceResult,
+        reporte: finalComplianceResultPatched.improvedReport,
+        aiGeneratedReport: finalComplianceResultPatched.improvedReport,
+        complianceData: finalComplianceResultPatched,
         suggestions: suggestions,
         isCompliant: complianceResult.missingInformation.length === 0,
       }
@@ -569,8 +827,22 @@ export default function ComplianceAssistant({
           )}
         </Card>
 
+        {/* Sugerencias clínicas de IA */}
+        {suggestions && suggestions.length > 0 && (
+          <Card className="p-4 bg-blue-50 border border-blue-200">
+            <h4 className="text-sm font-semibold text-blue-700 flex items-center gap-2">
+              <Bot className="h-4 w-4" /> Sugerencias clínicas de IA
+            </h4>
+            <ul className="mt-2 space-y-1 text-sm text-blue-900">
+              {suggestions.map((s, i) => (
+                <li key={i}>• {s}</li>
+              ))}
+            </ul>
+          </Card>
+        )}
+
         {/* Action Buttons */}
-        <div className="space-y-3">
+      <div className="space-y-3">
           <Button
             onClick={handleNext}
             size="lg"

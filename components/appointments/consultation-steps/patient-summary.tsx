@@ -19,6 +19,7 @@ interface PatientInfo {
   first_name: string
   last_name: string
   date_of_birth: string
+  gender?: string
   phone: string
   email: string
   medical_history: string | null
@@ -38,6 +39,7 @@ export default function PatientSummary({ appointmentId, consultationData, onComp
   const [patientInfo, setPatientInfo] = useState<PatientInfo | null>(null)
   const [appointmentDetails, setAppointmentDetails] = useState<AppointmentDetails | null>(null)
   const [previousNotes, setPreviousNotes] = useState("")
+  const [patientSummary, setPatientSummary] = useState("")
   const [contextFiles, setContextFiles] = useState<File[]>([])
   const [isEditing, setIsEditing] = useState(false)
 
@@ -72,6 +74,8 @@ export default function PatientSummary({ appointmentId, consultationData, onComp
           end_time: appointment.end_time,
           notes: appointment.notes,
         })
+        // Notas Previas deben reflejar las notas de la CITA (no el expediente)
+        setPreviousNotes(appointment.notes || "")
         
         // Now fetch the LATEST patient data directly from patients table
         const { data: patient, error: patientError } = await supabase
@@ -81,6 +85,7 @@ export default function PatientSummary({ appointmentId, consultationData, onComp
             first_name,
             last_name,
             date_of_birth,
+            gender,
             phone,
             email,
             medical_history,
@@ -96,28 +101,14 @@ export default function PatientSummary({ appointmentId, consultationData, onComp
         if (patient) {
           setPatientInfo(patient)
           
-          // Set initial previous notes with fresh data - combine all medical info
-          let medicalHistory = ""
-          
-          if (patient.allergies && patient.allergies.trim()) {
-            medicalHistory += patient.allergies
-          } else {
-            medicalHistory += "Sin alergias conocidas"
-          }
-          
-          medicalHistory += "\n"
-          
-          if (patient.current_medications && patient.current_medications.trim()) {
-            medicalHistory += patient.current_medications
-          } else {
-            medicalHistory += "Sin medicamentos actuales"
-          }
-          
+          // Construir un resumen del expediente (solo lectura) en lugar de pisar las notas de la cita
+          let summaryParts: string[] = []
+          summaryParts.push(`Alergias: ${patient.allergies?.trim() || 'Sin alergias conocidas'}`)
+          summaryParts.push(`Medicamentos actuales: ${patient.current_medications?.trim() || 'Sin medicamentos actuales'}`)
           if (patient.medical_history && patient.medical_history.trim()) {
-            medicalHistory += "\n\n" + patient.medical_history
+            summaryParts.push(`Historial: ${patient.medical_history.trim()}`)
           }
-          
-          setPreviousNotes(medicalHistory)
+          setPatientSummary(summaryParts.join("\n"))
         }
       }
     } catch (error) {
@@ -132,11 +123,24 @@ export default function PatientSummary({ appointmentId, consultationData, onComp
     setContextFiles(prev => [...prev, ...files])
   }
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
+    // Persistir las notas de la cita si cambiaron
+    try {
+      if (appointmentId) {
+        await supabase
+          .from('appointments')
+          .update({ notes: previousNotes })
+          .eq('id', appointmentId)
+      }
+    } catch (e) {
+      console.warn('No se pudo guardar notas de la cita:', e)
+    }
+
     const summaryData = {
       patientInfo,
       appointmentDetails,
       previousNotes,
+      patientSummary,
       contextFiles,
       onsetDate: appointmentDetails?.appointment_date || new Date().toISOString().split("T")[0],
       recordedDate: new Date().toISOString().split("T")[0],
@@ -217,7 +221,17 @@ export default function PatientSummary({ appointmentId, consultationData, onComp
           </div>
         </div>
 
-        {/* Previous Notes */}
+        {/* Resumen del Expediente (solo lectura) */}
+        <div>
+          <h3 className="text-lg font-medium text-gray-900 mb-3">Resumen del Expediente:</h3>
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+            <pre className="text-gray-700 text-sm leading-relaxed whitespace-pre-wrap">
+{patientSummary || '—'}
+            </pre>
+          </div>
+        </div>
+
+        {/* Previous Notes (de la cita) */}
         <div>
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-lg font-medium text-gray-900">Notas Previas:</h3>
