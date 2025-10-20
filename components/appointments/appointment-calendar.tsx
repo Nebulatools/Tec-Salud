@@ -509,7 +509,8 @@ export default function AppointmentCalendar() {
                   ) : (
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                       {getAppointmentsForDate(new Date())
-                        .filter((apt) => !(hideCompletedToday && apt.status === 'Completada' && isToday(apt.appointment_date)))
+                        // Ya estamos en "Hoy", no necesitamos validar fecha; solo ocultar completadas
+                        .filter((apt) => !(hideCompletedToday && apt.status === 'Completada'))
                         .map((appointment) => (
                         <div
                           key={appointment.id}
@@ -763,7 +764,8 @@ export default function AppointmentCalendar() {
             ) : (
               <div className="space-y-4">
                 {(selectedFilter === 'Hoy'
-                    ? appointments.filter(a => !(hideCompletedToday && a.status === 'Completada' && isToday(a.appointment_date)))
+                    // En vista de lista con filtro "Hoy" el backend ya trae solo hoy; ocultar completadas directamente
+                    ? appointments.filter(a => !(hideCompletedToday && a.status === 'Completada'))
                     : appointments
                   ).map((appointment) => (
                   <div
