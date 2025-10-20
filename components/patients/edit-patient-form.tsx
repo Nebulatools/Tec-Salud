@@ -31,9 +31,10 @@ interface Patient {
 interface EditPatientFormProps {
   patient: Patient
   onSuccess: () => void
+  onCancel?: () => void
 }
 
-export default function EditPatientForm({ patient, onSuccess }: EditPatientFormProps) {
+export default function EditPatientForm({ patient, onSuccess, onCancel }: EditPatientFormProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
 
@@ -276,7 +277,14 @@ export default function EditPatientForm({ patient, onSuccess }: EditPatientFormP
       )}
 
       <div className="flex justify-end gap-4">
-        <Button type="button" variant="outline" disabled={loading}>
+        <Button
+          type="button"
+          variant="outline"
+          disabled={loading}
+          onClick={() => {
+            if (typeof onCancel === 'function') onCancel()
+          }}
+        >
           Cancelar
         </Button>
         <Button type="submit" className="bg-orange-500 hover:bg-orange-600 text-white" disabled={loading}>

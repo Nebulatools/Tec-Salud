@@ -23,9 +23,10 @@ interface Patient {
 
 interface AddAppointmentFormProps {
   onSuccess: () => void
+  onCancel?: () => void
 }
 
-export default function AddAppointmentForm({ onSuccess }: AddAppointmentFormProps) {
+export default function AddAppointmentForm({ onSuccess, onCancel }: AddAppointmentFormProps) {
   const { user } = useAuth()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
@@ -217,7 +218,14 @@ export default function AddAppointmentForm({ onSuccess }: AddAppointmentFormProp
       )}
 
       <div className="flex justify-end gap-4">
-        <Button type="button" variant="outline" disabled={loading}>
+        <Button
+          type="button"
+          variant="outline"
+          disabled={loading}
+          onClick={() => {
+            if (typeof onCancel === 'function') onCancel()
+          }}
+        >
           Cancelar
         </Button>
         <Button type="submit" className="bg-orange-500 hover:bg-orange-600 text-white" disabled={loading}>

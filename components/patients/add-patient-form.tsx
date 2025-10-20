@@ -15,9 +15,10 @@ import { Loader2 } from "lucide-react"
 
 interface AddPatientFormProps {
   onSuccess: () => void
+  onCancel?: () => void
 }
 
-export default function AddPatientForm({ onSuccess }: AddPatientFormProps) {
+export default function AddPatientForm({ onSuccess, onCancel }: AddPatientFormProps) {
   const { user } = useAuth()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
@@ -268,7 +269,14 @@ export default function AddPatientForm({ onSuccess }: AddPatientFormProps) {
       )}
 
       <div className="flex justify-end gap-4">
-        <Button type="button" variant="outline" disabled={loading}>
+        <Button
+          type="button"
+          variant="outline"
+          disabled={loading}
+          onClick={() => {
+            if (typeof onCancel === 'function') onCancel()
+          }}
+        >
           Cancelar
         </Button>
         <Button type="submit" className="bg-orange-500 hover:bg-orange-600 text-white" disabled={loading}>

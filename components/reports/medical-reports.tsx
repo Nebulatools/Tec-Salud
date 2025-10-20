@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import AddReportForm from "./add-report-form"
 import ConfirmDeleteModal from "@/components/ui/confirm-delete-modal"
 import NotificationModal from "@/components/ui/notification-modal"
+import ConfirmCancelModal from "@/components/ui/confirm-cancel-modal"
 
 interface MedicalReport {
   id: string
@@ -39,6 +40,7 @@ export default function MedicalReports() {
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedReport, setSelectedReport] = useState<MedicalReport | null>(null)
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
+  const [showCancelConfirmAdd, setShowCancelConfirmAdd] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [extraction, setExtraction] = useState<any | null>(null)
   const [loadingExtraction, setLoadingExtraction] = useState(false)
@@ -266,14 +268,29 @@ export default function MedicalReports() {
             />
           </div>
 
-          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+          <Dialog
+            open={isAddDialogOpen}
+            onOpenChange={(open) => {
+              if (!open) {
+                setShowCancelConfirmAdd(true)
+                return
+              }
+              setIsAddDialogOpen(true)
+            }}
+          >
             <DialogTrigger asChild>
               <Button className="bg-orange-500 hover:bg-orange-600 text-white">
                 <Plus className="mr-2 h-4 w-4" />
                 Nuevo Reporte
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-4xl">
+            <DialogContent
+              className="max-w-4xl"
+              onInteractOutside={(e) => {
+                e.preventDefault()
+                setShowCancelConfirmAdd(true)
+              }}
+            >
               <DialogHeader>
                 <DialogTitle>Crear Nuevo Reporte Médico</DialogTitle>
               </DialogHeader>
@@ -282,9 +299,19 @@ export default function MedicalReports() {
                   setIsAddDialogOpen(false)
                   fetchReports()
                 }}
+                onCancel={() => setShowCancelConfirmAdd(true)}
               />
             </DialogContent>
           </Dialog>
+
+          <ConfirmCancelModal
+            isOpen={showCancelConfirmAdd}
+            onClose={() => setShowCancelConfirmAdd(false)}
+            onConfirm={() => {
+              setShowCancelConfirmAdd(false)
+              setIsAddDialogOpen(false)
+            }}
+          />
         </div>
       </div>
 

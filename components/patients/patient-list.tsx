@@ -18,6 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import ReportViewerModal from "@/components/reports/report-viewer-modal"
 import ConfirmDeleteModal from "@/components/ui/confirm-delete-modal"
 import NotificationModal from "@/components/ui/notification-modal"
+import ConfirmCancelModal from "@/components/ui/confirm-cancel-modal"
 
 interface Patient {
   id: string
@@ -280,6 +281,10 @@ export default function PatientList() {
     setIsReportModalOpen(true)
   }
 
+  // Confirm-cancel handling for Add/Edit patient dialogs
+  const [showCancelConfirmAdd, setShowCancelConfirmAdd] = useState(false)
+  const [showCancelConfirmEdit, setShowCancelConfirmEdit] = useState(false)
+
   if (loading) {
     return (
       <div className="space-y-4">
@@ -311,14 +316,29 @@ export default function PatientList() {
             />
           </div>
 
-          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+          <Dialog
+            open={isAddDialogOpen}
+            onOpenChange={(open) => {
+              if (!open) {
+                setShowCancelConfirmAdd(true)
+                return
+              }
+              setIsAddDialogOpen(true)
+            }}
+          >
             <DialogTrigger asChild>
               <Button className="bg-orange-500 hover:bg-orange-600 text-white">
                 <Plus className="mr-2 h-4 w-4" />
                 Nuevo Paciente
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl">
+            <DialogContent
+              className="max-w-2xl"
+              onInteractOutside={(e) => {
+                e.preventDefault()
+                setShowCancelConfirmAdd(true)
+              }}
+            >
               <DialogHeader>
                 <DialogTitle>Agregar Nuevo Paciente</DialogTitle>
               </DialogHeader>
@@ -328,13 +348,38 @@ export default function PatientList() {
                     setIsAddDialogOpen(false)
                     fetchPatients()
                   }}
+                  onCancel={() => setShowCancelConfirmAdd(true)}
                 />
               </div>
             </DialogContent>
           </Dialog>
 
-          <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-            <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto p-1">
+          <ConfirmCancelModal
+            isOpen={showCancelConfirmAdd}
+            onClose={() => setShowCancelConfirmAdd(false)}
+            onConfirm={() => {
+              setShowCancelConfirmAdd(false)
+              setIsAddDialogOpen(false)
+            }}
+          />
+
+          <Dialog
+            open={isEditDialogOpen}
+            onOpenChange={(open) => {
+              if (!open) {
+                setShowCancelConfirmEdit(true)
+                return
+              }
+              setIsEditDialogOpen(true)
+            }}
+          >
+            <DialogContent
+              className="max-w-2xl max-h-[80vh] overflow-y-auto p-1"
+              onInteractOutside={(e) => {
+                e.preventDefault()
+                setShowCancelConfirmEdit(true)
+              }}
+            >
               <DialogHeader>
                 <DialogTitle>Editar Paciente</DialogTitle>
               </DialogHeader>
@@ -351,11 +396,22 @@ export default function PatientList() {
                         setSelectedPatient(null)
                       }
                     }}
+                    onCancel={() => setShowCancelConfirmEdit(true)}
                   />
                 </div>
               )}
             </DialogContent>
           </Dialog>
+
+          <ConfirmCancelModal
+            isOpen={showCancelConfirmEdit}
+            onClose={() => setShowCancelConfirmEdit(false)}
+            onConfirm={() => {
+              setShowCancelConfirmEdit(false)
+              setIsEditDialogOpen(false)
+              setPatientToEdit(null)
+            }}
+          />
         </div>
       </div>
 

@@ -12,6 +12,7 @@ import { useAuth } from "@/hooks/use-auth"
 import { ChevronLeft, ChevronRight, CalendarIcon, Clock, Plus, List } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import AddAppointmentForm from "./add-appointment-form"
+import ConfirmCancelModal from "@/components/ui/confirm-cancel-modal"
 
 interface Appointment {
   id: string
@@ -36,6 +37,7 @@ export default function AppointmentCalendar() {
   const [viewMode, setViewMode] = useState<"week" | "list">("week")
   const [selectedFilter, setSelectedFilter] = useState("Hoy")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false)
 
   useEffect(() => {
     fetchAppointments()
@@ -336,14 +338,30 @@ export default function AppointmentCalendar() {
           ))}
         </div>
 
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+        <Dialog
+          open={isAddDialogOpen}
+          onOpenChange={(open) => {
+            if (!open) {
+              // Intercept close to confirm
+              setShowCancelConfirm(true)
+              return
+            }
+            setIsAddDialogOpen(true)
+          }}
+        >
           <DialogTrigger asChild>
             <Button className="bg-orange-500 hover:bg-orange-600 text-white">
               <Plus className="mr-2 h-4 w-4" />
               Nueva consulta
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl">
+          <DialogContent
+            className="max-w-2xl"
+            onInteractOutside={(e) => {
+              e.preventDefault()
+              setShowCancelConfirm(true)
+            }}
+          >
             <DialogHeader>
               <DialogTitle>Programar Nueva Consulta</DialogTitle>
             </DialogHeader>
@@ -352,9 +370,19 @@ export default function AppointmentCalendar() {
                 setIsAddDialogOpen(false)
                 fetchAppointments()
               }}
+              onCancel={() => setShowCancelConfirm(true)}
             />
           </DialogContent>
         </Dialog>
+
+        <ConfirmCancelModal
+          isOpen={showCancelConfirm}
+          onClose={() => setShowCancelConfirm(false)}
+          onConfirm={() => {
+            setShowCancelConfirm(false)
+            setIsAddDialogOpen(false)
+          }}
+        />
       </div>
 
       {/* Calendar/List View */}
