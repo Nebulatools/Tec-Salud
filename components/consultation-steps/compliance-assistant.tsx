@@ -135,7 +135,7 @@ export default function ComplianceAssistant({
     }
   }, [consultationData.reportData?.aiGeneratedReport, doctorName, patientProfile])
 
-  // Ruta de análisis inicial con gating estricto
+  // Ruta de análisis inicial con gating estricto.
   useEffect(() => {
     const transcript = consultationData.transcript || consultationData.recordingData?.processedTranscript
     const profile = (patientProfile || (consultationData as any)?.patientInfo) || {}
