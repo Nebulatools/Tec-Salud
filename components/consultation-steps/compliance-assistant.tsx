@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
@@ -49,6 +49,9 @@ export default function ComplianceAssistant({
   const [validating, setValidating] = useState(false)
   const [complianceData, setComplianceData] = useState<ComplianceResponse | null>(null)
   const [suggestions, setSuggestions] = useState<string[]>([])
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false)
+  const suggestionsFetchingRef = useRef(false)
+  const lastSuggestionsForRef = useRef<string>('')
   const [doctorResponses, setDoctorResponses] = useState<Record<string, string>>({})
   const [isCompliant, setIsCompliant] = useState(false)
   const [lastProcessedTranscript, setLastProcessedTranscript] = useState<string>('')
@@ -58,6 +61,9 @@ export default function ComplianceAssistant({
   const [allQuestions, setAllQuestions] = useState<string[]>([]) // Mantener todas las preguntas vistas
   const [doctorName, setDoctorName] = useState<string>('')
   const [patientProfile, setPatientProfile] = useState<any | null>(null)
+  // Guards to avoid repeated analysis/suggestions
+  const analysisInFlightRef = useRef(false)
+  const lastAnalyzedForRef = useRef<string>('')
 
   useEffect(() => {
     const loadDoctor = async () => {
@@ -93,97 +99,108 @@ export default function ComplianceAssistant({
     loadPatient()
   }, [consultationData?.patientInfo?.id])
 
+  // Ruta de reutilización del reporte IA: normaliza una sola vez
   useEffect(() => {
-    // Si ya existe un reporte generado por IA, usar esos datos SIN regenerar
-    if (consultationData.reportData?.aiGeneratedReport) {
-      const baseReport = consultationData.reportData.aiGeneratedReport
-      const p = (patientProfile || (consultationData as any)?.patientInfo) || {}
-      const safeDoctor = (doctorName || '').trim()
-      let fixed = baseReport
-      if (p?.gender) {
-        fixed = fixed.replace(/\*\s*\*\*Sexo:\*\*\s*\[Faltante\]/i, `*  **Sexo:** ${String(p.gender)}`)
-        if (!/\*\s*\*\*Sexo:\*\*/i.test(fixed) && /\*\s*\*\*Edad:\*\*/i.test(fixed)) {
-          fixed = fixed.replace(/(\*\s*\*\*Edad:\*\*.*\n)/i, `$1*  **Sexo:** ${String(p.gender)}\n`)
-        }
+    const baseReport = consultationData.reportData?.aiGeneratedReport
+    if (!baseReport) return
+    const p = (patientProfile || (consultationData as any)?.patientInfo) || {}
+    const safeDoctor = (doctorName || '').trim()
+    let fixed = baseReport
+    if (p?.gender) {
+      fixed = fixed.replace(/\*\s*\*\*Sexo:\*\*\s*\[Faltante\]/i, `*  **Sexo:** ${String(p.gender)}`)
+      if (!/\*\s*\*\*Sexo:\*\*/i.test(fixed) && /\*\s*\*\*Edad:\*\*/i.test(fixed)) {
+        fixed = fixed.replace(/(\*\s*\*\*Edad:\*\*.*\n)/i, `$1*  **Sexo:** ${String(p.gender)}\n`)
       }
-      if (safeDoctor) {
-        if (/\*\s*\*\*Nombre del médico tratante:\*\*/i.test(fixed)) {
-          fixed = fixed.replace(/(\*\s*\*\*Nombre del médico tratante:\*\*\s*).*/i, `$1${safeDoctor}`)
-        } else if (/\*\s*\*\*Fecha y hora de consulta:\*\*/i.test(fixed)) {
-          fixed = fixed.replace(/(\*\s*\*\*Fecha y hora de consulta:\*\*.*\n)/i, `$1*  **Nombre del médico tratante:** ${safeDoctor}\n`)
-        }
+    }
+    if (safeDoctor) {
+      if (/\*\s*\*\*Nombre del médico tratante:\*\*/i.test(fixed)) {
+        fixed = fixed.replace(/(\*\s*\*\*Nombre del médico tratante:\*\*\s*).*/i, `$1${safeDoctor}`)
+      } else if (/\*\s*\*\*Fecha y hora de consulta:\*\*/i.test(fixed)) {
+        fixed = fixed.replace(/(\*\s*\*\*Fecha y hora de consulta:\*\*.*\n)/i, `$1*  **Nombre del médico tratante:** ${safeDoctor}\n`)
       }
-      setReport(fixed)
-      // complianceData y preguntas previas
-      const c = consultationData.reportData.complianceData || null
-      setComplianceData(c)
-      if (c?.questionsForDoctor) setAllQuestions(c.questionsForDoctor)
-      // Sugerencias: si faltan, pedirlas
-      const currentSuggestions = consultationData.reportData.suggestions || []
-      setSuggestions(currentSuggestions)
-      setIsCompliant(consultationData.reportData.isCompliant || false)
-      if (!currentSuggestions || currentSuggestions.length === 0) {
-        ;(async () => {
-          try {
-            const resp = await fetch('/api/get-clinical-suggestions', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ reportText: fixed })
-            })
-            if (resp.ok) {
-              const json: SuggestionsResponse = await resp.json()
-              const list = Array.isArray(json?.suggestions) ? json.suggestions.filter(s => typeof s === 'string') : []
-              setSuggestions(list)
-              onDataUpdate({
-                ...consultationData,
-                reportData: {
-                  ...consultationData.reportData,
-                  aiGeneratedReport: fixed,
-                  reporte: fixed,
-                  suggestions: list,
-                }
-              })
-            }
-          } catch {}
-        })()
-      } else {
-        // Asegurar que guardamos el reporte normalizado
+    }
+    setReport(fixed)
+    setComplianceData(consultationData.reportData?.complianceData || null)
+    setAllQuestions(consultationData.reportData?.complianceData?.questionsForDoctor || [])
+    setIsCompliant(consultationData.reportData?.isCompliant || false)
+    const currentSuggestions = consultationData.reportData?.suggestions || []
+    setSuggestions(currentSuggestions)
+    if (!currentSuggestions || currentSuggestions.length === 0) ensureSuggestions(fixed)
+    // Persistir normalización solo si cambió
+    if (fixed !== baseReport) {
+      onDataUpdate({
+        ...consultationData,
+        reportData: { ...consultationData.reportData, aiGeneratedReport: fixed, reporte: fixed }
+      })
+    }
+  }, [consultationData.reportData?.aiGeneratedReport, doctorName, patientProfile])
+
+  // Ruta de análisis inicial con gating estricto.
+  useEffect(() => {
+    const transcript = consultationData.transcript || consultationData.recordingData?.processedTranscript
+    const profile = (patientProfile || (consultationData as any)?.patientInfo) || {}
+    const genderKnown = Boolean(profile?.gender)
+    const doctorKnown = Boolean(doctorName)
+    if (!transcript || !genderKnown || !doctorKnown) return
+    if (consultationData.reportData?.aiGeneratedReport) return
+    if (analysisInFlightRef.current) return
+    if (lastAnalyzedForRef.current === transcript) return
+
+    analysisInFlightRef.current = true
+    performInitialAnalysis()
+      .finally(() => {
+        analysisInFlightRef.current = false
+        lastAnalyzedForRef.current = transcript
+      })
+  }, [consultationData.transcript, consultationData.recordingData?.processedTranscript, patientProfile?.gender, doctorName])
+
+  // Single flight suggestions fetcher with de-duplication
+  const ensureSuggestions = useCallback(async (reportText: string) => {
+    try {
+      if (!reportText) return
+      if (suggestionsFetchingRef.current) return
+      // Avoid refetching for the same exact report
+      if (lastSuggestionsForRef.current === reportText && (suggestions?.length ?? 0) > 0) return
+
+      // fetch with timeout to avoid long hangs
+      const fetchWithTimeout = async (input: RequestInfo, init: RequestInit = {}, timeoutMs = 20000) => {
+        const ac = new AbortController()
+        const id = setTimeout(() => ac.abort(), timeoutMs)
+        try {
+          return await fetch(input, { ...init, signal: ac.signal })
+        } finally { clearTimeout(id) }
+      }
+
+      suggestionsFetchingRef.current = true
+      setSuggestionsLoading(true)
+      const resp = await fetchWithTimeout('/api/get-clinical-suggestions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reportText })
+      }, 20000)
+      if (resp.ok) {
+        const json: SuggestionsResponse = await resp.json()
+        const list = Array.isArray(json?.suggestions) ? json.suggestions.filter(s => typeof s === 'string') : []
+        setSuggestions(list)
+        lastSuggestionsForRef.current = reportText
+        // Persist in consultation data
         onDataUpdate({
           ...consultationData,
           reportData: {
             ...consultationData.reportData,
-            aiGeneratedReport: fixed,
-            reporte: fixed,
+            aiGeneratedReport: reportText,
+            reporte: reportText,
+            suggestions: list,
           }
         })
       }
-      return
+    } catch (e) {
+      console.warn('Suggestions fetch failed:', e)
+    } finally {
+      suggestionsFetchingRef.current = false
+      setSuggestionsLoading(false)
     }
-
-    const transcript = consultationData.transcript || consultationData.recordingData?.processedTranscript
-    const profile = (patientProfile || (consultationData as any)?.patientInfo) || {}
-    const genderKnown = Boolean(profile?.gender)
-    
-    // Detectar si la transcripción ha cambiado desde la última vez que se procesó
-    const transcriptChanged = transcript && transcript !== lastProcessedTranscript
-    
-    // Generar reporte si:
-    // 1. Hay transcript Y (NO hay reporte previo O la transcripción cambió)
-    // 2. Tenemos al menos el género del paciente cargado para no marcarlo como faltante por ausencia de perfil
-    if (transcript && !consultationData.reportData?.aiGeneratedReport && transcriptChanged && genderKnown) {
-      // Silenciosamente regenerar reporte
-      performInitialAnalysis()
-    }
-  }, [
-    consultationData.transcript, 
-    consultationData.recordingData?.processedTranscript, 
-    consultationData.reportData?.aiGeneratedReport,
-    consultationData.reportData?.complianceData,
-    consultationData.reportData?.suggestions,
-    consultationData.reportData?.isCompliant,
-    patientProfile?.gender,
-    consultationData.patientInfo && (consultationData as any).patientInfo.gender
-  ])
+  }, [consultationData, onDataUpdate, suggestions?.length])
 
   const performInitialAnalysis = useCallback(async () => {
     setLoading(true)
@@ -368,25 +385,8 @@ export default function ComplianceAssistant({
       })
       setAllQuestions(newQuestions)
 
-      // Call suggestions API
-      let suggestionsResult: SuggestionsResponse | null = null
-      const suggestionsResponse = await fetch('/api/get-clinical-suggestions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          reportText: complianceResult.improvedReport
-        }),
-      })
-
-      if (suggestionsResponse.ok) {
-        suggestionsResult = await suggestionsResponse.json()
-        // Ensure suggestions is an array of strings
-        if (suggestionsResult && suggestionsResult.suggestions && Array.isArray(suggestionsResult.suggestions)) {
-          setSuggestions(suggestionsResult.suggestions.filter(s => typeof s === 'string'))
-        }
-      }
+      // Generar sugerencias en un solo lugar y una sola vez por texto
+      await ensureSuggestions(fixedReport)
 
       // Auto-marcar como completado cuando se termine el análisis inicial
       const reportData = {
@@ -394,7 +394,7 @@ export default function ComplianceAssistant({
         reporte: fixedReport,
         aiGeneratedReport: fixedReport,
         complianceData: complianceResult,
-        suggestions: suggestionsResult?.suggestions?.filter(s => typeof s === 'string') || [],
+        suggestions: suggestions || [],
         isCompliant: complianceResult.missingInformation.length === 0,
         fecha: new Date().toISOString().split('T')[0],
         hora: new Date().toLocaleTimeString('es-MX', { 
@@ -543,24 +543,8 @@ export default function ComplianceAssistant({
       setIsCompliant(finalComplianceResultPatched.missingInformation.length === 0)
       setPreviousMissingCount(finalComplianceResultPatched.missingInformation.length)
 
-      // Get new suggestions
-      const suggestionsResponse = await fetch('/api/get-clinical-suggestions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          reportText: finalComplianceResultPatched.improvedReport
-        }),
-      })
-
-      if (suggestionsResponse.ok) {
-        const suggestionsResult: SuggestionsResponse = await suggestionsResponse.json()
-        // Ensure suggestions is an array of strings
-        if (suggestionsResult && suggestionsResult.suggestions && Array.isArray(suggestionsResult.suggestions)) {
-          setSuggestions(suggestionsResult.suggestions.filter(s => typeof s === 'string'))
-        }
-      }
+      // Sugerencias con single-flight
+      await ensureSuggestions(finalComplianceResultPatched.improvedReport)
 
       // NO borrar las respuestas, mantenerlas visibles
       
@@ -828,16 +812,24 @@ export default function ComplianceAssistant({
         </Card>
 
         {/* Sugerencias clínicas de IA */}
-        {suggestions && suggestions.length > 0 && (
+        {(suggestionsLoading || (suggestions && suggestions.length > 0)) && (
           <Card className="p-4 bg-blue-50 border border-blue-200">
             <h4 className="text-sm font-semibold text-blue-700 flex items-center gap-2">
               <Bot className="h-4 w-4" /> Sugerencias clínicas de IA
             </h4>
-            <ul className="mt-2 space-y-1 text-sm text-blue-900">
-              {suggestions.map((s, i) => (
-                <li key={i}>• {s}</li>
-              ))}
-            </ul>
+            {suggestionsLoading ? (
+              <div className="mt-3 space-y-2">
+                <div className="h-3 bg-blue-100 rounded animate-pulse" />
+                <div className="h-3 bg-blue-100 rounded animate-pulse w-11/12" />
+                <div className="h-3 bg-blue-100 rounded animate-pulse w-10/12" />
+              </div>
+            ) : (
+              <ul className="mt-2 space-y-1 text-sm text-blue-900">
+                {suggestions.map((s, i) => (
+                  <li key={i}>• {s}</li>
+                ))}
+              </ul>
+            )}
           </Card>
         )}
 
