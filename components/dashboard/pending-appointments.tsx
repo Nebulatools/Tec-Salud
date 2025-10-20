@@ -7,7 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/hooks/use-auth"
-import { Calendar, Clock, Plus, ArrowRight } from "lucide-react"
+import { Calendar, Clock, Plus, ArrowRight, Trash2 } from "lucide-react"
+import ConfirmDeleteModal from "@/components/ui/confirm-delete-modal"
 import Link from "next/link"
 
 interface Appointment {
@@ -29,6 +30,8 @@ export default function PendingAppointments() {
   const router = useRouter()
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [loading, setLoading] = useState(true)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [appointmentToDelete, setAppointmentToDelete] = useState<Appointment | null>(null)
 
   const fetchPendingAppointments = async () => {
     if (!user) return
@@ -127,6 +130,18 @@ export default function PendingAppointments() {
     router.push(`/consultas/${appointment.id}`)
   }
 
+  const handleDelete = async () => {
+    try {
+      if (!appointmentToDelete) return
+      await supabase.from('appointments').delete().eq('id', appointmentToDelete.id)
+      setShowDeleteModal(false)
+      setAppointmentToDelete(null)
+      fetchPendingAppointments()
+    } catch (e) {
+      console.error('Error deleting appointment', e)
+    }
+  }
+
   if (loading) {
     return (
       <Card className="card-shadow">
@@ -178,9 +193,13 @@ export default function PendingAppointments() {
                     <h4 className="font-medium text-gray-700">
                       {appointment.patient.first_name} {appointment.patient.last_name}
                     </h4>
-                    <Button size="sm" variant="ghost" className="text-orange-500">
-                      <Plus className="h-4 w-4" />
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      <Button size="sm" variant="ghost" className="text-red-600 hover:text-red-700"
+                        onClick={() => { setAppointmentToDelete(appointment); setShowDeleteModal(true) }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
 
                   <div className="space-y-2">
@@ -208,6 +227,14 @@ export default function PendingAppointments() {
           </div>
         )}
       </CardContent>
+      <ConfirmDeleteModal
+        isOpen={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        onConfirm={handleDelete}
+        title="Eliminar consulta"
+        description="¿Deseas eliminar esta consulta? Se eliminarán notas y datos relacionados."
+        itemName={appointmentToDelete ? `${appointmentToDelete.patient.first_name} ${appointmentToDelete.patient.last_name}` : undefined}
+      />
     </Card>
   )
 }

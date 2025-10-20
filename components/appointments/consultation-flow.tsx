@@ -94,59 +94,77 @@ export default function ConsultationFlow({ appointmentId, patientName, patientId
           .from('medical_reports')
           .select('*')
           .eq('appointment_id', appointmentId)
-          .maybeSingle() // Usar maybeSingle en vez de single para evitar errores
+          .eq('patient_id', patientId)
+          .maybeSingle() // Filtrar también por paciente para evitar mezclas
 
         console.log('Error en búsqueda:', reportError)
         console.log('Reporte encontrado:', report)
 
         if (report) {
           console.log('=== CARGANDO PROGRESO GUARDADO ===')
-          
+
           setDraftId(report.id) // Guardar ID del reporte existente
-          
-          // Verificar si hay datos de consulta guardados
-          if (report.content || report.original_transcript) {
-            console.log('=== RESTAURANDO DATOS DEL REPORTE ===')
-            
-            // Reconstruir consultationData desde el reporte guardado
-            const restoredData: ConsultationData = {
-              patientInfo: { id: patientId },
-              recordingData: null,
-              transcript: report.original_transcript || undefined,
-              reportData: {
-                reporte: report.content || '',
-                aiGeneratedReport: report.content || '',
-                complianceData: null,
-                suggestions: report.ai_suggestions || [],
-                isCompliant: report.compliance_status?.includes('compliant') || false,
-                fecha: report.report_date || new Date().toISOString().split('T')[0]
-              },
-              finalReport: null
-            }
 
-            // Si hay datos guardados en ai_suggestions como JSON
-            if (report.ai_suggestions && typeof report.ai_suggestions === 'object' && report.ai_suggestions.consultationData) {
-              const savedData = report.ai_suggestions.consultationData
-              const savedStep = report.ai_suggestions.currentStep || 5
-              const savedCompletedSteps = report.ai_suggestions.completedSteps || [1, 2, 3, 4]
-
-              console.log('Datos complejos encontrados, restaurando...')
-              setConsultationData(savedData)
-              setCurrentStep(savedStep)
-              setCompletedSteps(savedCompletedSteps)
-            } else {
-              // Usar los datos reconstruidos
-              console.log('Usando datos reconstruidos del reporte')
-              setConsultationData(restoredData)
-              setCurrentStep(5) // Ir al paso final si hay reporte
-              setCompletedSteps([1, 2, 3, 4])
-            }
-            
-            toast({
-              title: "Reporte encontrado",
-              description: "Se cargó el reporte guardado de esta consulta",
-            })
+          // Reconstruir consultationData base
+          const restoredData: ConsultationData = {
+            patientInfo: { id: patientId },
+            recordingData: null,
+            transcript: report.original_transcript || undefined,
+            reportData: {
+              reporte: report.content || '',
+              aiGeneratedReport: report.content || '',
+              complianceData: null,
+              suggestions: Array.isArray(report.ai_suggestions) ? report.ai_suggestions : [],
+              isCompliant: String(report.compliance_status || '').includes('compliant'),
+              fecha: (report as any).report_date || new Date().toISOString().split('T')[0]
+            },
+            finalReport: null
           }
+
+          // Decidir a qué paso regresar
+          let stepToResume = 1
+          let completed: number[] = []
+
+          // Si se guardó estado explícito dentro de ai_suggestions como objeto (caso legacy)
+          if (report.ai_suggestions && typeof report.ai_suggestions === 'object' && (report.ai_suggestions as any).currentStep) {
+            stepToResume = (report.ai_suggestions as any).currentStep || 1
+            completed = (report.ai_suggestions as any).completedSteps || []
+            setConsultationData((report.ai_suggestions as any).consultationData || restoredData)
+          } else {
+            // Inferencia por contenido/estatus
+            const hasTranscript = !!report.original_transcript
+            const hasContent = !!report.content
+            const isFinal = String(report.report_type || '').includes('FINAL')
+            const isCompliant = String(report.compliance_status || '').includes('compliant')
+
+            if (isFinal && isCompliant && hasContent) {
+              stepToResume = 5
+              completed = [1, 2, 3, 4]
+              setConsultationData(restoredData)
+            } else if (hasContent) {
+              // Hay reporte IA pero no marcado como final/compliant: continuar en Asistente IA
+              stepToResume = 3
+              completed = [1, 2]
+              setConsultationData(restoredData)
+            } else if (hasTranscript) {
+              // Solo transcript: volver al paso de transcripción para continuar
+              stepToResume = 2
+              completed = [1]
+              setConsultationData(restoredData)
+            } else {
+              stepToResume = 1
+              completed = []
+              setConsultationData(restoredData)
+            }
+          }
+
+          setCurrentStep(stepToResume)
+          setCompletedSteps(completed)
+
+          toast({
+            title: "Progreso cargado",
+            description: `Reanudando en el paso ${stepToResume}`,
+          })
         } else {
           console.log('No se encontró reporte, empezando desde el inicio')
         }
@@ -189,7 +207,8 @@ export default function ConsultationFlow({ appointmentId, patientName, patientId
           doctor_id: appointment.doctor_id,
           report_type: reportType,
           title: `Consulta - ${patientName} - ${new Date().toLocaleDateString()}`,
-          content: consultationData?.reportData?.aiGeneratedReport || 'Consulta en progreso...',
+          // Solo guardar contenido si existe un reporte IA generado
+          content: consultationData?.reportData?.aiGeneratedReport ?? null,
           original_transcript: consultationData?.recordingData?.processedTranscript || consultationData?.transcript || '',
           ai_suggestions: consultationData?.reportData?.suggestions || [],
           compliance_status: consultationData?.reportData?.isCompliant ? 'compliant' : 'non-compliant'

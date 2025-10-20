@@ -67,6 +67,8 @@ export default function PatientList() {
   const [loadingReports, setLoadingReports] = useState(false)
   const [selectedReport, setSelectedReport] = useState<any>(null)
   const [isReportModalOpen, setIsReportModalOpen] = useState(false)
+  const [reportToDelete, setReportToDelete] = useState<MedicalReport | null>(null)
+  const [showReportDeleteModal, setShowReportDeleteModal] = useState(false)
   const [extractionsByReport, setExtractionsByReport] = useState<Record<string, any>>({})
   
   // Estados para los modales elegantes
@@ -279,6 +281,29 @@ export default function PatientList() {
   const handleViewReport = (report: MedicalReport) => {
     setSelectedReport(report)
     setIsReportModalOpen(true)
+  }
+
+  const handleDeleteReport = async () => {
+    try {
+      if (!reportToDelete) return
+      await supabase.from('medical_reports').delete().eq('id', reportToDelete.id)
+      setShowReportDeleteModal(false)
+      setReportToDelete(null)
+      // Refresh reports for the selected patient
+      if (selectedPatient) {
+        await fetchPatientReports(selectedPatient.id)
+      }
+      setNotificationData({
+        type: 'success',
+        title: 'Reporte eliminado',
+        description: `Se eliminó el reporte "${reportToDelete.title}"`
+      })
+      setShowNotificationModal(true)
+    } catch (e) {
+      console.error('Error deleting report', e)
+      setNotificationData({ type: 'error', title: 'Error', description: 'No se pudo eliminar el reporte' })
+      setShowNotificationModal(true)
+    }
   }
 
   // Confirm-cancel handling for Add/Edit patient dialogs
@@ -653,14 +678,22 @@ export default function PatientList() {
                                 </div>
                                 {renderPreview(report)}
                               </div>
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
-                                className="ml-4"
-                                onClick={() => handleViewReport(report)}
-                              >
-                                Ver completo
-                              </Button>
+                              <div className="flex items-center gap-2 ml-4">
+                                <Button 
+                                  variant="outline" 
+                                  size="sm" 
+                                  onClick={() => handleViewReport(report)}
+                                >
+                                  Ver completo
+                                </Button>
+                                <Button 
+                                  variant="destructive" 
+                                  size="sm" 
+                                  onClick={() => { setReportToDelete(report); setShowReportDeleteModal(true) }}
+                                >
+                                  Eliminar
+                                </Button>
+                              </div>
                             </div>
                           </Card>
                         ))}
@@ -712,6 +745,15 @@ export default function PatientList() {
         type={notificationData?.type || "success"}
         title={notificationData?.title || ""}
         description={notificationData?.description || ""}
+      />
+
+      <ConfirmDeleteModal
+        isOpen={showReportDeleteModal}
+        onClose={() => setShowReportDeleteModal(false)}
+        onConfirm={handleDeleteReport}
+        title="Eliminar Reporte"
+        description="¿Seguro que deseas eliminar este reporte médico? Esta acción no se puede deshacer."
+        itemName={reportToDelete?.title}
       />
     </div>
   )

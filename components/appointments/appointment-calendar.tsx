@@ -13,6 +13,7 @@ import { ChevronLeft, ChevronRight, CalendarIcon, Clock, Plus, List } from "luci
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import AddAppointmentForm from "./add-appointment-form"
 import ConfirmCancelModal from "@/components/ui/confirm-cancel-modal"
+import ConfirmDeleteModal from "@/components/ui/confirm-delete-modal"
 
 interface Appointment {
   id: string
@@ -38,6 +39,8 @@ export default function AppointmentCalendar() {
   const [selectedFilter, setSelectedFilter] = useState("Hoy")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [appointmentToDelete, setAppointmentToDelete] = useState<Appointment | null>(null)
 
   useEffect(() => {
     fetchAppointments()
@@ -119,6 +122,18 @@ export default function AppointmentCalendar() {
       console.error("Error fetching appointments:", error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleDeleteAppointment = async () => {
+    try {
+      if (!appointmentToDelete) return
+      await supabase.from('appointments').delete().eq('id', appointmentToDelete.id)
+      setShowDeleteModal(false)
+      setAppointmentToDelete(null)
+      fetchAppointments()
+    } catch (e) {
+      console.error('Error deleting appointment', e)
     }
   }
 
@@ -382,6 +397,15 @@ export default function AppointmentCalendar() {
             setShowCancelConfirm(false)
             setIsAddDialogOpen(false)
           }}
+        />
+
+        <ConfirmDeleteModal
+          isOpen={showDeleteModal}
+          onClose={() => setShowDeleteModal(false)}
+          onConfirm={handleDeleteAppointment}
+          title="Eliminar consulta"
+          description="¿Deseas eliminar esta consulta? Se eliminarán notas y datos relacionados."
+          itemName={appointmentToDelete ? `${appointmentToDelete.patient.first_name} ${appointmentToDelete.patient.last_name}` : undefined}
         />
       </div>
 
@@ -731,6 +755,16 @@ export default function AppointmentCalendar() {
 
                     <div className="flex items-center gap-2">
                       <Badge className={getStatusColor(appointment.status)}>{appointment.status}</Badge>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => {
+                          setAppointmentToDelete(appointment)
+                          setShowDeleteModal(true)
+                        }}
+                      >
+                        Eliminar
+                      </Button>
                       <Button 
                         size="sm" 
                         className="bg-orange-500 hover:bg-orange-600 text-white"
