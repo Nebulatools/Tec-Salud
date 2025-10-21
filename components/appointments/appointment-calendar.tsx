@@ -1,4 +1,4 @@
-// Complete appointment calendar system matching the images.
+// Complete appointment calendar system matching the images
 "use client"
 
 import { useEffect, useState } from "react"
