@@ -1,4 +1,4 @@
-// Complete appointment calendar system matching the images.
+// Complete appointment calendar system matching the images
 "use client"
 
 import { useEffect, useState } from "react"
@@ -77,6 +77,14 @@ export default function AppointmentCalendar() {
     }
   }, [selectedFilter])
 
+  // Helper: formato YYYY-MM-DD en HORA LOCAL (evita desfases por UTC)
+  const ymdLocal = (d: Date) => {
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return `${y}-${m}-${day}`
+  }
+
   const fetchAppointments = async () => {
     if (!user) return
 
@@ -105,7 +113,8 @@ export default function AppointmentCalendar() {
       const today = new Date()
       
       if (selectedFilter === "Hoy") {
-        query = query.eq("appointment_date", today.toISOString().split("T")[0])
+        // Comparación con fecha local exacta (no UTC)
+        query = query.eq("appointment_date", ymdLocal(today))
       } else if (selectedFilter === "Esta semana") {
         const startOfWeek = new Date(today)
         startOfWeek.setDate(today.getDate() - today.getDay() + 1) // Monday
@@ -113,14 +122,14 @@ export default function AppointmentCalendar() {
         endOfWeek.setDate(startOfWeek.getDate() + 6) // Sunday
         
         query = query
-          .gte("appointment_date", startOfWeek.toISOString().split("T")[0])
-          .lte("appointment_date", endOfWeek.toISOString().split("T")[0])
+          .gte("appointment_date", ymdLocal(startOfWeek))
+          .lte("appointment_date", ymdLocal(endOfWeek))
       } else if (selectedFilter === "Este mes") {
         const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
         const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0)
         query = query
-          .gte("appointment_date", startOfMonth.toISOString().split("T")[0])
-          .lte("appointment_date", endOfMonth.toISOString().split("T")[0])
+          .gte("appointment_date", ymdLocal(startOfMonth))
+          .lte("appointment_date", ymdLocal(endOfMonth))
       }
 
       const { data } = await query
@@ -204,7 +213,8 @@ export default function AppointmentCalendar() {
   }
 
   const getAppointmentsForDate = (date: Date) => {
-    const dateString = date.toISOString().split("T")[0]
+    // Filtrado por fecha en LOCAL para coincidir con appointment_date (YYYY-MM-DD)
+    const dateString = ymdLocal(date)
     return appointments.filter((apt) => apt.appointment_date === dateString)
   }
 
@@ -503,7 +513,7 @@ export default function AppointmentCalendar() {
                         No tienes consultas programadas para hoy
                       </p>
                       <p className="text-gray-400 dark:text-gray-500 text-sm mt-2">
-                        ¡Perfecto día para descansar! 😊
+                        
                       </p>
                     </div>
                   ) : (
