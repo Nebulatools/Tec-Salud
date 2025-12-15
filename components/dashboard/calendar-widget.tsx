@@ -195,18 +195,18 @@ export default function CalendarWidget() {
                 <div
                   key={index}
                   onClick={() => setSelectedDate(day)}
-                  className={`p-2 text-center cursor-pointer rounded-lg transition-colors ${
+                  className={`p-2 text-center cursor-pointer rounded-lg transition-all duration-200 ${
                     isSelected
-                      ? "bg-orange-500 text-white"
+                      ? "bg-zuli-veronica text-white shadow-md"
                       : isToday
-                        ? "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300"
-                        : "hover:bg-gray-100 dark:hover:bg-gray-800"
+                        ? "bg-zuli-veronica/10 text-zuli-veronica"
+                        : "hover:bg-zuli-indigo/5 dark:hover:bg-gray-800"
                   }`}
                 >
                   <div className="text-sm font-medium">{day.getDate()}</div>
                   {dayAppointments.length > 0 && (
                     <div className="flex justify-center mt-1">
-                      <div className="w-1 h-1 bg-orange-500 rounded-full"></div>
+                      <div className="w-1.5 h-1.5 bg-zuli-veronica rounded-full"></div>
                     </div>
                   )}
                 </div>
@@ -238,7 +238,7 @@ export default function CalendarWidget() {
                   className="flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-700 rounded-lg"
                 >
                   <Avatar className="h-8 w-8">
-                    <AvatarFallback className="bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300 text-xs">
+                    <AvatarFallback className="bg-zuli-veronica/10 text-zuli-veronica text-xs font-medium">
                       {getInitials(appointment.patient.first_name, appointment.patient.last_name)}
                     </AvatarFallback>
                   </Avatar>

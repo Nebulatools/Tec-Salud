@@ -6,6 +6,7 @@ import type React from "react"
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/hooks/use-auth"
+import { useAppUser } from "@/hooks/use-app-user"
 import Sidebar from "@/components/layout/sidebar"
 import Header from "@/components/layout/header"
 
@@ -15,6 +16,7 @@ export default function DashboardLayout({
   children: React.ReactNode
 }) {
   const { user, loading } = useAuth()
+  const { role, loading: profileLoading } = useAppUser()
   const router = useRouter()
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
@@ -24,6 +26,12 @@ export default function DashboardLayout({
     }
   }, [user, loading, router])
 
+  useEffect(() => {
+    if (!profileLoading && role === "user") {
+      router.push("/user")
+    }
+  }, [profileLoading, role, router])
+
   // Load sidebar state from localStorage
   useEffect(() => {
     const saved = localStorage.getItem("sidebar-collapsed")
@@ -32,10 +40,10 @@ export default function DashboardLayout({
     }
   }, [])
 
-  if (loading) {
+  if (loading || profileLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-                  <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-orange-500"></div>
+      <div className="min-h-screen flex items-center justify-center bg-zuli-mesh">
+        <div className="animate-spin rounded-full h-16 w-16 border-4 border-zuli-veronica/20 border-t-zuli-veronica"></div>
       </div>
     )
   }
@@ -45,7 +53,7 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-zuli-mesh flex">
       <Sidebar onCollapseChange={setSidebarCollapsed} />
 
       {/* Main content area that takes remaining space */}

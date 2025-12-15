@@ -4,18 +4,29 @@
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/hooks/use-auth"
+import { supabase } from "@/lib/supabase"
 
 export default function HomePage() {
   const { user, loading } = useAuth()
   const router = useRouter()
 
   useEffect(() => {
-    if (!loading) {
-      if (user) {
-        router.push("/dashboard")
-      } else {
+    const routeByRole = async () => {
+      if (!user) {
         router.push("/login")
+        return
       }
+
+      const { data: appUser } = await supabase.from("app_users").select("role").eq("id", user.id).maybeSingle()
+      if (appUser?.role === "user") {
+        router.push("/user")
+      } else {
+        router.push("/dashboard")
+      }
+    }
+
+    if (!loading) {
+      routeByRole()
     }
   }, [user, loading, router])
 

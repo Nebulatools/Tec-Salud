@@ -1,15 +1,15 @@
-// Login form simplificado que SÍ funciona
+// ZULI Login Form - Brand styled authentication
 "use client"
 
 import type React from "react"
-import Image from "next/image"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { ZuliLogo } from "@/components/ui/zuli-logo"
 import { useAuth } from "@/hooks/use-auth"
 import { Loader2, CheckCircle } from "lucide-react"
 import { supabase } from "@/lib/supabase"
@@ -26,20 +26,6 @@ export default function LoginForm() {
   const [isLogin, setIsLogin] = useState(true)
   const [firstName, setFirstName] = useState("")
   const [lastName, setLastName] = useState("")
-  const [specialty, setSpecialty] = useState("")
-
-  const specialties = [
-    "General Medicine",
-    "Cardiología",
-    "Dermatología",
-    "Neurología",
-    "Pediatría",
-    "Ginecología",
-    "Traumatología",
-    "Psiquiatría",
-    "Oftalmología",
-    "Otorrinolaringología",
-  ]
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -53,7 +39,15 @@ export default function LoginForm() {
       if (error) {
         setError(error.message)
       } else {
-        router.push("/dashboard")
+        const { data: userData } = await supabase.auth.getUser()
+        const userId = userData?.user?.id
+        if (userId) {
+          const { data: appUser } = await supabase.from("app_users").select("role").eq("id", userId).maybeSingle()
+          const role = appUser?.role ?? "user"
+          router.push(role === "user" ? "/user" : "/dashboard")
+        } else {
+          router.push("/dashboard")
+        }
       }
     } else {
       // REGISTRO SIMPLIFICADO
@@ -68,7 +62,6 @@ export default function LoginForm() {
             data: {
               first_name: firstName,
               last_name: lastName,
-              specialty: specialty
             }
           }
         })
@@ -89,80 +82,15 @@ export default function LoginForm() {
         console.log("Usuario creado:", authData.user.id)
 
         // 2. Asegurar que el perfil del doctor existe
-        try {
-          // Esperamos un poco para que el trigger termine
-          await new Promise(resolve => setTimeout(resolve, 1000))
-          
-          // Primero verificar si el doctor existe
-          const { data: existingDoctor, error: checkError } = await supabase
-            .from("doctors")
-            .select("id")
-            .eq("user_id", authData.user.id)
-            .maybeSingle()
-
-          if (!existingDoctor) {
-            // Si no existe el doctor, crearlo
-            console.log("Doctor no encontrado, creando nuevo perfil...")
-            const { error: insertError } = await supabase.from("doctors").insert({
-              user_id: authData.user.id,
-              first_name: firstName,
-              last_name: lastName,
-              email: email,
-              specialty: specialty,
-            })
-            
-            if (insertError) {
-              console.error("Error creando perfil:", insertError)
-              if (!insertError.message.includes('duplicate key')) {
-                setError("Hubo un problema al completar el registro. Por favor intenta nuevamente.")
-                setLoading(false)
-                return
-              }
-            }
-          } else {
-            // Si existe, actualizarlo
-            console.log("Doctor encontrado, actualizando perfil...")
-            const { error: updateError } = await supabase
-              .from("doctors")
-              .update({
-                first_name: firstName,
-                last_name: lastName,
-                specialty: specialty,
-              })
-              .eq("user_id", authData.user.id)
-
-            if (updateError) {
-              console.error("Error actualizando perfil:", updateError)
-            }
-          }
-
-          console.log("Perfil actualizado exitosamente")
-          setSuccess("¡Registro exitoso! Se ha enviado un correo de confirmación.")
-          setTimeout(() => {
-            setIsLogin(true)
-            setSuccess("")
-            // Limpiar formulario
-            setFirstName("")
-            setLastName("")
-            setSpecialty("")
-            setEmail("")
-            setPassword("")
-          }, 2000)
-        } catch (profileError) {
-          console.error("Error inesperado en perfil:", profileError)
-          // En caso de error inesperado, asumir que el registro fue exitoso
-          setSuccess("¡Registro exitoso! Se ha enviado un correo de confirmación.")
-          setTimeout(() => {
-            setIsLogin(true)
-            setSuccess("")
-            // Limpiar formulario
-            setFirstName("")
-            setLastName("")
-            setSpecialty("")
-            setEmail("")
-            setPassword("")
-          }, 2000)
-        }
+        setSuccess("¡Registro exitoso! Revisa tu correo para confirmar y luego inicia sesión.")
+        setTimeout(() => {
+          setIsLogin(true)
+          setSuccess("")
+          setFirstName("")
+          setLastName("")
+          setEmail("")
+          setPassword("")
+        }, 1800)
       } catch (error) {
         console.error("Error general:", error)
         setError("Error inesperado durante el registro")
@@ -172,79 +100,66 @@ export default function LoginForm() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-blue-900 p-4">
-      <Card className="w-full max-w-md shadow-2xl border-0 bg-white">
-        <CardHeader className="text-center pb-8">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-zuli-mesh relative overflow-hidden">
+      {/* Animated background elements */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-zuli-veronica/10 rounded-full blur-3xl animate-pulse" />
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-zuli-cyan/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-zuli-indigo/5 rounded-full blur-3xl" />
+      </div>
+
+      <Card className="w-full max-w-md shadow-2xl border-0 bg-white/95 backdrop-blur-sm relative z-10">
+        <CardHeader className="text-center pb-6">
+          {/* ZULI Logo */}
           <div className="flex justify-center mb-6">
-            <Image
-              src="/tecsalud.png"
-              alt="TecSalud"
-              width={240}
-              height={100}
-              className="object-contain w-56 sm:w-64 h-auto"
-              />
+            <ZuliLogo size="xl" theme="dark" />
           </div>
-          <CardDescription className="text-gray-600 text-base">
-            {isLogin ? "Inicia sesión en tu cuenta médica" : "Crea tu cuenta médica"}
+
+          {/* Tagline with Brygada 1918 */}
+          <p className="text-sm text-gray-600 font-brygada italic mb-2">
+            mejores <span className="text-zuli-veronica">doctores</span>, mejores <span className="text-zuli-veronica">pacientes</span>
+          </p>
+
+          <CardDescription className="text-gray-500 text-sm mt-4">
+            {isLogin ? "Inicia sesión en tu cuenta" : "Crea tu cuenta médica"}
           </CardDescription>
         </CardHeader>
+
         <CardContent className="space-y-6">
           <form onSubmit={handleSubmit} className="space-y-5">
             {!isLogin && (
               <>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="firstName" className="text-gray-700 font-medium">
-                      Nombre
+                    <Label htmlFor="firstName" className="text-gray-700 font-medium text-sm">
+                      Nombre <span className="text-gray-400">(opcional)</span>
                     </Label>
                     <Input
                       id="firstName"
                       value={firstName}
                       onChange={(e) => setFirstName(e.target.value)}
-                      required={!isLogin}
                       disabled={loading}
-                      className="border-gray-300 focus:border-blue-500 focus:ring-blue-500 bg-gray-50 focus:bg-white transition-all"
+                      className="border-gray-200 focus:border-zuli-veronica focus:ring-zuli-veronica/20 bg-gray-50 focus:bg-white transition-all"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="lastName" className="text-gray-700 font-medium">
-                      Apellido
+                    <Label htmlFor="lastName" className="text-gray-700 font-medium text-sm">
+                      Apellido <span className="text-gray-400">(opcional)</span>
                     </Label>
                     <Input
                       id="lastName"
                       value={lastName}
                       onChange={(e) => setLastName(e.target.value)}
-                      required={!isLogin}
                       disabled={loading}
-                      className="border-gray-300 focus:border-blue-500 focus:ring-blue-500 bg-gray-50 focus:bg-white transition-all"
+                      className="border-gray-200 focus:border-zuli-veronica focus:ring-zuli-veronica/20 bg-gray-50 focus:bg-white transition-all"
                     />
                   </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="specialty" className="text-gray-700 font-medium">
-                    Especialidad
-                  </Label>
-                  <select
-                    id="specialty"
-                    value={specialty}
-                    onChange={(e) => setSpecialty(e.target.value)}
-                    required={!isLogin}
-                    disabled={loading}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-50 focus:bg-white transition-all text-gray-700"
-                  >
-                    <option value="">Selecciona una especialidad</option>
-                    {specialties.map((spec) => (
-                      <option key={spec} value={spec}>
-                        {spec}
-                      </option>
-                    ))}
-                  </select>
                 </div>
               </>
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-gray-700 font-medium">
+              <Label htmlFor="email" className="text-gray-700 font-medium text-sm">
                 Email
               </Label>
               <Input
@@ -255,12 +170,12 @@ export default function LoginForm() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 disabled={loading}
-                className="border-gray-300 focus:border-blue-500 focus:ring-blue-500 bg-gray-50 focus:bg-white transition-all"
+                className="border-gray-200 focus:border-zuli-veronica focus:ring-zuli-veronica/20 bg-gray-50 focus:bg-white transition-all"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-gray-700 font-medium">
+              <Label htmlFor="password" className="text-gray-700 font-medium text-sm">
                 Contraseña
               </Label>
               <Input
@@ -271,26 +186,26 @@ export default function LoginForm() {
                 required
                 disabled={loading}
                 minLength={6}
-                className="border-gray-300 focus:border-blue-500 focus:ring-blue-500 bg-gray-50 focus:bg-white transition-all"
+                className="border-gray-200 focus:border-zuli-veronica focus:ring-zuli-veronica/20 bg-gray-50 focus:bg-white transition-all"
               />
             </div>
 
             {error && (
               <Alert variant="destructive" className="border-red-200 bg-red-50">
-                <AlertDescription className="text-red-700">{error}</AlertDescription>
+                <AlertDescription className="text-red-700 text-sm">{error}</AlertDescription>
               </Alert>
             )}
 
             {success && (
               <Alert className="border-green-200 bg-green-50">
                 <CheckCircle className="h-4 w-4 text-green-600" />
-                <AlertDescription className="text-green-700">{success}</AlertDescription>
+                <AlertDescription className="text-green-700 text-sm">{success}</AlertDescription>
               </Alert>
             )}
 
             <Button
               type="submit"
-              className="w-full bg-orange-500 hover:bg-orange-600 text-white font-medium py-3 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-[1.02]"
+              className="w-full btn-zuli-gradient py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02] font-semibold"
               disabled={loading}
             >
               {loading ? (
@@ -305,7 +220,7 @@ export default function LoginForm() {
               )}
             </Button>
 
-            <div className="text-center pt-4">
+            <div className="text-center pt-2">
               <button
                 type="button"
                 onClick={() => {
@@ -313,7 +228,7 @@ export default function LoginForm() {
                   setError("")
                   setSuccess("")
                 }}
-                className="text-orange-500 hover:text-orange-600 font-medium transition-colors"
+                className="text-zuli-veronica hover:text-zuli-veronica-600 font-medium transition-colors text-sm"
                 disabled={loading}
               >
                 {isLogin ? "¿No tienes cuenta? Regístrate" : "¿Ya tienes cuenta? Inicia sesión"}
@@ -322,6 +237,14 @@ export default function LoginForm() {
           </form>
         </CardContent>
       </Card>
+
+      {/* Footer */}
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-center">
+        <p className="text-xs text-gray-400">
+          © 2025 ZULI. La plataforma de IA para decisiones clínicas{" "}
+          <span className="font-brygada italic text-zuli-indigo">confiables</span>.
+        </p>
+      </div>
     </div>
   )
 }

@@ -1,16 +1,34 @@
 import type React from "react"
-// Root layout with theme provider and authentication
+// Root layout with ZULI branding - Archivo & Brygada 1918 fonts
 import type { Metadata } from "next"
-import { Inter } from "next/font/google"
+import { Archivo, Brygada_1918 } from "next/font/google"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 
-const inter = Inter({ subsets: ["latin"] })
+// Primary font: Archivo - Clear, modern, professional
+const archivo = Archivo({
+  subsets: ["latin"],
+  variable: "--font-archivo",
+  display: "swap",
+  weight: ["400", "500", "600", "700"],
+})
+
+// Secondary font: Brygada 1918 - Elegant, human touch
+const brygada = Brygada_1918({
+  subsets: ["latin"],
+  variable: "--font-brygada",
+  display: "swap",
+  weight: ["400", "500", "600", "700"],
+  style: ["normal", "italic"],
+})
 
 export const metadata: Metadata = {
-  title: "TecSalud",
-  description: "Sistema completo para la gestión de pacientes y consultas médicas",
-  generator: 'v0.dev'
+  title: "ZULI - Mejores doctores, mejores pacientes",
+  description: "La plataforma de IA que convierte la vida diaria en decisiones clínicas confiables",
+  generator: "v0.dev",
+  icons: {
+    icon: "/favicon.ico",
+  },
 }
 
 export default function RootLayout({
@@ -20,7 +38,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es" suppressHydrationWarning>
-      <body className={inter.className}>
+      <body className={`${archivo.variable} ${brygada.variable} font-archivo antialiased`}>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
           {children}
         </ThemeProvider>

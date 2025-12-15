@@ -42,7 +42,7 @@ export default function Header() {
   }
 
   return (
-    <header className="bg-blue-900 border-b border-blue-800 px-6 py-4">
+    <header className="bg-zuli-space border-b border-white/10 px-6 py-4">
       <div className="flex items-center justify-between">
         {/* Search Bar */}
         <div className="flex-1 max-w-md mx-8">
@@ -52,7 +52,7 @@ export default function Header() {
               placeholder="Buscar pacientes, consultas..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 bg-white/90 border-0 focus:bg-white focus:ring-2 focus:ring-white/50"
+              className="pl-10 bg-white/90 border-0 focus:bg-white focus:ring-2 focus:ring-zuli-veronica/30"
             />
           </div>
         </div>
@@ -60,17 +60,17 @@ export default function Header() {
         {/* Right side - Notifications and User */}
         <div className="flex items-center gap-4">
           {/* Notifications */}
-          <Button variant="ghost" size="icon" className="relative hover:bg-blue-800">
+          <Button variant="ghost" size="icon" className="relative hover:bg-white/10">
             <Bell className="h-5 w-5 text-white" />
-            <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full"></span>
+            <span className="absolute -top-1 -right-1 h-3 w-3 bg-zuli-veronica rounded-full"></span>
           </Button>
 
           {/* User Dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="flex items-center gap-2 hover:bg-blue-800 text-white">
+              <Button variant="ghost" className="flex items-center gap-2 hover:bg-white/10 text-white">
                 <Avatar className="h-8 w-8">
-                  <AvatarFallback className="bg-orange-500 text-white">
+                  <AvatarFallback className="bg-zuli-tricolor text-white font-medium">
                     {doctorInfo ? `${doctorInfo.first_name?.[0]}${doctorInfo.last_name?.[0]}` : 'Dr'}
                   </AvatarFallback>
                 </Avatar>
@@ -78,7 +78,7 @@ export default function Header() {
                   <p className="text-sm font-medium text-white">
                     {doctorInfo ? `Dr. ${doctorInfo.first_name} ${doctorInfo.last_name}` : 'Dr.'}
                   </p>
-                  <p className="text-xs text-blue-200">{doctorInfo?.specialty || 'General Medicine'}</p>
+                  <p className="text-xs text-zuli-indigo">{doctorInfo?.specialty || 'General Medicine'}</p>
                 </div>
               </Button>
             </DropdownMenuTrigger>

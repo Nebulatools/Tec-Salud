@@ -17,6 +17,10 @@ const badgeVariants = cva(
         success:
           "border-transparent bg-green-500 text-white hover:bg-green-600",
         outline: "text-foreground",
+        zuli: "border-zuli-veronica/20 bg-zuli-veronica/10 text-zuli-veronica",
+        zuliSecondary: "border-zuli-indigo/20 bg-zuli-indigo/10 text-zuli-indigo",
+        zuliAccent: "border-zuli-cyan/20 bg-zuli-cyan/10 text-zuli-cyan-700 dark:text-zuli-cyan",
+        zuliGradient: "border-0 bg-gradient-to-r from-zuli-veronica to-zuli-indigo text-white",
       },
     },
     defaultVariants: {
