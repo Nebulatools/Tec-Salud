@@ -106,8 +106,8 @@ export default function UserSidebar({
           {/* Logo and Collapse Button */}
           <div className="flex items-center justify-between p-4">
             {!isCollapsed ? (
-              <div className="flex items-center justify-center w-full bg-white rounded-2xl p-4 shadow-lg">
-                <ZuliLogo size="lg" theme="dark" />
+              <div className="flex items-center justify-center w-full bg-white rounded-xl p-2 shadow-lg">
+                <ZuliLogo size="sm" theme="dark" />
               </div>
             ) : (
               <div className="flex items-center justify-center w-full">
@@ -189,9 +189,9 @@ export default function UserSidebar({
       >
         <div className="flex flex-col h-full">
           {/* Logo */}
-          <div className="flex items-center justify-center p-6 pt-16">
-            <div className="bg-white rounded-2xl p-5 shadow-lg w-full flex items-center justify-center">
-              <ZuliLogo size="lg" theme="dark" />
+          <div className="flex items-center justify-center p-4 pt-16">
+            <div className="bg-white rounded-xl p-3 shadow-lg w-full flex items-center justify-center">
+              <ZuliLogo size="sm" theme="dark" />
             </div>
           </div>
 

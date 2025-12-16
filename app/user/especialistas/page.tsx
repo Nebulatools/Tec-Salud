@@ -237,60 +237,74 @@ export default function EspecialistasMarketplacePage() {
               text: "text-gray-600",
               border: "border-gray-200",
             }
+            // Rating simulado (entre 4.0 y 5.0 para demostración)
+            const rating = (4 + Math.random()).toFixed(1)
+            const fullStars = Math.floor(Number(rating))
+            const hasHalfStar = Number(rating) % 1 >= 0.5
 
             return (
               <Card
                 key={`${doctor.id}-${doctor.specialty_id}`}
-                className="hover:shadow-lg transition-shadow cursor-pointer group"
+                className="hover:shadow-lg transition-shadow cursor-pointer group overflow-hidden"
                 onClick={() => handleSelectDoctor(doctor)}
               >
                 <CardContent className="p-5">
-                  <div className="flex items-start gap-4">
+                  <div className="flex items-start gap-3">
                     {/* Avatar */}
-                    <div className="h-14 w-14 rounded-full bg-zuli-tricolor text-white flex items-center justify-center text-xl font-bold shrink-0">
+                    <div className="h-12 w-12 rounded-full bg-zuli-tricolor text-white flex items-center justify-center text-lg font-bold shrink-0">
                       {doctor.first_name?.[0] ?? "D"}
                     </div>
 
-                    <div className="flex-1 min-w-0">
+                    <div className="flex-1 min-w-0 overflow-hidden">
                       {/* Nombre */}
-                      <h3 className="font-semibold text-gray-900 truncate">
+                      <h3 className="font-semibold text-gray-900 truncate text-sm">
                         Dr. {doctor.first_name} {doctor.last_name}
                       </h3>
 
                       {/* Email */}
-                      <p className="text-sm text-gray-500 truncate">{doctor.email}</p>
+                      <p className="text-xs text-gray-500 truncate">{doctor.email}</p>
 
-                      {/* Especialidad */}
-                      <div className="mt-2 flex items-center gap-2">
-                        <Badge className={`${colors.bg} ${colors.text} ${colors.border}`}>
+                      {/* Especialidad Badge */}
+                      <div className="mt-2">
+                        <Badge className={`${colors.bg} ${colors.text} ${colors.border} text-xs px-2 py-0.5`}>
                           {specialtyIcons[doctor.specialty_name]}
-                          <span className="ml-1">{doctor.specialty_name}</span>
+                          <span className="ml-1 truncate max-w-[100px]">{doctor.specialty_name}</span>
                         </Badge>
                       </div>
 
                       {/* Descripción */}
                       {doctor.specialty_description && (
-                        <p className="text-xs text-gray-400 mt-2 line-clamp-2">
+                        <p className="text-xs text-gray-400 mt-1.5 line-clamp-1">
                           {doctor.specialty_description}
                         </p>
                       )}
                     </div>
                   </div>
 
-                  {/* CTA */}
-                  <div className="mt-4 pt-4 border-t flex items-center justify-between">
-                    <div className="flex items-center gap-1 text-zuli-indigo">
-                      <Star className="h-4 w-4 fill-current" />
-                      <span className="text-sm font-medium">Disponible</span>
+                  {/* Rating y CTA */}
+                  <div className="mt-3 pt-3 border-t flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {/* Estrellas */}
+                      <div className="flex items-center">
+                        {[...Array(5)].map((_, i) => (
+                          <Star
+                            key={i}
+                            className={`h-3.5 w-3.5 ${
+                              i < fullStars
+                                ? "text-amber-400 fill-amber-400"
+                                : i === fullStars && hasHalfStar
+                                  ? "text-amber-400 fill-amber-400/50"
+                                  : "text-gray-200 fill-gray-200"
+                            }`}
+                          />
+                        ))}
+                      </div>
+                      <span className="text-xs font-medium text-gray-600">{rating}</span>
                     </div>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="text-zuli-veronica group-hover:bg-zuli-veronica/10"
-                    >
+                    <span className="text-xs text-zuli-veronica font-medium group-hover:underline flex items-center gap-0.5 shrink-0">
                       Llenar cuestionario
-                      <ArrowRight className="h-4 w-4 ml-1 group-hover:translate-x-1 transition-transform" />
-                    </Button>
+                      <ArrowRight className="h-3.5 w-3.5 group-hover:translate-x-0.5 transition-transform" />
+                    </span>
                   </div>
                 </CardContent>
               </Card>
