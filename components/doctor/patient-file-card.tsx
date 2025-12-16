@@ -69,6 +69,14 @@ type LabOrder = {
   lab_results: LabResult[]
 }
 
+type InternRun = {
+  id: string
+  status: string
+  summary: string | null
+  suggestions: string[] | null
+  completed_at: string | null
+}
+
 export function PatientFileCard({
   patientUserId,
   patientName,
@@ -81,6 +89,7 @@ export function PatientFileCard({
   const [baseline, setBaseline] = useState<BaselineData | null>(null)
   const [responses, setResponses] = useState<SpecialtyResponse[]>([])
   const [labOrder, setLabOrder] = useState<LabOrder | null>(null)
+  const [internRun, setInternRun] = useState<InternRun | null>(null)
   const [runningIntern, setRunningIntern] = useState(false)
   const [internStatus, setInternStatus] = useState<string | null>(null)
   const [internError, setInternError] = useState<string | null>(null)
@@ -142,8 +151,22 @@ export function PatientFileCard({
         recommended_tests: order.recommended_tests,
         lab_results: (order as any).lab_results ?? [],
       })
+      // cargar último virtual_intern_runs para esta orden/paciente
+      const { data: runs } = await supabase
+        .from("virtual_intern_runs")
+        .select("id, status, summary, suggestions, completed_at")
+        .eq("lab_order_id", order.id)
+        .eq("patient_user_id", patientUserId)
+        .order("completed_at", { ascending: false })
+        .limit(1)
+      if (runs && runs.length > 0) {
+        setInternRun(runs[0] as InternRun)
+      } else {
+        setInternRun(null)
+      }
     } else {
       setLabOrder(null)
+      setInternRun(null)
     }
 
     setLoading(false)
@@ -180,6 +203,8 @@ export function PatientFileCard({
       setInternError(body.error ?? "No se pudo ejecutar el pasante virtual")
     } else {
       setInternStatus("Pasante virtual ejecutado exitosamente")
+      // refrescar última ejecución
+      await loadPatientData()
     }
     setRunningIntern(false)
   }
@@ -439,39 +464,60 @@ export function PatientFileCard({
               disabled={!canRunVirtualIntern || runningIntern}
               className={canRunVirtualIntern ? "bg-orange-500 hover:bg-orange-600" : ""}
             >
-              {runningIntern ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                  Ejecutando...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="h-4 w-4 mr-2" />
-                  Ejecutar
-                </>
-              )}
-            </Button>
-          </div>
+            {runningIntern ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                Ejecutando...
+              </>
+            ) : (
+              <>
+                <Sparkles className="h-4 w-4 mr-2" />
+                Ejecutar
+              </>
+            )}
+          </Button>
+        </div>
 
-          {!canRunVirtualIntern && (
-            <div className="mt-3 flex items-start gap-2 text-sm text-amber-700 bg-amber-50 p-3 rounded-lg">
-              <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
-              <div>
-                <p className="font-medium">Requisitos pendientes:</p>
-                <ul className="mt-1 space-y-1">
-                  {!hasBaseline && <li>• Cuestionario base del paciente</li>}
-                  {!hasResponses && <li>• Cuestionario de especialidad</li>}
-                  {!hasLabResults && <li>• Resultados de laboratorio</li>}
-                </ul>
-              </div>
+        {!canRunVirtualIntern && (
+          <div className="mt-3 flex items-start gap-2 text-sm text-amber-700 bg-amber-50 p-3 rounded-lg">
+            <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+            <div>
+              <p className="font-medium">Requisitos pendientes:</p>
+              <ul className="mt-1 space-y-1">
+                {!hasBaseline && <li>• Cuestionario base del paciente</li>}
+                {!hasResponses && <li>• Cuestionario de especialidad</li>}
+                {!hasLabResults && <li>• Resultados de laboratorio</li>}
+              </ul>
             </div>
-          )}
+          </div>
+        )}
 
-          {internError && (
-            <Alert variant="destructive" className="mt-3">
-              <AlertDescription>{internError}</AlertDescription>
-            </Alert>
-          )}
+        {internRun && (
+          <div className="mt-4 space-y-2">
+            <p className="text-sm font-semibold text-gray-800">Última ejecución</p>
+            <div className="bg-white rounded-lg border p-3 space-y-2">
+              <p className="text-xs text-gray-500">
+                Estado: {internRun.status} • {internRun.completed_at ? new Date(internRun.completed_at).toLocaleString() : "N/D"}
+              </p>
+              {internRun.summary && (
+                <p className="text-sm text-gray-800 whitespace-pre-wrap">{internRun.summary}</p>
+              )}
+              {internRun.suggestions && internRun.suggestions.length > 0 && (
+                <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
+                  {internRun.suggestions.map((s, idx) => (
+                    <li key={idx}>{s}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        )}
+
+        {internError && (
+          <Alert variant="destructive" className="mt-3">
+            <AlertDescription>{internError}</AlertDescription>
+          </Alert>
+        )}
 
           {internStatus && (
             <Alert className="mt-3 bg-green-50 border-green-200 text-green-700">
