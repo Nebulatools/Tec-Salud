@@ -325,6 +325,26 @@ function CuestionarioContent() {
 
   // Calcular laboratorios recomendados basados en respuestas
   const calculateRecommendedTests = () => {
+    // Normaliza prompts para ser menos frágil ante cambios de texto
+    const slugify = (str: string) =>
+      str
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9\\s]/g, " ")
+        .replace(/\\s+/g, " ")
+        .trim()
+
+    const keywordMap: { key: string; matches: string[] }[] = [
+      { key: "dolor_pecho", matches: ["dolor pecho", "pecho esfuerzo", "angina"] },
+      { key: "hipertension", matches: ["hipertension", "presion", "presion arterial"] },
+      { key: "antecedentes_cardiacos", matches: ["antecedentes cardiaca", "familiar cardiaca", "familiar cardiopatia"] },
+      { key: "tiroides", matches: ["tiroides"] },
+      { key: "diabetes", matches: ["diabetes"] },
+      { key: "fiebre", matches: ["fiebre"] },
+      { key: "perdida_peso", matches: ["perdida peso", "perdida de peso"] },
+    ]
+
     const specName = specialty?.name ?? ""
     const recommendations = labRecommendations[specName] ?? []
     const tests = new Set<string>()
@@ -333,14 +353,12 @@ function CuestionarioContent() {
     const answerMap: Record<string, any> = {}
     questions.forEach((q) => {
       const val = answers[q.id]
-      // Mapear preguntas específicas a keys
-      if (q.prompt.toLowerCase().includes("dolor de pecho")) answerMap["dolor_pecho"] = val
-      if (q.prompt.toLowerCase().includes("hipertensión") || q.prompt.toLowerCase().includes("presión")) answerMap["hipertension"] = val
-      if (q.prompt.toLowerCase().includes("antecedentes") && q.prompt.toLowerCase().includes("cardiaca")) answerMap["antecedentes_cardiacos"] = val
-      if (q.prompt.toLowerCase().includes("tiroides")) answerMap["tiroides"] = val
-      if (q.prompt.toLowerCase().includes("diabetes")) answerMap["diabetes"] = val
-      if (q.prompt.toLowerCase().includes("fiebre")) answerMap["fiebre"] = val
-      if (q.prompt.toLowerCase().includes("pérdida de peso") || q.prompt.toLowerCase().includes("perdida de peso")) answerMap["perdida_peso"] = val
+      const slug = slugify(q.prompt)
+      keywordMap.forEach(({ key, matches }) => {
+        if (matches.some((m) => slug.includes(m))) {
+          answerMap[key] = val
+        }
+      })
     })
 
     recommendations.forEach((rec) => {
@@ -380,9 +398,58 @@ function CuestionarioContent() {
       return
     }
 
-    // Calcular labs recomendados y pasar al siguiente paso
+    // Calcular labs recomendados y guardar/crear la orden para que aparezca en "Laboratorios"
     const tests = calculateRecommendedTests()
     setRecommendedTests(tests)
+
+    const { data: existingOrder, error: fetchOrderError } = await supabase
+      .from("lab_orders")
+      .select("id, recommended_tests")
+      .eq("patient_user_id", user.id)
+      .eq("doctor_id", doctorId)
+      .eq("specialty_id", specialtyId)
+      .maybeSingle()
+
+    if (fetchOrderError && fetchOrderError.code !== "PGRST116") {
+      setError(fetchOrderError.message)
+      setSaving(false)
+      return
+    }
+
+    const mergedRecommended =
+      existingOrder?.recommended_tests && typeof existingOrder.recommended_tests === "object" && !Array.isArray(existingOrder.recommended_tests)
+        ? { ...existingOrder.recommended_tests, tests }
+        : { tests }
+
+    const labOrderPayload = {
+      patient_user_id: user.id,
+      doctor_id: doctorId,
+      specialty_id: specialtyId,
+      recommended_tests: mergedRecommended,
+      status: "pending_upload" as const,
+    }
+
+    if (existingOrder?.id) {
+      const { error: updateError } = await supabase
+        .from("lab_orders")
+        .update(labOrderPayload)
+        .eq("id", existingOrder.id)
+
+      if (updateError) {
+        setError(updateError.message)
+        setSaving(false)
+        return
+      }
+    } else {
+      const { error: createError } = await supabase.from("lab_orders").insert(labOrderPayload)
+      if (createError) {
+        setError(createError.message)
+        setSaving(false)
+        return
+      }
+    }
+
+    setStatus("¡Cuestionario guardado! Ahora selecciona tu laboratorio para continuar.")
     setStep("labs")
     setSaving(false)
   }
@@ -430,7 +497,7 @@ function CuestionarioContent() {
     setSaving(false)
 
     setTimeout(() => {
-      router.push("/user")
+      router.push("/user/laboratorios")
     }, 2000)
   }
 

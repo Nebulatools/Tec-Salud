@@ -57,14 +57,22 @@ export default function LaboratoriosPage() {
   const loadOrders = async () => {
     if (!user) return
     setLoading(true)
+    setError(null)
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("lab_orders")
       .select(
-        "id, recommended_tests, notes, status, doctors(first_name,last_name,email), specialties(name), lab_results(id, storage_path, uploaded_at, mime_type)"
+        "id, recommended_tests, notes, status, doctor:doctors!lab_orders_doctor_id_fkey(first_name,last_name,email), specialty:specialties(name), lab_results(id, storage_path, uploaded_at, mime_type)"
       )
       .eq("patient_user_id", user.id)
       .order("recommended_at", { ascending: false })
+
+    if (error) {
+      setError(error.message)
+      setOrders([])
+      setLoading(false)
+      return
+    }
 
     const mapped =
       data?.map((row: any) => ({
@@ -72,8 +80,8 @@ export default function LaboratoriosPage() {
         recommended_tests: row.recommended_tests,
         notes: row.notes,
         status: row.status,
-        doctor: row.doctors,
-        specialty: row.specialties,
+        doctor: row.doctor,
+        specialty: row.specialty,
         lab_results: row.lab_results ?? [],
       })) ?? []
 
