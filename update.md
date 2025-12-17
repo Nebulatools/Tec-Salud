@@ -1,4 +1,4 @@
-# PRD: Asistente Clínico de IA para Cumplimiento y Sugerencias
+# PRD: Asistente Clínico de IA para Cumplimiento y Sugerencias f
 
 **Versión:** 1.0
 **Feature:** Asistente de Cumplimiento Normativo y Sugerencias Clínicas

@@ -166,7 +166,7 @@ export default function PendingAppointments() {
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="text-gray-700">Consultas Pendientes</CardTitle>
         <Link href="/consultas">
-          <Button variant="ghost" size="sm" className="text-orange-500 hover:text-orange-600">
+          <Button variant="ghost" size="sm" className="text-zuli-veronica hover:text-zuli-veronica-600">
             Ver todas
             <ArrowRight className="ml-1 h-4 w-4" />
           </Button>
@@ -178,7 +178,7 @@ export default function PendingAppointments() {
             <Calendar className="mx-auto h-12 w-12 text-gray-400 mb-4" />
             <p className="text-gray-500 mb-4">No hay consultas programadas</p>
             <Link href="/consultas">
-              <Button className="button-primary text-white">
+              <Button className="btn-zuli-gradient">
                 <Plus className="mr-2 h-4 w-4" />
                 Nueva Consulta
               </Button>
@@ -214,8 +214,8 @@ export default function PendingAppointments() {
                   </div>
 
                   <div className="mt-3">
-                    <Button 
-                      className="w-full button-primary text-white text-sm"
+                    <Button
+                      className="w-full btn-zuli-gradient text-sm"
                       onClick={() => handleStartConsultation(appointment)}
                     >
                       Iniciar Consulta →

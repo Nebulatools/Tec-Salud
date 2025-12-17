@@ -88,25 +88,29 @@ export default function DashboardStats() {
       title: "Total Pacientes",
       value: stats.totalPatients,
       icon: Users,
-      color: "text-blue-600 dark:text-blue-400",
+      color: "text-zuli-veronica",
+      bgColor: "bg-zuli-veronica/10",
     },
     {
       title: "Consultas Hoy",
       value: stats.todayAppointments,
       icon: Calendar,
-      color: "text-green-600 dark:text-green-400",
+      color: "text-zuli-indigo",
+      bgColor: "bg-zuli-indigo/10",
     },
     {
       title: "Esta Semana",
       value: stats.thisWeekAppointments,
       icon: Clock,
-      color: "text-orange-600 dark:text-orange-400",
+      color: "text-zuli-cyan-600",
+      bgColor: "bg-zuli-cyan/10",
     },
     {
       title: "Reportes",
       value: stats.totalReports,
       icon: FileText,
-      color: "text-purple-600 dark:text-purple-400",
+      color: "text-zuli-space",
+      bgColor: "bg-zuli-space/10",
     },
   ]
 
@@ -127,14 +131,14 @@ export default function DashboardStats() {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
       {statCards.map((stat, index) => (
-        <Card key={index}>
+        <Card key={index} className="hover:shadow-lg transition-shadow duration-200">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600 dark:text-gray-400">{stat.title}</p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">{stat.value}</p>
               </div>
-              <div className={`p-3 rounded-full bg-gray-100 dark:bg-gray-800 ${stat.color}`}>
+              <div className={`p-3 rounded-xl ${stat.bgColor} ${stat.color}`}>
                 <stat.icon className="h-6 w-6" />
               </div>
             </div>
