@@ -9,6 +9,9 @@ import { useAuth } from "@/hooks/use-auth"
 import { useAppUser } from "@/hooks/use-app-user"
 import Sidebar from "@/components/layout/sidebar"
 import Header from "@/components/layout/header"
+import { RecordingProvider } from "@/contexts/recording-context"
+import RecordingPill from "@/components/recording/recording-pill"
+import StopRecordingModal from "@/components/recording/stop-recording-modal"
 
 export default function DashboardLayout({
   children,
@@ -53,14 +56,20 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="min-h-screen bg-zuli-mesh flex">
-      <Sidebar onCollapseChange={setSidebarCollapsed} />
+    <RecordingProvider>
+      <div className="min-h-screen bg-zuli-mesh flex">
+        <Sidebar onCollapseChange={setSidebarCollapsed} />
 
-      {/* Main content area that takes remaining space */}
-      <div className="flex-1 transition-all duration-300 ease-in-out">
-        <Header />
-        <main className="p-6">{children}</main>
+        {/* Main content area that takes remaining space */}
+        <div className="flex-1 transition-all duration-300 ease-in-out">
+          <Header />
+          <main className="p-6">{children}</main>
+        </div>
+
+        {/* Global recording components - persist across navigation */}
+        <RecordingPill />
+        <StopRecordingModal />
       </div>
-    </div>
+    </RecordingProvider>
   )
 }
