@@ -4,11 +4,14 @@ import { useState, useEffect, useRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { Mic, Square, Loader2, FileText } from "lucide-react"
+import { Mic, Square, Loader2, FileText, Pause, Play } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useRecording } from "@/hooks/use-recording"
 
 interface ConsultationRecordingProps {
   appointmentId: string
+  patientId?: string
+  patientName?: string
   consultationData: any
   onComplete: (data: any) => void
   onDataUpdate?: (updater: any) => void
@@ -16,19 +19,35 @@ interface ConsultationRecordingProps {
   onNavigateToStep: (step: number) => void
 }
 
-export default function ConsultationRecording({ 
-  appointmentId, 
-  consultationData, 
-  onComplete, 
+export default function ConsultationRecording({
+  appointmentId,
+  patientId: propPatientId,
+  patientName: propPatientName,
+  consultationData,
+  onComplete,
   onDataUpdate,
   onRecordingStateChange,
-  onNavigateToStep 
+  onNavigateToStep
 }: ConsultationRecordingProps) {
-  const [isRecording, setIsRecording] = useState(false)
-  const [recordingTime, setRecordingTime] = useState(0)
+  // Global recording state from context
+  const {
+    status: globalStatus,
+    session: globalSession,
+    elapsedTime: globalElapsedTime,
+    transcript: globalTranscript,
+    audioBlob: globalAudioBlob,
+    error: globalError,
+    isRecordingActive,
+    startRecording: globalStartRecording,
+    stopRecording: globalStopRecording,
+    pauseRecording: globalPauseRecording,
+    resumeRecording: globalResumeRecording,
+    formatTime,
+  } = useRecording()
+
+  // Local state for manual mode and UI
   const [transcript, setTranscript] = useState("")
   const [isTranscribing, setIsTranscribing] = useState(false)
-  const [audioBlob, setAudioBlob] = useState<Blob | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [manualTranscriptMode, setManualTranscriptMode] = useState(false)
   const [isParsing, setIsParsing] = useState(false)
@@ -42,74 +61,56 @@ export default function ConsultationRecording({
 
   const lastParsedRef = useRef<string>("")
 
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
-  const streamRef = useRef<MediaStream | null>(null)
-  const chunksRef = useRef<Blob[]>([])
+  // Derive recording state from global context
+  const isRecording = globalSession?.appointmentId === appointmentId && isRecordingActive
+  const isPaused = globalStatus === "paused" && globalSession?.appointmentId === appointmentId
+  const recordingTime = (isRecording || isPaused) ? globalElapsedTime : 0
 
+  // Sync global transcript to local state when completed
   useEffect(() => {
-    let interval: NodeJS.Timeout
-    
-    if (isRecording) {
-      interval = setInterval(() => {
-        setRecordingTime(prev => prev + 1)
-      }, 1000)
+    if (globalTranscript && globalSession?.appointmentId === appointmentId && !manualTranscriptMode) {
+      setTranscript(globalTranscript.fullText)
+      setIsTranscribing(false)
     }
+  }, [globalTranscript, globalSession?.appointmentId, appointmentId, manualTranscriptMode])
 
-    return () => {
-      if (interval) clearInterval(interval)
+  // Sync global error to local state
+  useEffect(() => {
+    if (globalError && globalSession?.appointmentId === appointmentId) {
+      setError(globalError)
     }
-  }, [isRecording])
+  }, [globalError, globalSession?.appointmentId, appointmentId])
+
+  // Sync processing state
+  useEffect(() => {
+    if (globalStatus === "processing" && globalSession?.appointmentId === appointmentId) {
+      setIsTranscribing(true)
+    }
+  }, [globalStatus, globalSession?.appointmentId, appointmentId])
+
+  // Notify parent of recording state changes
+  useEffect(() => {
+    onRecordingStateChange(isRecording)
+  }, [isRecording, onRecordingStateChange])
 
   const handleStartRecording = async () => {
     try {
       setError(null)
       setTranscript("")
-      chunksRef.current = []
 
-      // Request microphone permission
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        audio: {
-          sampleRate: 16000,
-          channelCount: 1,
-          echoCancellation: true,
-          noiseSuppression: true
-        } 
+      // Get patient info from props or consultationData
+      const patientId = propPatientId || consultationData?.patientInfo?.id || ""
+      const patientName = propPatientName || consultationData?.patientInfo?.nombre ||
+        `${consultationData?.patientInfo?.first_name || ""} ${consultationData?.patientInfo?.last_name || ""}`.trim() ||
+        "Paciente"
+
+      // Start recording using global context
+      await globalStartRecording({
+        appointmentId,
+        patientId,
+        patientName,
+        startedAt: new Date(),
       })
-      
-      streamRef.current = stream
-
-      // Create MediaRecorder
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: 'audio/webm;codecs=opus'
-      })
-      
-      mediaRecorderRef.current = mediaRecorder
-
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          chunksRef.current.push(event.data)
-        }
-      }
-
-      mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(chunksRef.current, { type: 'audio/webm' })
-        setAudioBlob(audioBlob)
-        
-        // Stop all tracks
-        if (streamRef.current) {
-          streamRef.current.getTracks().forEach(track => track.stop())
-        }
-        
-      // Start transcription
-      await transcribeAudio(audioBlob)
-      // parse is triggered via effect after transcription completes
-    }
-
-      // Start recording
-      mediaRecorder.start(1000) // Collect data every second
-      setIsRecording(true)
-      setRecordingTime(0)
-      onRecordingStateChange(true)
 
     } catch (err) {
       console.error("Error starting recording:", err)
@@ -117,11 +118,9 @@ export default function ConsultationRecording({
     }
   }
 
-  const handleStopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop()
-      setIsRecording(false)
-      onRecordingStateChange(false)
+  const handleStopRecording = async () => {
+    if (isRecording) {
+      await globalStopRecording()
     }
   }
 
@@ -191,38 +190,8 @@ export default function ConsultationRecording({
     }
   }
 
-  const transcribeAudio = async (audioBlob: Blob) => {
-    setIsTranscribing(true)
-    try {
-      const formData = new FormData()
-      formData.append('audio', audioBlob, 'recording.webm')
-      formData.append('language', 'es-MX')
-
-      const response = await fetch('/api/transcribe', {
-        method: 'POST',
-        body: formData,
-      })
-
-      if (!response.ok) {
-        throw new Error(`Error en transcripción: ${response.statusText}`)
-      }
-
-      const data = await response.json()
-      
-      if (data.success && data.transcript) {
-        setTranscript(data.transcript)
-      } else {
-        throw new Error(data.error || 'Error desconocido en transcripción')
-      }
-
-    } catch (err) {
-      console.error("Transcription error:", err)
-      setError(`Error de transcripción: ${err instanceof Error ? err.message : 'Error desconocido'}`)
-      setTranscript("Error al transcribir el audio. Puedes escribir manualmente.")
-    } finally {
-      setIsTranscribing(false)
-    }
-  }
+  // Note: transcribeAudio is now handled by the global recording context
+  // The context calls /api/transcribe-diarized and updates globalTranscript
 
   // Auto-parse when transcription finished (audio flow)
   useEffect(() => {
@@ -245,7 +214,7 @@ export default function ConsultationRecording({
       duration: recordingTime,
       startedAt: new Date().toISOString(),
       processedTranscript: transcript || "No se pudo transcribir el audio.",
-      audioBlob: audioBlob, // Optional: keep for future use
+      audioBlob: globalAudioBlob, // From global recording context
       isManualTranscript: manualTranscriptMode
     }
     
@@ -261,11 +230,7 @@ export default function ConsultationRecording({
     setTranscript("")
   }
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60)
-    const secs = seconds % 60
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
-  }
+  // Note: formatTime is now provided by the useRecording hook
 
   return (
     <Card>
@@ -278,8 +243,8 @@ export default function ConsultationRecording({
                "Iniciar Grabación de Consulta"}
             </h2>
             <p className="text-gray-600 text-sm sm:text-base">
-              {isRecording ? "Presione el botón para detener." : 
-               isTranscribing ? "Procesando con Gemini AI..." :
+              {isRecording ? "Presione el botón para detener. Puede navegar a otras páginas sin perder la grabación." :
+               isTranscribing ? "Transcribiendo con IA..." :
                "La grabación se transcribirá automáticamente con IA."}
             </p>
           </div>
@@ -313,15 +278,39 @@ export default function ConsultationRecording({
             </button>
           </div>
 
-          {isRecording && (
-            <div className="text-center">
+          {(isRecording || isPaused) && (
+            <div className="text-center space-y-4">
               <div className="text-2xl sm:text-3xl font-mono font-bold text-gray-900 mb-1">
                 {formatTime(recordingTime)}
               </div>
-              <div className="flex items-center justify-center gap-2 text-sm text-red-600 font-medium">
-                <div className="w-2 h-2 sm:w-3 sm:h-3 bg-red-500 rounded-full animate-pulse"></div>
-                REC
+              <div className="flex items-center justify-center gap-2 text-sm font-medium">
+                <div className={cn(
+                  "w-2 h-2 sm:w-3 sm:h-3 rounded-full",
+                  isPaused ? "bg-yellow-500" : "bg-red-500 animate-pulse"
+                )}></div>
+                <span className={isPaused ? "text-yellow-600" : "text-red-600"}>
+                  {isPaused ? "PAUSADO" : "REC"}
+                </span>
               </div>
+
+              {/* Botón de Pausar/Reanudar */}
+              <Button
+                variant="outline"
+                onClick={isPaused ? globalResumeRecording : globalPauseRecording}
+                className="flex items-center gap-2"
+              >
+                {isPaused ? (
+                  <>
+                    <Play className="h-4 w-4" />
+                    Reanudar
+                  </>
+                ) : (
+                  <>
+                    <Pause className="h-4 w-4" />
+                    Pausar
+                  </>
+                )}
+              </Button>
             </div>
           )}
 

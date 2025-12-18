@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useSearchParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -14,7 +15,6 @@ import ConsultationRecording from "./consultation-steps/consultation-recording"
 import ComplianceAssistant from "../consultation-steps/compliance-assistant"
 import ReportVerification from "./consultation-steps/report-verification"
 import FinalReport from "./consultation-steps/final-report"
-import RecordingIndicator from "./recording-indicator"
 import { ConsultationData } from "@/types/consultation"
 
 interface ConsultationFlowProps {
@@ -69,10 +69,25 @@ export default function ConsultationFlow({ appointmentId, patientName, patientId
   console.log('appointmentId:', appointmentId)
   console.log('patientName:', patientName)
   console.log('patientId:', patientId)
-  
+
   const { toast } = useToast()
-  const [currentStep, setCurrentStep] = useState(1)
-  const [completedSteps, setCompletedSteps] = useState<number[]>([])
+  const searchParams = useSearchParams()
+  const stepParam = searchParams.get('step')
+
+  // Initialize step from URL param if present (e.g., ?step=2 from recording pill navigation)
+  const [currentStep, setCurrentStep] = useState(() => {
+    const urlStep = stepParam ? parseInt(stepParam, 10) : 1
+    return urlStep >= 1 && urlStep <= 5 ? urlStep : 1
+  })
+  // If starting from a step > 1 (via URL param), mark previous steps as completed
+  const [completedSteps, setCompletedSteps] = useState<number[]>(() => {
+    const urlStep = stepParam ? parseInt(stepParam, 10) : 1
+    if (urlStep > 1 && urlStep <= 5) {
+      // Mark all steps before the current one as completed
+      return Array.from({ length: urlStep - 1 }, (_, i) => i + 1)
+    }
+    return []
+  })
   const [isRecording, setIsRecording] = useState(false)
   const [consultationData, setConsultationData] = useState<ConsultationData>({
     patientInfo: { id: patientId },
@@ -82,6 +97,24 @@ export default function ConsultationFlow({ appointmentId, patientName, patientId
     finalReport: null,
   })
   const [draftId, setDraftId] = useState<string | null>(null) // Para tracking del borrador único
+
+  // Handle URL step param changes (e.g., when navigating from recording pill)
+  useEffect(() => {
+    if (stepParam) {
+      const urlStep = parseInt(stepParam, 10)
+      if (urlStep >= 1 && urlStep <= 5 && urlStep !== currentStep) {
+        setCurrentStep(urlStep)
+        // Mark previous steps as completed if navigating forward
+        if (urlStep > 1) {
+          setCompletedSteps(prev => {
+            const stepsToComplete = Array.from({ length: urlStep - 1 }, (_, i) => i + 1)
+            const merged = [...new Set([...prev, ...stepsToComplete])]
+            return merged.sort((a, b) => a - b)
+          })
+        }
+      }
+    }
+  }, [stepParam]) // Only run when stepParam changes
 
   // Cargar datos guardados desde Supabase
   useEffect(() => {
@@ -158,13 +191,19 @@ export default function ConsultationFlow({ appointmentId, patientName, patientId
             }
           }
 
-          setCurrentStep(stepToResume)
-          setCompletedSteps(completed)
+          // Solo cambiar el step si NO hay un URL param explícito
+          // (si hay ?step=2 desde "Continuar consulta", respetar eso)
+          if (!stepParam) {
+            setCurrentStep(stepToResume)
+            setCompletedSteps(completed)
 
-          toast({
-            title: "Progreso cargado",
-            description: `Reanudando en el paso ${stepToResume}`,
-          })
+            toast({
+              title: "Progreso cargado",
+              description: `Reanudando en el paso ${stepToResume}`,
+            })
+          } else {
+            console.log('URL step param presente, no sobreescribir step:', stepParam)
+          }
         } else {
           console.log('No se encontró reporte, empezando desde el inicio')
         }
@@ -358,9 +397,6 @@ export default function ConsultationFlow({ appointmentId, patientName, patientId
 
   return (
     <div className="min-h-screen bg-gray-50 relative">
-      {/* Recording Indicator - Independent floating component */}
-      {isRecording && <RecordingIndicator />}
-
       <div className="max-w-6xl mx-auto p-6">
         {/* Header */}
         <div className="flex items-center gap-4 mb-6">
