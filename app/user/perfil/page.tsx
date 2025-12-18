@@ -25,6 +25,7 @@ import {
   Loader2,
   X,
   Plus,
+  Sparkles,
 } from "lucide-react"
 
 // Opciones predefinidas
@@ -65,21 +66,58 @@ const LIFESTYLE_OPTIONS = {
   diet: ["Balanceada", "Vegetariana", "Vegana", "Keto/baja en carbohidratos", "Sin restricciones", "Otra"],
 }
 
+const FAMILY_HISTORY = [
+  { id: "hipertension", label: "Hipertensión" },
+  { id: "diabetes", label: "Diabetes" },
+  { id: "cardiopatias", label: "Cardiopatías" },
+  { id: "hepatopatias", label: "Hepatopatías" },
+  { id: "tumores", label: "Tumores" },
+  { id: "mentales", label: "Mentales" },
+]
+
+const PERSONAL_HISTORY = [
+  { id: "hipertension_p", label: "Hipertensión" },
+  { id: "diabetes_p", label: "Diabetes" },
+  { id: "cardiopatias_p", label: "Cardiopatías" },
+  { id: "hepatopatias_p", label: "Hepatopatías" },
+  { id: "nefritis", label: "Nefritis" },
+  { id: "tumores_p", label: "Tumores" },
+  { id: "tromboflebitis", label: "Tromboflebitis" },
+  { id: "mentales_p", label: "Mentales" },
+  { id: "fuma", label: "Fuma", followUp: "cigarettes" },
+  { id: "infeccion_pelvica", label: "Infección pélvica", femaleOnly: true },
+  { id: "infeccion_cervical", label: "Infección cervical", femaleOnly: true },
+  { id: "flujo_vaginal", label: "Flujo vaginal", femaleOnly: true },
+  { id: "cirugia_ginecologica", label: "Cirugía ginecológica", femaleOnly: true },
+  { id: "otros", label: "Otros", hasText: true },
+  { id: "resultado_citologia", label: "Resultado citología", femaleOnly: true, hasDate: true },
+]
+
 type BaselineState = {
+  gender: string
+  birth_date: string
   blood_type: string
   height_cm: string
   weight_kg: string
+  percentile_height: number | null
+  percentile_weight: number | null
   allergies: string[]
   other_allergy: string
   chronic_conditions: string[]
   other_condition: string
   medications: { name: string; dose: string; frequency: string }[]
   has_surgeries: boolean | null
-  surgeries: string
+  surgeries: { id: string; description: string }[]
   smoking: string
   alcohol: string
   exercise: string
   diet: string
+  family_history: Record<string, string>
+  personal_history: Record<string, string>
+  fuma_cigarettes: string
+  other_personal: string
+  citologia_result: string
+  citologia_date: string
 }
 
 export default function PerfilPage() {
@@ -90,20 +128,30 @@ export default function PerfilPage() {
   const [status, setStatus] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [form, setForm] = useState<BaselineState>({
+    gender: "",
+    birth_date: "",
     blood_type: "",
     height_cm: "",
     weight_kg: "",
+    percentile_height: null,
+    percentile_weight: null,
     allergies: [],
     other_allergy: "",
     chronic_conditions: [],
     other_condition: "",
     medications: [],
     has_surgeries: null,
-    surgeries: "",
+    surgeries: [],
     smoking: "",
     alcohol: "",
     exercise: "",
     diet: "",
+    family_history: {},
+    personal_history: {},
+    fuma_cigarettes: "",
+    other_personal: "",
+    citologia_result: "",
+    citologia_date: "",
   })
 
   useEffect(() => {
@@ -131,27 +179,96 @@ export default function PerfilPage() {
         const medsRaw = c?.medications
         const medsArr = Array.isArray(medsRaw) ? medsRaw : []
 
+        const surgeriesRaw = c?.surgeries
+        const surgeriesArr = Array.isArray(surgeriesRaw)
+          ? surgeriesRaw
+          : surgeriesRaw
+            ? [{ id: "s-0", description: String(surgeriesRaw) }]
+            : []
+
         setForm({
+          gender: gi?.gender ?? "",
+          birth_date: gi?.birth_date ?? "",
           blood_type: gi?.blood_type ?? "",
           height_cm: v?.height_cm ?? "",
           weight_kg: v?.weight_kg ?? "",
+          percentile_height: v?.percentile_height ?? null,
+          percentile_weight: v?.percentile_weight ?? null,
           allergies: allergiesArr,
           other_allergy: gi?.other_allergy ?? "",
           chronic_conditions: conditionsArr,
           other_condition: c?.other_condition ?? "",
           medications: medsArr,
           has_surgeries: c?.has_surgeries ?? null,
-          surgeries: c?.surgeries ?? "",
+          surgeries: surgeriesArr,
           smoking: l?.smoking ?? "",
           alcohol: l?.alcohol ?? "",
           exercise: l?.exercise ?? "",
           diet: l?.diet ?? "",
+          family_history: gi?.family_history ?? {},
+          personal_history: c?.personal_history ?? {},
+          fuma_cigarettes: c?.fuma_cigarettes ?? "",
+          other_personal: c?.other_personal ?? "",
+          citologia_result: c?.citologia_result ?? "",
+          citologia_date: c?.citologia_date ?? "",
         })
       }
       setLoading(false)
     }
     load()
   }, [user])
+
+  const calculateAge = (dateString: string) => {
+    if (!dateString) return null
+    const birth = new Date(dateString)
+    const today = new Date()
+    let age = today.getFullYear() - birth.getFullYear()
+    const m = today.getMonth() - birth.getMonth()
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
+      age--
+    }
+    return age
+  }
+
+  const estimatePercentiles = (height: number, weight: number, gender: string, age: number | null) => {
+    // Estimación sencilla (no clínica) para dar contexto rápido; usa promedios de adultos.
+    const norms =
+      gender === "Femenino"
+        ? { heightAvg: 162, heightSd: 7, bmiPivot: 23 }
+        : { heightAvg: 175, heightSd: 7.5, bmiPivot: 24 }
+
+    const bmi = weight && height ? weight / Math.pow(height / 100, 2) : null
+
+    const percentileFromZ = (z: number) => {
+      // Aproximación lineal simple para mostrar rango (no es una tabla CDC)
+      const p = Math.round(50 + z * 15)
+      return Math.min(99, Math.max(1, p))
+    }
+
+    const heightZ = height ? (height - norms.heightAvg) / norms.heightSd : null
+    const weightPercentile = bmi !== null ? percentileFromZ((bmi - norms.bmiPivot) / 4) : null
+    const heightPercentile = heightZ !== null ? percentileFromZ(heightZ) : null
+
+    return {
+      bmi,
+      weightPercentile,
+      heightPercentile,
+    }
+  }
+
+  useEffect(() => {
+    const h = Number.parseFloat(form.height_cm)
+    const w = Number.parseFloat(form.weight_kg)
+    const age = calculateAge(form.birth_date)
+    if (Number.isFinite(h) && Number.isFinite(w) && form.gender) {
+      const { weightPercentile, heightPercentile } = estimatePercentiles(h, w, form.gender, age)
+      setForm((prev) => ({
+        ...prev,
+        percentile_height: heightPercentile,
+        percentile_weight: weightPercentile,
+      }))
+    }
+  }, [form.height_cm, form.weight_kg, form.birth_date, form.gender])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -161,13 +278,18 @@ export default function PerfilPage() {
     setError(null)
 
     const general_info = {
+      gender: form.gender,
+      birth_date: form.birth_date,
       blood_type: form.blood_type,
       allergies: form.allergies,
       other_allergy: form.other_allergy,
+      family_history: form.family_history,
     }
     const vitals = {
       height_cm: form.height_cm,
       weight_kg: form.weight_kg,
+      percentile_height: form.percentile_height,
+      percentile_weight: form.percentile_weight,
     }
     const lifestyle = {
       smoking: form.smoking,
@@ -181,6 +303,11 @@ export default function PerfilPage() {
       medications: form.medications,
       has_surgeries: form.has_surgeries,
       surgeries: form.surgeries,
+      personal_history: form.personal_history,
+      fuma_cigarettes: form.fuma_cigarettes,
+      other_personal: form.other_personal,
+      citologia_result: form.citologia_result,
+      citologia_date: form.citologia_date,
     }
 
     const { error: upsertError } = await supabase.from("patient_baseline_forms").upsert(
@@ -252,9 +379,58 @@ export default function PerfilPage() {
     }))
   }
 
+  const addOtherAllergy = () => {
+    if (!form.other_allergy.trim()) return
+    setForm((prev) => ({
+      ...prev,
+      allergies: [...prev.allergies.filter((a) => a !== "Ninguna conocida"), prev.other_allergy.trim()],
+      other_allergy: "",
+    }))
+  }
+
+  const updateFamilyHistory = (id: string, value: string) => {
+    setForm((prev) => ({
+      ...prev,
+      family_history: { ...prev.family_history, [id]: value },
+    }))
+  }
+
+  const updatePersonalHistory = (id: string, value: string) => {
+    setForm((prev) => ({
+      ...prev,
+      personal_history: { ...prev.personal_history, [id]: value },
+    }))
+  }
+
+  const addSurgery = () => {
+    setForm((prev) => ({
+      ...prev,
+      surgeries: [...prev.surgeries, { id: `s-${Date.now()}`, description: "" }],
+      has_surgeries: true,
+    }))
+  }
+
+  const updateSurgery = (id: string, value: string) => {
+    setForm((prev) => ({
+      ...prev,
+      surgeries: prev.surgeries.map((s) => (s.id === id ? { ...s, description: value } : s)),
+    }))
+  }
+
+  const removeSurgery = (id: string) => {
+    setForm((prev) => ({
+      ...prev,
+      surgeries: prev.surgeries.filter((s) => s.id !== id),
+    }))
+  }
+
+  const isFemale = form.gender === "Femenino"
+
   // Calcular progreso
-  const totalFields = 8
+  const totalFields = 10
   let filledFields = 0
+  if (form.gender) filledFields++
+  if (form.birth_date) filledFields++
   if (form.blood_type) filledFields++
   if (form.height_cm) filledFields++
   if (form.weight_kg) filledFields++
@@ -311,7 +487,31 @@ export default function PerfilPage() {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid md:grid-cols-3 gap-4">
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="space-y-2">
+                <Label>Género</Label>
+                <Select
+                  value={form.gender}
+                  onValueChange={(v) => setForm((prev) => ({ ...prev, gender: v }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Femenino">Femenino</SelectItem>
+                    <SelectItem value="Masculino">Masculino</SelectItem>
+                    <SelectItem value="Otro">Otro</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Fecha de nacimiento</Label>
+                <Input
+                  value={form.birth_date}
+                  onChange={(e) => setForm((prev) => ({ ...prev, birth_date: e.target.value }))}
+                  type="date"
+                />
+              </div>
               <div className="space-y-2">
                 <Label>Tipo de sangre</Label>
                 <Select
@@ -349,6 +549,25 @@ export default function PerfilPage() {
                 />
               </div>
             </div>
+            {(form.percentile_height || form.percentile_weight) && (
+              <div className="flex flex-wrap gap-2 text-sm text-gray-600">
+                {form.percentile_height && (
+                  <Badge variant="secondary" className="flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-zuli-veronica" />
+                    Estatura aprox. p{form.percentile_height}
+                  </Badge>
+                )}
+                {form.percentile_weight && (
+                  <Badge variant="secondary" className="flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-zuli-indigo" />
+                    Peso aprox. p{form.percentile_weight}
+                  </Badge>
+                )}
+                <p className="text-xs text-gray-500 w-full">
+                  *Estimación rápida basada en promedio poblacional; no reemplaza tablas de referencia clínicas.
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -357,7 +576,7 @@ export default function PerfilPage() {
           <CardHeader className="pb-3">
             <div className="flex items-center gap-2">
               <Activity className="h-5 w-5 text-blue-500" />
-              <CardTitle className="text-base">Alergias Conocidas</CardTitle>
+              <CardTitle className="text-base">Alergias</CardTitle>
             </div>
             <p className="text-sm text-gray-500">Selecciona todas las que apliquen</p>
           </CardHeader>
@@ -385,11 +604,22 @@ export default function PerfilPage() {
             {!form.allergies.includes("Ninguna conocida") && (
               <div className="space-y-2">
                 <Label className="text-sm text-gray-500">¿Otra alergia no listada?</Label>
-                <Input
-                  value={form.other_allergy}
-                  onChange={(e) => setForm((prev) => ({ ...prev, other_allergy: e.target.value }))}
-                  placeholder="Especificar otra alergia..."
-                />
+                <div className="flex gap-2">
+                  <Input
+                    value={form.other_allergy}
+                    onChange={(e) => setForm((prev) => ({ ...prev, other_allergy: e.target.value }))}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault()
+                        addOtherAllergy()
+                      }
+                    }}
+                    placeholder="Especificar otra alergia..."
+                  />
+                  <Button type="button" variant="outline" onClick={addOtherAllergy}>
+                    Agregar
+                  </Button>
+                </div>
               </div>
             )}
           </CardContent>
@@ -400,7 +630,7 @@ export default function PerfilPage() {
           <CardHeader className="pb-3">
             <div className="flex items-center gap-2">
               <FileText className="h-5 w-5 text-blue-900" />
-              <CardTitle className="text-base">Condiciones Crónicas</CardTitle>
+              <CardTitle className="text-base">Condiciones y antecedentes</CardTitle>
             </div>
             <p className="text-sm text-gray-500">Selecciona todas las que apliquen</p>
           </CardHeader>
@@ -435,6 +665,94 @@ export default function PerfilPage() {
                 />
               </div>
             )}
+
+            <div className="space-y-6">
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Heart className="h-4 w-4 text-red-500" />
+                  <p className="font-medium text-gray-800">Antecedentes familiares</p>
+                </div>
+                <div className="space-y-3">
+                  {FAMILY_HISTORY.map((item) => (
+                    <div key={item.id} className="flex items-center justify-between gap-4">
+                      <span className="text-sm text-gray-700">{item.label}</span>
+                      <div className="flex gap-2">
+                        {["SI", "NO", "NO SABE"].map((opt) => (
+                          <Button
+                            key={opt}
+                            type="button"
+                            size="sm"
+                            variant={form.family_history[item.id] === opt ? "default" : "outline"}
+                            onClick={() => updateFamilyHistory(item.id, opt)}
+                            className={form.family_history[item.id] === opt ? "bg-zuli-indigo hover:bg-zuli-indigo-600" : ""}
+                          >
+                            {opt}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <User className="h-4 w-4 text-zuli-indigo" />
+                  <p className="font-medium text-gray-800">Antecedentes personales</p>
+                </div>
+                <div className="space-y-3">
+                  {PERSONAL_HISTORY.filter((p) => !p.femaleOnly || isFemale).map((item) => (
+                    <div key={item.id} className="space-y-1">
+                      <div className="flex items-center justify-between gap-4">
+                        <span className="text-sm text-gray-700">{item.label}</span>
+                        <div className="flex gap-2">
+                          {["SI", "NO", "NO SABE"].map((opt) => (
+                            <Button
+                              key={opt}
+                              type="button"
+                              size="sm"
+                              variant={form.personal_history[item.id] === opt ? "default" : "outline"}
+                              onClick={() => updatePersonalHistory(item.id, opt)}
+                              className={
+                                form.personal_history[item.id] === opt ? "bg-zuli-veronica hover:bg-zuli-veronica-600" : ""
+                              }
+                            >
+                              {opt}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                      {item.followUp === "cigarettes" && form.personal_history[item.id] === "SI" && (
+                        <div className="pl-2">
+                          <Label className="text-xs text-gray-500">¿Cuántos diarios?</Label>
+                          <Input
+                            value={form.fuma_cigarettes}
+                            onChange={(e) => setForm((prev) => ({ ...prev, fuma_cigarettes: e.target.value }))}
+                            placeholder="Ej. 5"
+                          />
+                        </div>
+                      )}
+                      {item.hasDate && (
+                        <div className="pl-2 grid grid-cols-2 gap-2">
+                          <Input
+                            type="text"
+                            value={form.citologia_result}
+                            onChange={(e) => setForm((prev) => ({ ...prev, citologia_result: e.target.value }))}
+                            placeholder="Resultado"
+                          />
+                          <Input
+                            type="date"
+                            value={form.citologia_date}
+                            onChange={(e) => setForm((prev) => ({ ...prev, citologia_date: e.target.value }))}
+                            placeholder="Fecha"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
           </CardContent>
         </Card>
 
@@ -462,7 +780,7 @@ export default function PerfilPage() {
                 <div key={index} className="flex gap-2 items-start p-3 bg-gray-50 rounded-lg">
                   <div className="flex-1 grid grid-cols-3 gap-2">
                     <Input
-                      placeholder="Nombre"
+                      placeholder="Compuesto"
                       value={med.name}
                       onChange={(e) => updateMedication(index, "name", e.target.value)}
                     />
@@ -519,7 +837,7 @@ export default function PerfilPage() {
                   type="button"
                   variant={form.has_surgeries === true ? "default" : "outline"}
                   className={form.has_surgeries === true ? "bg-zuli-indigo hover:bg-zuli-indigo-600" : ""}
-                  onClick={() => setForm((prev) => ({ ...prev, has_surgeries: true }))}
+                  onClick={() => setForm((prev) => ({ ...prev, has_surgeries: true, surgeries: prev.surgeries.length ? prev.surgeries : [{ id: "s-0", description: "" }] }))}
                 >
                   Sí
                 </Button>
@@ -527,20 +845,38 @@ export default function PerfilPage() {
                   type="button"
                   variant={form.has_surgeries === false ? "default" : "outline"}
                   className={form.has_surgeries === false ? "bg-gray-500 hover:bg-gray-600" : ""}
-                  onClick={() => setForm((prev) => ({ ...prev, has_surgeries: false, surgeries: "" }))}
+                  onClick={() => setForm((prev) => ({ ...prev, has_surgeries: false, surgeries: [] }))}
                 >
                   No
                 </Button>
               </div>
             </div>
             {form.has_surgeries && (
-              <div className="space-y-2">
-                <Label className="text-sm text-gray-500">Describe brevemente (año y procedimiento)</Label>
-                <Input
-                  value={form.surgeries}
-                  onChange={(e) => setForm((prev) => ({ ...prev, surgeries: e.target.value }))}
-                  placeholder="Ej: 2020 - Apendicectomía"
-                />
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm text-gray-500">Cirugías u hospitalizaciones</Label>
+                  <Button type="button" variant="outline" size="sm" onClick={addSurgery}>
+                    <Plus className="h-4 w-4 mr-1" />
+                    Agregar
+                  </Button>
+                </div>
+                {form.surgeries.length === 0 && (
+                  <p className="text-sm text-gray-500">Agrega cada evento con año y procedimiento.</p>
+                )}
+                <div className="space-y-2">
+                  {form.surgeries.map((surgery) => (
+                    <div key={surgery.id} className="flex items-center gap-2">
+                      <Input
+                        value={surgery.description}
+                        onChange={(e) => updateSurgery(surgery.id, e.target.value)}
+                        placeholder="Ej: 2020 - Apendicectomía"
+                      />
+                      <Button type="button" variant="ghost" onClick={() => removeSurgery(surgery.id)}>
+                        <X className="h-4 w-4 text-red-500" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </CardContent>

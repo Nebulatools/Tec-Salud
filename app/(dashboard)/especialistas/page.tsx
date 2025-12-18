@@ -3,7 +3,6 @@
 
 import { LinkRequests } from "@/components/doctor/link-requests"
 import { LabOrdersAdmin } from "@/components/doctor/lab-orders-admin"
-import { DoctorSpecialtySetup } from "@/components/doctor/doctor-specialty-setup"
 import { useAppUser } from "@/hooks/use-app-user"
 
 export default function EspecialistasPage() {
@@ -23,10 +22,16 @@ export default function EspecialistasPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900">Especialistas y pacientes</h1>
-      <DoctorSpecialtySetup doctorId={doctorId} />
-      <LinkRequests doctorId={doctorId} />
-      <LabOrdersAdmin doctorId={doctorId} />
+      <h1 className="text-2xl font-bold text-gray-900">Expedientes</h1>
+      <p className="text-sm text-gray-600">
+        Configura tu especialidad y tarjeta desde <a className="text-orange-600 underline" href="/perfil">Perfil</a>.
+      </p>
+
+      <div className="space-y-4">
+        <h2 className="text-lg font-semibold text-gray-900">Vinculaciones y laboratorios</h2>
+        <LinkRequests doctorId={doctorId} />
+        <LabOrdersAdmin doctorId={doctorId} />
+      </div>
     </div>
   )
 }

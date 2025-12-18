@@ -30,12 +30,15 @@ type Specialty = {
 
 type Doctor = {
   id: string
+  user_id?: string
   first_name: string
   last_name: string
   email: string
   specialty_id: string
   specialty_name: string
   specialty_description: string | null
+  avatar_url?: string | null
+  headline?: string | null
 }
 
 const specialtyIcons: Record<string, React.ReactNode> = {
@@ -98,11 +101,12 @@ export default function EspecialistasMarketplacePage() {
     // Cargar doctores con sus especialidades
     const { data: doctorSpecs } = await supabase
       .from("doctor_specialties")
-      .select("doctor_id, specialty_id, doctors(id, first_name, last_name, email), specialties(id, name, description)")
+      .select("doctor_id, specialty_id, doctors(id, user_id, first_name, last_name, email), specialties(id, name, description)")
 
-    const mapped: Doctor[] =
+    let mapped: Doctor[] =
       doctorSpecs?.map((ds: any) => ({
         id: ds.doctors?.id ?? ds.doctor_id,
+        user_id: ds.doctors?.user_id ?? null,
         first_name: ds.doctors?.first_name ?? "",
         last_name: ds.doctors?.last_name ?? "",
         email: ds.doctors?.email ?? "",
@@ -110,6 +114,26 @@ export default function EspecialistasMarketplacePage() {
         specialty_name: ds.specialties?.name ?? "",
         specialty_description: ds.specialties?.description ?? null,
       })) ?? []
+
+    const userIds = mapped.map((d) => d.user_id).filter(Boolean) as string[]
+    if (userIds.length > 0) {
+      const { data: profiles } = await supabase
+        .from("app_users")
+        .select("id, metadata")
+        .in("id", userIds)
+
+      const metaMap = new Map<string, any>()
+      profiles?.forEach((p: any) => metaMap.set(p.id, p.metadata))
+
+      mapped = mapped.map((d) => {
+        const meta = d.user_id ? metaMap.get(d.user_id) : null
+        return {
+          ...d,
+          avatar_url: meta?.avatar_url ?? null,
+          headline: meta?.headline ?? null,
+        }
+      })
+    }
 
     setDoctors(mapped)
     setLoading(false)
@@ -251,9 +275,17 @@ export default function EspecialistasMarketplacePage() {
                 <CardContent className="p-5">
                   <div className="flex items-start gap-3">
                     {/* Avatar */}
-                    <div className="h-12 w-12 rounded-full bg-zuli-tricolor text-white flex items-center justify-center text-lg font-bold shrink-0">
-                      {doctor.first_name?.[0] ?? "D"}
-                    </div>
+                    {doctor.avatar_url ? (
+                      <img
+                        src={doctor.avatar_url}
+                        alt={doctor.first_name}
+                        className="h-12 w-12 rounded-full object-cover border"
+                      />
+                    ) : (
+                      <div className="h-12 w-12 rounded-full bg-zuli-tricolor text-white flex items-center justify-center text-lg font-bold shrink-0">
+                        {doctor.first_name?.[0] ?? "D"}
+                      </div>
+                    )}
 
                     <div className="flex-1 min-w-0 overflow-hidden">
                       {/* Nombre */}
@@ -261,8 +293,8 @@ export default function EspecialistasMarketplacePage() {
                         Dr. {doctor.first_name} {doctor.last_name}
                       </h3>
 
-                      {/* Email */}
-                      <p className="text-xs text-gray-500 truncate">{doctor.email}</p>
+                      {/* Email / headline */}
+                      <p className="text-xs text-gray-500 truncate">{doctor.headline || doctor.email}</p>
 
                       {/* Especialidad Badge */}
                       <div className="mt-2">
@@ -302,7 +334,7 @@ export default function EspecialistasMarketplacePage() {
                       <span className="text-xs font-medium text-gray-600">{rating}</span>
                     </div>
                     <span className="text-xs text-zuli-veronica font-medium group-hover:underline flex items-center gap-0.5 shrink-0">
-                      Llenar cuestionario
+                      Solicitar cita
                       <ArrowRight className="h-3.5 w-3.5 group-hover:translate-x-0.5 transition-transform" />
                     </span>
                   </div>
