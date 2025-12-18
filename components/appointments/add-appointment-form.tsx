@@ -17,6 +17,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 
 interface Patient {
   id: string
+  user_id?: string | null
   first_name: string
   last_name: string
 }
@@ -53,14 +54,74 @@ export default function AddAppointmentForm({ onSuccess, onCancel }: AddAppointme
       const { data: doctor } = await supabase.from("doctors").select("id").eq("user_id", user.id).single()
       if (!doctor) return
 
+      const { data: links } = await supabase
+        .from("doctor_patient_links")
+        .select("patient_user_id, patient_id")
+        .eq("doctor_id", doctor.id)
+        .eq("status", "accepted")
+
+      const linkedUserIds = (links ?? []).map((l) => l.patient_user_id).filter(Boolean) as string[]
+      const linkedPatientIds = (links ?? []).map((l) => l.patient_id).filter(Boolean) as string[]
+
+      const { data: existingPatients } = await supabase
+        .from("patients")
+        .select("id, first_name, last_name, user_id")
+        .eq("doctor_id", doctor.id)
+        .order("first_name", { ascending: true })
+
+      const existingByUser = new Map<string, Patient>()
+      ;(existingPatients ?? []).forEach((p) => {
+        if (p.user_id) existingByUser.set(p.user_id, p)
+      })
+
+      const missingUserIds = linkedUserIds.filter((uid) => !existingByUser.has(uid))
+
+      if (missingUserIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from("app_users")
+          .select("id, full_name, email")
+          .in("id", missingUserIds)
+
+        const makeName = (full: string | null) => {
+          if (!full) return { first: "Paciente", last: "Vinculado" }
+          const parts = full.trim().split(" ")
+          const first = parts.shift() || "Paciente"
+          const last = parts.join(" ") || "Vinculado"
+          return { first, last }
+        }
+
+        const payloads =
+          profiles?.map((p) => {
+            const { first, last } = makeName(p.full_name)
+            return {
+              doctor_id: doctor.id,
+              user_id: p.id,
+              first_name: first,
+              last_name: last,
+              date_of_birth: "1900-01-01",
+              gender: "Otro",
+              email: p.email ?? null,
+            }
+          }) ?? []
+
+        if (payloads.length > 0) {
+          await supabase.from("patients").insert(payloads)
+        }
+      }
+
       const { data } = await supabase
         .from("patients")
-        .select("id, first_name, last_name")
+        .select("id, first_name, last_name, user_id")
         .eq("doctor_id", doctor.id)
         .order("first_name", { ascending: true })
 
       if (data) {
-        setPatients(data)
+        const filtered = data.filter((p) => {
+          if (linkedUserIds.includes(p.user_id ?? "")) return true
+          if (linkedPatientIds.includes(p.id)) return true
+          return false
+        })
+        setPatients(filtered)
       }
     } catch (error) {
       console.error("Error fetching patients:", error)
@@ -87,6 +148,7 @@ export default function AddAppointmentForm({ onSuccess, onCancel }: AddAppointme
       const { error: insertError } = await supabase.from("appointments").insert({
         doctor_id: doctor.id,
         patient_id: selectedPatient.id,
+        patient_user_id: selectedPatient.user_id ?? null,
         appointment_date: formData.appointment_date,
         start_time: formData.start_time,
         end_time: formData.end_time,
@@ -134,7 +196,7 @@ export default function AddAppointmentForm({ onSuccess, onCancel }: AddAppointme
               <Command>
                 <CommandInput placeholder="Buscar paciente..." />
                 <CommandList>
-                  <CommandEmpty>No se encontraron pacientes.</CommandEmpty>
+                  <CommandEmpty>No hay pacientes vinculados todavía.</CommandEmpty>
                   <CommandGroup>
                     {patients.map((patient) => (
                       <CommandItem

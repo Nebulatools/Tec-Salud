@@ -273,54 +273,25 @@ function CuestionarioContent() {
 
     setQuestions(qs ?? [])
 
-    if (st === "accepted") {
-      const { data: existing } = await supabase
-        .from("specialist_responses")
-        .select("question_id, answer")
-        .eq("patient_user_id", user.id)
-        .eq("specialty_id", specialtyId)
+    const { data: existing } = await supabase
+      .from("specialist_responses")
+      .select("question_id, answer")
+      .eq("patient_user_id", user.id)
+      .eq("specialty_id", specialtyId)
 
-      if (existing && existing.length > 0) {
-        const mapped: Record<string, any> = {}
-        existing.forEach((r) => {
-          const val =
-            r.answer && typeof r.answer === "object" && "value" in r.answer
-              ? (r.answer as any).value
-              : r.answer
-          mapped[r.question_id] = val
-        })
-        setAnswers(mapped)
-      }
+    if (existing && existing.length > 0) {
+      const mapped: Record<string, any> = {}
+      existing.forEach((r) => {
+        const val =
+          r.answer && typeof r.answer === "object" && "value" in r.answer
+            ? (r.answer as any).value
+            : r.answer
+        mapped[r.question_id] = val
+      })
+      setAnswers(mapped)
     }
 
     setDataLoading(false)
-  }
-
-  const handleRequestLink = async () => {
-    if (!user || !doctorId) return
-    setError(null)
-    setStatus(null)
-
-    const payload = {
-      doctor_id: doctorId,
-      patient_user_id: user.id,
-      status: "pending",
-      requested_by: "patient",
-      requested_at: new Date().toISOString(),
-      responded_at: null,
-    }
-
-    const { error: linkError } = await supabase
-      .from("doctor_patient_links")
-      .upsert(payload, { onConflict: "doctor_id,patient_user_id" })
-
-    if (linkError && linkError.code !== "23505") {
-      setError(linkError.message)
-      return
-    }
-
-    setLinkStatus("pending")
-    setStatus("Solicitud enviada. El especialista debe aceptarla para que puedas continuar.")
   }
 
   // Calcular laboratorios recomendados basados en respuestas
@@ -449,7 +420,28 @@ function CuestionarioContent() {
       }
     }
 
-    setStatus("¡Cuestionario guardado! Ahora selecciona tu laboratorio para continuar.")
+    if (linkStatus === "none") {
+      const payload = {
+        doctor_id: doctorId,
+        patient_user_id: user.id,
+        status: "pending",
+        requested_by: "patient",
+        requested_at: new Date().toISOString(),
+        responded_at: null,
+      }
+      const { error: linkErr } = await supabase
+        .from("doctor_patient_links")
+        .upsert(payload, { onConflict: "doctor_id,patient_user_id" })
+      if (!linkErr) {
+        setLinkStatus("pending")
+      }
+    }
+
+    const linkNote =
+      linkStatus === "none"
+        ? " y enviamos la solicitud de vinculación al especialista"
+        : ""
+    setStatus(`¡Cuestionario guardado${linkNote}! Ahora selecciona tu laboratorio para continuar.`)
     setStep("labs")
     setSaving(false)
   }
@@ -634,68 +626,6 @@ function CuestionarioContent() {
     )
   }
 
-  // Si no está vinculado, mostrar pantalla de solicitud
-  if (linkStatus !== "accepted") {
-    return (
-      <div className="max-w-lg mx-auto space-y-6">
-        <Button variant="ghost" onClick={() => router.push("/user/especialistas")}>
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Volver al marketplace
-        </Button>
-
-        <Card className="border-zuli-veronica/20">
-          <CardHeader className="text-center">
-            <div className="h-20 w-20 rounded-full bg-zuli-tricolor text-white flex items-center justify-center text-3xl font-bold mx-auto">
-              {doctor.first_name?.[0]}
-            </div>
-            <CardTitle className="mt-4">
-              Dr. {doctor.first_name} {doctor.last_name}
-            </CardTitle>
-            <CardDescription>{doctor.email}</CardDescription>
-            <Badge className="mt-2 mx-auto">
-              {specialtyIcons[specialty.name]}
-              <span className="ml-1">{specialty.name}</span>
-            </Badge>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {linkStatus === "pending" ? (
-              <Alert className="bg-amber-50 border-amber-200 text-amber-700">
-                <AlertDescription>
-                  Tu solicitud está pendiente. El especialista debe aceptarla para que puedas
-                  completar el cuestionario.
-                </AlertDescription>
-              </Alert>
-            ) : (
-              <>
-                <p className="text-center text-gray-600">
-                  Para completar el cuestionario de {specialty.name}, primero debes solicitar
-                  vinculación con este especialista.
-                </p>
-                <Button
-                  onClick={handleRequestLink}
-                  className="w-full btn-zuli-gradient"
-                >
-                  Solicitar vinculación
-                </Button>
-              </>
-            )}
-
-            {error && (
-              <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-            {status && (
-              <Alert className="bg-zuli-veronica/10 border-zuli-veronica/20 text-zuli-veronica">
-                <AlertDescription>{status}</AlertDescription>
-              </Alert>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
-
   // Paso de selección de laboratorio
   if (step === "labs") {
     const selectedProviderData = LAB_PROVIDERS.find((p) => p.id === selectedProvider)
@@ -872,6 +802,16 @@ function CuestionarioContent() {
         </CardContent>
       </Card>
 
+      {linkStatus !== "accepted" && (
+        <Alert className="bg-amber-50 border-amber-200 text-amber-700">
+          <AlertDescription>
+            {linkStatus === "pending"
+              ? "Tu solicitud de vinculación está pendiente. Puedes completar el cuestionario y la mantendremos en espera."
+              : "Completa el cuestionario y enviaremos automáticamente la solicitud de vinculación al especialista."}
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Todas las preguntas */}
       <div className="space-y-4">
         {questions.map((q, index) => (
@@ -907,7 +847,7 @@ function CuestionarioContent() {
           </>
         ) : (
           <>
-            Continuar a Laboratorios
+            Continuar
             <ChevronRight className="h-4 w-4 ml-2" />
           </>
         )}
