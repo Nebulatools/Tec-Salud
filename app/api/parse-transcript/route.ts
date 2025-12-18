@@ -6,7 +6,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
 const EXTRACTION_PROMPT = `
 ROL Y MISIÓN
-Eres un asistente clínico. Tu tarea es LEER una transcripción de consulta y devolver SOLO un JSON con 4 categorías clínicas claves.
+Eres un asistente clínico. Tu tarea es LEER una transcripción de consulta médica y devolver SOLO un JSON con datos clínicos e identificación de participantes.
 
 FORMATO OBLIGATORIO DE SALIDA (sin texto adicional):
 {
@@ -15,14 +15,32 @@ FORMATO OBLIGATORIO DE SALIDA (sin texto adicional):
   "diagnoses": ["infección respiratoria alta"],
   "medications": [
     {"name":"amoxicilina","dose":"500 mg","route":"VO","frequency":"cada 8 h","duration":"7 días"}
-  ]
+  ],
+  "speakerRoles": {
+    "SPEAKER_0": "Doctor",
+    "SPEAKER_1": "Paciente",
+    "SPEAKER_2": "Madre"
+  }
 }
 
-REGLAS
+REGLAS PARA DATOS CLÍNICOS
 - No inventes: si no hay datos, deja arrays vacíos y strings vacíos.
 - Normaliza síntomas y diagnósticos como strings claros en español.
 - Medications es un array de objetos con exactamente cinco campos de texto: name, dose, route, frequency, duration.
 - Usa el patientId proporcionado como patient.id. Si no hay nombre, deja "".
+
+REGLAS PARA IDENTIFICACIÓN DE SPEAKERS
+- La transcripción puede contener etiquetas como [Speaker 0], [Speaker 1], SPEAKER_0, etc.
+- Identifica quién es cada speaker basándote en el CONTEXTO de lo que dicen:
+  * Doctor: hace preguntas diagnósticas, usa terminología médica, da indicaciones, receta medicamentos
+  * Paciente: describe síntomas propios, responde preguntas sobre su salud, usa "me duele", "tengo", "siento"
+  * Madre/Padre: habla de síntomas de otra persona ("mi hijo tiene", "ella ha tenido"), acompaña al paciente
+  * Hijo/Hija: paciente menor de edad
+  * Familiar: acompañante genérico que aporta información del paciente
+  * Cuidador: persona a cargo del paciente
+- Usa etiquetas descriptivas en español: "Doctor", "Paciente", "Madre", "Padre", "Hijo", "Hija", "Familiar", "Cuidador"
+- Si no puedes determinar el rol, usa "Participante"
+- El objeto speakerRoles debe mapear EXACTAMENTE los speakers que aparecen en la transcripción
 `;
 
 export async function POST(request: NextRequest) {
@@ -140,15 +158,28 @@ export async function POST(request: NextRequest) {
         duration: safeString(m?.duration),
       }));
     };
+    const safeSpeakerRoles = (v: unknown): Record<string, string> => {
+      if (!v || typeof v !== 'object') return {};
+      const roles: Record<string, string> = {};
+      for (const [key, value] of Object.entries(v as Record<string, unknown>)) {
+        if (typeof key === 'string' && typeof value === 'string') {
+          roles[key] = value;
+        }
+      }
+      return roles;
+    };
 
+    const rawObj = raw as Record<string, unknown>;
+    const rawPatient = rawObj?.patient as Record<string, unknown> | undefined;
     const sanitized = {
       patient: {
-        id: safeString(raw?.patient?.id) || safeString(patientId) || '',
-        name: safeString(raw?.patient?.name) || patientName || '',
+        id: safeString(rawPatient?.id) || safeString(patientId) || '',
+        name: safeString(rawPatient?.name) || patientName || '',
       },
-      symptoms: safeStringArray(raw?.symptoms),
-      diagnoses: safeStringArray(raw?.diagnoses),
-      medications: safeMeds(raw?.medications),
+      symptoms: safeStringArray(rawObj?.symptoms),
+      diagnoses: safeStringArray(rawObj?.diagnoses),
+      medications: safeMeds(rawObj?.medications),
+      speakerRoles: safeSpeakerRoles(rawObj?.speakerRoles),
     };
 
     return NextResponse.json(sanitized);

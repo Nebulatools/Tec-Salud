@@ -53,12 +53,34 @@ export default function ConsultationRecording({
   const [manualTranscriptMode, setManualTranscriptMode] = useState(false)
   const [isParsing, setIsParsing] = useState(false)
   const [parseError, setParseError] = useState<string | null>(null)
-  const [extractionPreview, setExtractionPreview] = useState<{
+  interface ExtractionPreview {
     patient: { id: string; name: string }
     symptoms: string[]
     diagnoses: string[]
     medications: { name: string; dose?: string; route?: string; frequency?: string; duration?: string }[]
-  } | null>(null)
+    speakerRoles: Record<string, string>
+  }
+
+  const [extractionPreview, setExtractionPreview] = useState<ExtractionPreview | null>(null)
+
+  // Function to replace speaker tags with descriptive names
+  const formatTranscriptWithSpeakers = (text: string, roles: Record<string, string>): string => {
+    if (!text || !roles || Object.keys(roles).length === 0) return text
+
+    let formatted = text
+    // Replace various speaker formats: [Speaker 0], [Speaker 1], SPEAKER_0, etc.
+    for (const [speakerId, role] of Object.entries(roles)) {
+      // Handle "SPEAKER_0" format
+      const regex1 = new RegExp(`\\[?${speakerId}\\]?:?`, 'gi')
+      // Handle "[Speaker 0]" format
+      const speakerNum = speakerId.replace(/\D/g, '')
+      const regex2 = new RegExp(`\\[Speaker\\s*${speakerNum}\\]:?`, 'gi')
+
+      formatted = formatted.replace(regex1, `[${role}]:`)
+      formatted = formatted.replace(regex2, `[${role}]:`)
+    }
+    return formatted
+  }
 
   const lastParsedRef = useRef<string>("")
 
@@ -143,35 +165,57 @@ export default function ConsultationRecording({
       if (!res.ok) {
         throw new Error(`Parse error ${res.status}`)
       }
-      const parsed = await res.json()
+      const parsed = await res.json() as {
+        patient?: { id?: string; name?: string }
+        symptoms?: unknown[]
+        diagnoses?: unknown[]
+        medications?: unknown[]
+        speakerRoles?: Record<string, unknown>
+      }
+
+      // Sanitize speakerRoles
+      const safeSpeakerRoles: Record<string, string> = {}
+      if (parsed?.speakerRoles && typeof parsed.speakerRoles === 'object') {
+        for (const [key, value] of Object.entries(parsed.speakerRoles)) {
+          if (typeof value === 'string') {
+            safeSpeakerRoles[key] = value
+          }
+        }
+      }
 
       // Basic sanitize
-      const safe = {
+      const safe: ExtractionPreview = {
         patient: {
           id: typeof parsed?.patient?.id === 'string' ? parsed.patient.id : (patientId || ''),
           name: typeof parsed?.patient?.name === 'string' ? parsed.patient.name : ''
         },
-        symptoms: Array.isArray(parsed?.symptoms) ? parsed.symptoms.filter((s: any) => typeof s === 'string') : [],
-        diagnoses: Array.isArray(parsed?.diagnoses) ? parsed.diagnoses.filter((s: any) => typeof s === 'string') : [],
+        symptoms: Array.isArray(parsed?.symptoms) ? parsed.symptoms.filter((s): s is string => typeof s === 'string') : [],
+        diagnoses: Array.isArray(parsed?.diagnoses) ? parsed.diagnoses.filter((s): s is string => typeof s === 'string') : [],
         medications: Array.isArray(parsed?.medications)
-          ? parsed.medications.map((m: any) => ({
-              name: typeof m?.name === 'string' ? m.name : '',
-              dose: typeof m?.dose === 'string' ? m.dose : '',
-              route: typeof m?.route === 'string' ? m.route : '',
-              frequency: typeof m?.frequency === 'string' ? m.frequency : '',
-              duration: typeof m?.duration === 'string' ? m.duration : ''
-            }))
-          : []
+          ? parsed.medications.map((m: unknown) => {
+              const med = m as { name?: string; dose?: string; route?: string; frequency?: string; duration?: string }
+              return {
+                name: typeof med?.name === 'string' ? med.name : '',
+                dose: typeof med?.dose === 'string' ? med.dose : '',
+                route: typeof med?.route === 'string' ? med.route : '',
+                frequency: typeof med?.frequency === 'string' ? med.frequency : '',
+                duration: typeof med?.duration === 'string' ? med.duration : ''
+              }
+            })
+          : [],
+        speakerRoles: safeSpeakerRoles
       }
 
       setExtractionPreview(safe)
       lastParsedRef.current = text
 
       // Push into shared state (non-blocking)
-      if (typeof (onDataUpdate as any) === 'function') {
+      if (typeof onDataUpdate === 'function') {
         try {
-          (onDataUpdate as any)((prev: any) => ({ ...prev, extractionPreview: safe }))
-        } catch {}
+          onDataUpdate((prev: ConsultationData) => ({ ...prev, extractionPreview: safe }))
+        } catch {
+          // Ignore update errors
+        }
       }
 
       // Persist silently
@@ -183,8 +227,7 @@ export default function ConsultationRecording({
       if (!saveRes.ok) {
         console.warn('Failed to save clinical extraction')
       }
-    } catch (e: any) {
-      console.error('Auto-parse error:', e)
+    } catch {
       setParseError('No se pudo procesar la transcripción automáticamente.')
     } finally {
       setIsParsing(false)
@@ -318,8 +361,30 @@ export default function ConsultationRecording({
           {/* Textarea para grabación/transcripción automática */}
           {(transcript || isTranscribing) && !manualTranscriptMode && (
             <div className="space-y-4">
+              {/* Speaker roles indicator */}
+              {extractionPreview?.speakerRoles && Object.keys(extractionPreview.speakerRoles).length > 0 && (
+                <div className="flex flex-wrap items-center justify-center gap-2 text-sm">
+                  <span className="text-gray-500">Participantes detectados:</span>
+                  {Object.entries(extractionPreview.speakerRoles).map(([speakerId, role]) => (
+                    <span
+                      key={speakerId}
+                      className={cn(
+                        "px-2 py-1 rounded-full text-xs font-medium",
+                        role === "Doctor" ? "bg-blue-100 text-blue-700" :
+                        role === "Paciente" ? "bg-green-100 text-green-700" :
+                        "bg-purple-100 text-purple-700"
+                      )}
+                    >
+                      {role}
+                    </span>
+                  ))}
+                </div>
+              )}
+
               <Textarea
-                value={transcript}
+                value={extractionPreview?.speakerRoles
+                  ? formatTranscriptWithSpeakers(transcript, extractionPreview.speakerRoles)
+                  : transcript}
                 onChange={(e) => setTranscript(e.target.value)}
                 placeholder={isTranscribing ? "Transcribiendo..." : "La transcripción aparecerá aquí o puedes escribir manualmente..."}
                 className="min-h-[150px] sm:min-h-[200px] text-sm border-gray-300 focus:ring-primary-500 focus:border-primary-500"
