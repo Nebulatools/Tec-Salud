@@ -2,7 +2,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useCallback, useEffect } from "react"
+import { useCallback, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/hooks/use-auth"
 import { useAppUser } from "@/hooks/use-app-user"
@@ -14,7 +14,6 @@ export default function UserLayout({ children }: { children: React.ReactNode }) 
   const { user, loading } = useAuth()
   const { loading: profileLoading } = useAppUser()
   const router = useRouter()
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
   useEffect(() => {
     if (!loading && !user) {
@@ -22,8 +21,8 @@ export default function UserLayout({ children }: { children: React.ReactNode }) 
     }
   }, [user, loading, router])
 
-  const handleCollapseChange = useCallback((collapsed: boolean) => {
-    setSidebarCollapsed(collapsed)
+  const handleCollapseChange = useCallback(() => {
+    // Callback for sidebar collapse - currently unused
   }, [])
 
   if (loading || profileLoading) {

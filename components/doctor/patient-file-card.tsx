@@ -52,7 +52,7 @@ type BaselineData = {
 
 type SpecialtyResponse = {
   prompt: string
-  answer: any
+  answer: unknown
 }
 
 type LabResult = {
@@ -65,7 +65,7 @@ type LabResult = {
 type LabOrder = {
   id: string
   status: string
-  recommended_tests: any
+  recommended_tests: unknown
   lab_results: LabResult[]
 }
 
@@ -95,85 +95,97 @@ export function PatientFileCard({
   const [internError, setInternError] = useState<string | null>(null)
 
   useEffect(() => {
-    loadPatientData()
-  }, [patientUserId, specialtyId])
+    let cancelled = false
 
-  const loadPatientData = async () => {
-    setLoading(true)
+    const loadData = async () => {
+      setLoading(true)
 
-    // Cargar datos en paralelo
-    const [baselineRes, responsesRes, labOrderRes] = await Promise.all([
-      supabase
-        .from("patient_baseline_forms")
-        .select("general_info, vitals, lifestyle, conditions")
-        .eq("patient_user_id", patientUserId)
-        .maybeSingle(),
-      specialtyId
-        ? supabase
-            .from("specialist_responses")
-            .select("answer, specialist_questions(prompt)")
-            .eq("patient_user_id", patientUserId)
-            .eq("specialty_id", specialtyId)
-        : Promise.resolve({ data: null }),
-      supabase
-        .from("lab_orders")
-        .select("id, status, recommended_tests, lab_results(id, storage_path, uploaded_at, mime_type)")
-        .eq("patient_user_id", patientUserId)
-        .eq("doctor_id", doctorId)
-        .order("recommended_at", { ascending: false })
-        .limit(1),
-    ])
+      // Cargar datos en paralelo
+      const [baselineRes, responsesRes, labOrderRes] = await Promise.all([
+        supabase
+          .from("patient_baseline_forms")
+          .select("general_info, vitals, lifestyle, conditions")
+          .eq("patient_user_id", patientUserId)
+          .maybeSingle(),
+        specialtyId
+          ? supabase
+              .from("specialist_responses")
+              .select("answer, specialist_questions(prompt)")
+              .eq("patient_user_id", patientUserId)
+              .eq("specialty_id", specialtyId)
+          : Promise.resolve({ data: null }),
+        supabase
+          .from("lab_orders")
+          .select("id, status, recommended_tests, lab_results(id, storage_path, uploaded_at, mime_type)")
+          .eq("patient_user_id", patientUserId)
+          .eq("doctor_id", doctorId)
+          .order("recommended_at", { ascending: false })
+          .limit(1),
+      ])
 
-    setBaseline(baselineRes.data as BaselineData | null)
+      if (cancelled) return
 
-    // Mapear respuestas de especialidad
-    const seen = new Set<string>()
-    const mappedResponses =
-      (responsesRes.data as any)
-        ?.map((r: any) => ({
-          prompt: r.specialist_questions?.prompt ?? "Pregunta",
-          answer: r.answer?.value ?? r.answer,
-        }))
-        .filter((r: any) => {
-          const key = (r.prompt ?? "").toLowerCase()
-          if (seen.has(key)) return false
-          seen.add(key)
-          return true
-        }) ?? []
-    setResponses(mappedResponses)
+      setBaseline(baselineRes.data as BaselineData | null)
 
-    // Lab order
-    const order = labOrderRes.data?.[0]
-    if (order) {
-      setLabOrder({
-        id: order.id,
-        status: order.status,
-        recommended_tests: order.recommended_tests,
-        lab_results: (order as any).lab_results ?? [],
-      })
-      // cargar último virtual_intern_runs para esta orden/paciente
-      const { data: runs } = await supabase
-        .from("virtual_intern_runs")
-        .select("id, status, summary, suggestions, completed_at")
-        .eq("lab_order_id", order.id)
-        .eq("patient_user_id", patientUserId)
-        .order("completed_at", { ascending: false })
-        .limit(1)
-      if (runs && runs.length > 0) {
-        setInternRun(runs[0] as InternRun)
+      // Mapear respuestas de especialidad
+      const seen = new Set<string>()
+      const mappedResponses =
+        (responsesRes.data as Record<string, unknown>[] | null)
+          ?.map((r: Record<string, unknown>) => ({
+            prompt: (r.specialist_questions as { prompt?: string })?.prompt ?? "Pregunta",
+            answer: (r.answer as { value?: unknown })?.value ?? r.answer,
+          }))
+          .filter((r: { prompt: string; answer: unknown }) => {
+            const key = (r.prompt ?? "").toLowerCase()
+            if (seen.has(key)) return false
+            seen.add(key)
+            return true
+          }) ?? []
+      setResponses(mappedResponses)
+
+      // Lab order
+      const order = labOrderRes.data?.[0]
+      if (order) {
+        setLabOrder({
+          id: order.id,
+          status: order.status,
+          recommended_tests: order.recommended_tests,
+          lab_results: (order as Record<string, unknown>).lab_results as LabResult[] ?? [],
+        })
+        // cargar último virtual_intern_runs para esta orden/paciente
+        const { data: runs } = await supabase
+          .from("virtual_intern_runs")
+          .select("id, status, summary, suggestions, completed_at")
+          .eq("lab_order_id", order.id)
+          .eq("patient_user_id", patientUserId)
+          .order("completed_at", { ascending: false })
+          .limit(1)
+        if (!cancelled) {
+          if (runs && runs.length > 0) {
+            setInternRun(runs[0] as InternRun)
+          } else {
+            setInternRun(null)
+          }
+        }
       } else {
+        setLabOrder(null)
         setInternRun(null)
       }
-    } else {
-      setLabOrder(null)
-      setInternRun(null)
+
+      if (!cancelled) {
+        setLoading(false)
+      }
     }
 
-    setLoading(false)
-  }
+    void loadData()
+
+    return () => {
+      cancelled = true
+    }
+  }, [patientUserId, specialtyId, doctorId])
 
   const hasBaseline = baseline && Object.keys(baseline).some(k => {
-    const section = (baseline as any)[k]
+    const section = (baseline as Record<string, Record<string, unknown>>)[k]
     return section && Object.values(section).some(v => v && String(v).trim())
   })
 
@@ -204,7 +216,7 @@ export function PatientFileCard({
     } else {
       setInternStatus("Pasante virtual ejecutado exitosamente")
       // refrescar última ejecución
-      await loadPatientData()
+      void loadPatientData()
     }
     setRunningIntern(false)
   }
@@ -216,7 +228,7 @@ export function PatientFileCard({
     }
   }
 
-  const formatAnswer = (answer: any): string => {
+  const formatAnswer = (answer: unknown): string => {
     if (typeof answer === "boolean") return answer ? "Sí" : "No"
     if (typeof answer === "string") return answer || "—"
     if (Array.isArray(answer)) return answer.join(", ") || "—"
@@ -387,11 +399,11 @@ export function PatientFileCard({
                   {(() => {
                     const tests = Array.isArray(labOrder.recommended_tests)
                       ? labOrder.recommended_tests
-                      : labOrder.recommended_tests?.tests ?? []
+                      : (labOrder.recommended_tests as { tests?: string[] })?.tests ?? []
                     return tests.length > 0 ? (
-                      tests.map((t: string, idx: number) => (
+                      tests.map((t: unknown, idx: number) => (
                         <Badge key={idx} variant="outline" className="text-xs">
-                          {t}
+                          {String(t)}
                         </Badge>
                       ))
                     ) : (

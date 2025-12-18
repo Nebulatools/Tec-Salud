@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { X, FileText, Calendar, User, Download, CheckCircle } from "lucide-react"
+import { FileText, Calendar, User, Download, CheckCircle } from "lucide-react"
 import ReactMarkdown from "react-markdown"
 
 interface MedicalReport {
@@ -30,23 +30,36 @@ interface ReportViewerModalProps {
   report: MedicalReport | null
 }
 
+interface ClinicalExtraction {
+  symptoms?: string[]
+  diagnoses?: string[]
+  medications?: Array<{
+    name?: string
+    dose?: string
+    route?: string
+    frequency?: string
+    duration?: string
+  }>
+  patient_snapshot?: {
+    name?: string
+  }
+}
+
 export default function ReportViewerModal({
   isOpen,
   onClose,
   report
 }: ReportViewerModalProps) {
-  if (!report) return null
-
-  const [extraction, setExtraction] = useState<any | null>(null)
-  const [loadingExtraction, setLoadingExtraction] = useState(false)
+  const [extraction, setExtraction] = useState<ClinicalExtraction | null>(null)
 
   useEffect(() => {
     const loadExtraction = async () => {
       try {
-        setLoadingExtraction(true)
         setExtraction(null)
-        const appointmentId = (report as any)?.appointment_id
-        const patientId = (report as any)?.patient_id
+        if (!report) return
+
+        const appointmentId = report.appointment_id
+        const patientId = report.patient_id
         let url = ''
         if (appointmentId) {
           url = `/api/clinical-extractions?appointment_id=${appointmentId}&limit=1`
@@ -59,18 +72,18 @@ export default function ReportViewerModal({
         if (!res.ok) return
         const data = await res.json()
         const list = Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : []
-        if (list.length > 0) setExtraction(list[0])
-      } catch (e) {
+        if (list.length > 0) setExtraction(list[0] as ClinicalExtraction)
+      } catch {
         // Silent fail; keep UI non-intrusive
-      } finally {
-        setLoadingExtraction(false)
       }
     }
 
     if (isOpen && report) {
-      loadExtraction()
+      void loadExtraction()
     }
   }, [isOpen, report])
+
+  if (!report) return null
 
   const handleDownload = () => {
     const validSuggestions = Array.isArray(report.ai_suggestions) ? report.ai_suggestions : [];
@@ -205,7 +218,7 @@ ${report.original_transcript}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                   <div>
                     <p className="text-gray-500 dark:text-gray-400">Paciente</p>
-                    <p className="text-gray-900 dark:text-white">{(extraction.patient_snapshot?.name as string) || '—'}</p>
+                    <p className="text-gray-900 dark:text-white">{extraction.patient_snapshot?.name || '—'}</p>
                   </div>
                   <div>
                     <p className="text-gray-500 dark:text-gray-400">Síntomas/Signos</p>
@@ -219,7 +232,7 @@ ${report.original_transcript}
                     <p className="text-gray-500 dark:text-gray-400">Tratamiento/Medicación</p>
                     {Array.isArray(extraction.medications) && extraction.medications.length ? (
                       <ul className="list-disc pl-5 text-gray-900 dark:text-white space-y-1">
-                        {extraction.medications.map((m: any, idx: number) => (
+                        {extraction.medications.map((m, idx: number) => (
                           <li key={idx}>
                             {m?.name || ''}
                             {m?.dose ? ` • ${m.dose}` : ''}

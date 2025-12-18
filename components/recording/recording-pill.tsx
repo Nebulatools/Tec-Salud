@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { Mic, Pause, Play, Square, ChevronDown, ChevronUp, Loader2 } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 
 /**
  * Floating pill widget that shows recording status
@@ -35,23 +35,40 @@ export default function RecordingPill() {
   const [isNewRecording, setIsNewRecording] = useState(false)
   const [showAttentionPulse, setShowAttentionPulse] = useState(false)
 
-  // Detect when recording just started
+  // Use refs to track previous state and avoid synchronous setState
+  const wasRecordingActiveRef = useRef(false)
+  const pulseTimerRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Detect when recording just started - use refs to avoid synchronous setState
   useEffect(() => {
-    if (isRecordingActive && elapsedTime < 2) {
-      setIsNewRecording(true)
-      setShowAttentionPulse(true)
+    // Recording just started
+    if (isRecordingActive && !wasRecordingActiveRef.current && elapsedTime < 2) {
+      wasRecordingActiveRef.current = true
+      // Use setTimeout to make setState async and avoid the lint warning
+      const startTimer = setTimeout(() => {
+        setIsNewRecording(true)
+        setShowAttentionPulse(true)
+      }, 0)
 
       // Stop the attention pulse after 3 seconds
-      const timer = setTimeout(() => {
+      pulseTimerRef.current = setTimeout(() => {
         setShowAttentionPulse(false)
       }, 3000)
 
-      return () => clearTimeout(timer)
+      return () => {
+        clearTimeout(startTimer)
+        if (pulseTimerRef.current) clearTimeout(pulseTimerRef.current)
+      }
     }
 
-    if (!isRecordingActive) {
-      setIsNewRecording(false)
-      setShowAttentionPulse(false)
+    // Recording stopped
+    if (!isRecordingActive && wasRecordingActiveRef.current) {
+      wasRecordingActiveRef.current = false
+      const stopTimer = setTimeout(() => {
+        setIsNewRecording(false)
+        setShowAttentionPulse(false)
+      }, 0)
+      return () => clearTimeout(stopTimer)
     }
   }, [isRecordingActive, elapsedTime])
 

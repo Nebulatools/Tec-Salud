@@ -71,7 +71,7 @@ export default function AddPatientForm({ onSuccess, onCancel }: AddPatientFormPr
       } else {
         onSuccess()
       }
-    } catch (error) {
+    } catch {
       setError("Error al crear el paciente")
     } finally {
       setLoading(false)

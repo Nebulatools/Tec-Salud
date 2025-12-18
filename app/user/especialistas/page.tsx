@@ -4,7 +4,6 @@
 import { useEffect, useState, useMemo } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { supabase } from "@/lib/supabase"
-import { useAuth } from "@/hooks/use-auth"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -51,7 +50,6 @@ const specialtyColors: Record<string, { bg: string; text: string; border: string
 }
 
 export default function EspecialistasMarketplacePage() {
-  const { user } = useAuth()
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -64,56 +62,61 @@ export default function EspecialistasMarketplacePage() {
   )
 
   useEffect(() => {
-    loadData()
-  }, [])
+    const loadData = async () => {
+      setLoading(true)
 
-  const loadData = async () => {
-    setLoading(true)
-
-    // Cargar especialidades
-    const { data: specs } = await supabase
-      .from("specialties")
-      .select("id, name, description")
-      .order("name")
-
-    // Si no hay especialidades, crear las predeterminadas
-    if (!specs || specs.length === 0) {
-      await supabase.from("specialties").upsert(
-        [
-          { name: "Cardiología", description: "Corazón y sistema circulatorio" },
-          { name: "Endocrinología", description: "Especialistas hormonales" },
-          { name: "Medicina Interna", description: "Atención integral de adultos" },
-        ],
-        { onConflict: "name" }
-      )
-      const { data: refreshed } = await supabase
+      // Cargar especialidades
+      const { data: specs } = await supabase
         .from("specialties")
         .select("id, name, description")
         .order("name")
-      setSpecialties(refreshed ?? [])
-    } else {
-      setSpecialties(specs)
+
+      // Si no hay especialidades, crear las predeterminadas
+      if (!specs || specs.length === 0) {
+        await supabase.from("specialties").upsert(
+          [
+            { name: "Cardiología", description: "Corazón y sistema circulatorio" },
+            { name: "Endocrinología", description: "Especialistas hormonales" },
+            { name: "Medicina Interna", description: "Atención integral de adultos" },
+          ],
+          { onConflict: "name" }
+        )
+        const { data: refreshed } = await supabase
+          .from("specialties")
+          .select("id, name, description")
+          .order("name")
+        setSpecialties(refreshed ?? [])
+      } else {
+        setSpecialties(specs)
+      }
+
+      // Cargar doctores con sus especialidades
+      const { data: doctorSpecs } = await supabase
+        .from("doctor_specialties")
+        .select("doctor_id, specialty_id, doctors(id, first_name, last_name, email), specialties(id, name, description)")
+
+      const mapped: Doctor[] =
+        doctorSpecs?.map((ds: {
+          doctor_id: string
+          specialty_id: string
+          doctors?: { id: string; first_name: string; last_name: string; email: string } | null
+          specialties?: { id: string; name: string; description: string | null } | null
+        }) => ({
+          id: ds.doctors?.id ?? ds.doctor_id,
+          first_name: ds.doctors?.first_name ?? "",
+          last_name: ds.doctors?.last_name ?? "",
+          email: ds.doctors?.email ?? "",
+          specialty_id: ds.specialty_id,
+          specialty_name: ds.specialties?.name ?? "",
+          specialty_description: ds.specialties?.description ?? null,
+        })) ?? []
+
+      setDoctors(mapped)
+      setLoading(false)
     }
 
-    // Cargar doctores con sus especialidades
-    const { data: doctorSpecs } = await supabase
-      .from("doctor_specialties")
-      .select("doctor_id, specialty_id, doctors(id, first_name, last_name, email), specialties(id, name, description)")
-
-    const mapped: Doctor[] =
-      doctorSpecs?.map((ds: any) => ({
-        id: ds.doctors?.id ?? ds.doctor_id,
-        first_name: ds.doctors?.first_name ?? "",
-        last_name: ds.doctors?.last_name ?? "",
-        email: ds.doctors?.email ?? "",
-        specialty_id: ds.specialty_id,
-        specialty_name: ds.specialties?.name ?? "",
-        specialty_description: ds.specialties?.description ?? null,
-      })) ?? []
-
-    setDoctors(mapped)
-    setLoading(false)
-  }
+    loadData()
+  }, [])
 
   const filteredDoctors = useMemo(() => {
     let result = doctors
@@ -231,14 +234,14 @@ export default function EspecialistasMarketplacePage() {
         </Card>
       ) : (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredDoctors.map((doctor) => {
+          {filteredDoctors.map((doctor, index) => {
             const colors = specialtyColors[doctor.specialty_name] ?? {
               bg: "bg-gray-50",
               text: "text-gray-600",
               border: "border-gray-200",
             }
-            // Rating simulado (entre 4.0 y 5.0 para demostración)
-            const rating = (4 + Math.random()).toFixed(1)
+            // Rating estable basado en el índice (entre 4.0 y 5.0 para demostración)
+            const rating = (4.0 + (index % 10) / 10).toFixed(1)
             const fullStars = Math.floor(Number(rating))
             const hasHalfStar = Number(rating) % 1 >= 0.5
 

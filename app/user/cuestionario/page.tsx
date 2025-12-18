@@ -1,18 +1,17 @@
 // Cuestionario de especialidad - página con todas las preguntas + selección de laboratorio
 "use client"
 
-import { useEffect, useState, useMemo, Suspense } from "react"
+import { useEffect, useState, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/hooks/use-auth"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Progress } from "@/components/ui/progress"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import {
@@ -34,7 +33,7 @@ type Question = {
   id: string
   prompt: string
   field_type: string
-  options: any
+  options: { choices?: string[] } | null
   is_required: boolean
 }
 
@@ -52,7 +51,7 @@ type Specialty = {
 }
 
 // Preguntas con opciones de selección por especialidad
-const fallbackQuestions: Record<string, { prompt: string; field_type: string; options: any; order_index: number }[]> = {
+const fallbackQuestions: Record<string, { prompt: string; field_type: string; options: { choices?: string[] } | null; order_index: number }[]> = {
   Cardiología: [
     { prompt: "¿Presentas dolor de pecho al esfuerzo?", field_type: "boolean", options: {}, order_index: 1 },
     { prompt: "¿Tienes dolor en reposo o nocturno?", field_type: "boolean", options: {}, order_index: 2 },
@@ -108,7 +107,7 @@ const fallbackQuestions: Record<string, { prompt: string; field_type: string; op
 }
 
 // Laboratorios recomendados por especialidad y respuestas
-const labRecommendations: Record<string, { condition: (answers: Record<string, any>) => boolean; tests: string[] }[]> = {
+const labRecommendations: Record<string, { condition: (answers: Record<string, unknown>) => boolean; tests: string[] }[]> = {
   Cardiología: [
     { condition: () => true, tests: ["Perfil de lípidos completo", "Glucosa en ayunas"] },
     { condition: (a) => a["dolor_pecho"] === true, tests: ["Troponinas", "Electrocardiograma"] },
@@ -187,7 +186,7 @@ function CuestionarioContent() {
   const [doctor, setDoctor] = useState<Doctor | null>(null)
   const [specialty, setSpecialty] = useState<Specialty | null>(null)
   const [questions, setQuestions] = useState<Question[]>([])
-  const [answers, setAnswers] = useState<Record<string, any>>({})
+  const [answers, setAnswers] = useState<Record<string, unknown>>({})
   const [dataLoading, setDataLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [status, setStatus] = useState<string | null>(null)
@@ -201,6 +200,91 @@ function CuestionarioContent() {
   const [selectedBranch, setSelectedBranch] = useState<string | null>(null)
 
   useEffect(() => {
+    const loadData = async () => {
+      if (!doctorId || !specialtyId || !user) return
+      setDataLoading(true)
+
+      const { data: doc } = await supabase
+        .from("doctors")
+        .select("id, first_name, last_name, email")
+        .eq("id", doctorId)
+        .single()
+      setDoctor(doc)
+
+      const { data: spec } = await supabase
+        .from("specialties")
+        .select("id, name, description")
+        .eq("id", specialtyId)
+        .single()
+      setSpecialty(spec)
+
+      const { data: links } = await supabase
+        .from("doctor_patient_links")
+        .select("status")
+        .eq("doctor_id", doctorId)
+        .eq("patient_user_id", user.id)
+        .limit(1)
+
+      const st = links?.[0]?.status ?? null
+      setLinkStatus(st === "accepted" ? "accepted" : st === "pending" ? "pending" : "none")
+
+      let { data: qs } = await supabase
+        .from("specialist_questions")
+        .select("id, prompt, field_type, options, is_required")
+        .eq("specialty_id", specialtyId)
+        .eq("active", true)
+        .order("order_index")
+
+      if (!qs || qs.length === 0) {
+        const specName = spec?.name ?? ""
+        const defaults = fallbackQuestions[specName] ?? []
+        if (defaults.length > 0) {
+          await supabase.from("specialist_questions").insert(
+            defaults.map((q) => ({
+              specialty_id: specialtyId,
+              prompt: q.prompt,
+              field_type: q.field_type,
+              options: q.options,
+              is_required: true,
+              order_index: q.order_index,
+              active: true,
+            }))
+          )
+          const { data: refreshed } = await supabase
+            .from("specialist_questions")
+            .select("id, prompt, field_type, options, is_required")
+            .eq("specialty_id", specialtyId)
+            .eq("active", true)
+            .order("order_index")
+          qs = refreshed ?? []
+        }
+      }
+
+      setQuestions(qs ?? [])
+
+      if (st === "accepted") {
+        const { data: existing } = await supabase
+          .from("specialist_responses")
+          .select("question_id, answer")
+          .eq("patient_user_id", user.id)
+          .eq("specialty_id", specialtyId)
+
+        if (existing && existing.length > 0) {
+          const mapped: Record<string, unknown> = {}
+          existing.forEach((r) => {
+            const val =
+              r.answer && typeof r.answer === "object" && "value" in r.answer
+                ? (r.answer as Record<string, unknown>).value
+                : r.answer
+            mapped[r.question_id] = val
+          })
+          setAnswers(mapped)
+        }
+      }
+
+      setDataLoading(false)
+    }
+
     if (!doctorId || !specialtyId) {
       router.push("/user/especialistas")
       return
@@ -209,92 +293,7 @@ function CuestionarioContent() {
       return
     }
     loadData()
-  }, [doctorId, specialtyId, user])
-
-  const loadData = async () => {
-    if (!doctorId || !specialtyId || !user) return
-    setDataLoading(true)
-
-    const { data: doc } = await supabase
-      .from("doctors")
-      .select("id, first_name, last_name, email")
-      .eq("id", doctorId)
-      .single()
-    setDoctor(doc)
-
-    const { data: spec } = await supabase
-      .from("specialties")
-      .select("id, name, description")
-      .eq("id", specialtyId)
-      .single()
-    setSpecialty(spec)
-
-    const { data: links } = await supabase
-      .from("doctor_patient_links")
-      .select("status")
-      .eq("doctor_id", doctorId)
-      .eq("patient_user_id", user.id)
-      .limit(1)
-
-    const st = links?.[0]?.status ?? null
-    setLinkStatus(st === "accepted" ? "accepted" : st === "pending" ? "pending" : "none")
-
-    let { data: qs } = await supabase
-      .from("specialist_questions")
-      .select("id, prompt, field_type, options, is_required")
-      .eq("specialty_id", specialtyId)
-      .eq("active", true)
-      .order("order_index")
-
-    if (!qs || qs.length === 0) {
-      const specName = spec?.name ?? ""
-      const defaults = fallbackQuestions[specName] ?? []
-      if (defaults.length > 0) {
-        await supabase.from("specialist_questions").insert(
-          defaults.map((q) => ({
-            specialty_id: specialtyId,
-            prompt: q.prompt,
-            field_type: q.field_type,
-            options: q.options,
-            is_required: true,
-            order_index: q.order_index,
-            active: true,
-          }))
-        )
-        const { data: refreshed } = await supabase
-          .from("specialist_questions")
-          .select("id, prompt, field_type, options, is_required")
-          .eq("specialty_id", specialtyId)
-          .eq("active", true)
-          .order("order_index")
-        qs = refreshed ?? []
-      }
-    }
-
-    setQuestions(qs ?? [])
-
-    if (st === "accepted") {
-      const { data: existing } = await supabase
-        .from("specialist_responses")
-        .select("question_id, answer")
-        .eq("patient_user_id", user.id)
-        .eq("specialty_id", specialtyId)
-
-      if (existing && existing.length > 0) {
-        const mapped: Record<string, any> = {}
-        existing.forEach((r) => {
-          const val =
-            r.answer && typeof r.answer === "object" && "value" in r.answer
-              ? (r.answer as any).value
-              : r.answer
-          mapped[r.question_id] = val
-        })
-        setAnswers(mapped)
-      }
-    }
-
-    setDataLoading(false)
-  }
+  }, [doctorId, specialtyId, user, router])
 
   const handleRequestLink = async () => {
     if (!user || !doctorId) return
@@ -350,7 +349,7 @@ function CuestionarioContent() {
     const tests = new Set<string>()
 
     // Mapear respuestas a keys simples para las condiciones
-    const answerMap: Record<string, any> = {}
+    const answerMap: Record<string, unknown> = {}
     questions.forEach((q) => {
       const val = answers[q.id]
       const slug = slugify(q.prompt)

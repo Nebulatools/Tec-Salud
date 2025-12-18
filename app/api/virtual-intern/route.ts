@@ -54,7 +54,13 @@ export async function POST(req: NextRequest) {
       const rec = order.recommended_tests
       if (!rec) return { tests: [], lab_provider: null }
       if (Array.isArray(rec)) return { tests: rec, lab_provider: null }
-      if (typeof rec === "object") return { tests: rec.tests ?? rec, lab_provider: (rec as any).lab_provider ?? null }
+      if (typeof rec === "object") {
+        const recObj = rec as Record<string, unknown>
+        return {
+          tests: recObj.tests ?? rec,
+          lab_provider: (recObj.lab_provider as string | null) ?? null
+        }
+      }
       return { tests: [], lab_provider: null }
     })()
 
@@ -68,7 +74,10 @@ export async function POST(req: NextRequest) {
 
     const responsesSummary =
       responses
-        ?.map((r: any) => `• ${r.specialist_questions?.prompt ?? "Pregunta"} → ${JSON.stringify(r.answer)}`)
+        ?.map((r) => {
+          const question = r.specialist_questions as { prompt?: string } | null | undefined
+          return `• ${question?.prompt ?? "Pregunta"} → ${JSON.stringify(r.answer)}`
+        })
         .join("\n") ?? "Sin respuestas"
 
     const labsSummary =
@@ -109,8 +118,9 @@ Devuelve un resumen corto (2-4 líneas) y una lista de 3-5 sugerencias accionabl
         .map((s) => s.trim())
         .filter((s) => s.length > 3)
         .slice(0, 5)
-    } catch (err: any) {
-      return NextResponse.json({ error: `LLM error: ${err.message ?? "desconocido"}` }, { status: 500 })
+    } catch (err) {
+      const errorObj = err as { message?: string }
+      return NextResponse.json({ error: `LLM error: ${errorObj.message ?? "desconocido"}` }, { status: 500 })
     }
 
     const { data: run, error: runError } = await supabaseAdmin
@@ -134,7 +144,7 @@ Devuelve un resumen corto (2-4 líneas) y una lista de 3-5 sugerencias accionabl
     }
 
     return NextResponse.json({ ok: true, run })
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: "Error interno" }, { status: 500 })
   }
 }

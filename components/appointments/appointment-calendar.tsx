@@ -42,24 +42,27 @@ export default function AppointmentCalendar() {
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [appointmentToDelete, setAppointmentToDelete] = useState<Appointment | null>(null)
-  const [hideCompletedToday, setHideCompletedToday] = useState<boolean>(true)
+  const [hideCompletedToday, setHideCompletedToday] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('hideCompletedToday')
+      return saved === null ? true : saved === 'true'
+    } catch {
+      return true
+    }
+  })
 
   // Persist toggle in localStorage
   useEffect(() => {
     try {
-      const saved = localStorage.getItem('hideCompletedToday')
-      if (saved !== null) setHideCompletedToday(saved === 'true')
-    } catch {}
-  }, [])
-
-  useEffect(() => {
-    try {
       localStorage.setItem('hideCompletedToday', String(hideCompletedToday))
-    } catch {}
+    } catch {
+      // Ignore storage errors
+    }
   }, [hideCompletedToday])
 
   useEffect(() => {
     fetchAppointments()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, currentDate, selectedFilter])
 
   useEffect(() => {
@@ -217,14 +220,6 @@ export default function AppointmentCalendar() {
     // Filtrado por fecha en LOCAL para coincidir con appointment_date (YYYY-MM-DD)
     const dateString = ymdLocal(date)
     return appointments.filter((apt) => apt.appointment_date === dateString)
-  }
-
-  const isToday = (dateStr: string) => {
-    try {
-      const d = new Date(dateStr)
-      const now = new Date()
-      return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate()
-    } catch { return false }
   }
 
   const formatTime = (timeString: string) => {

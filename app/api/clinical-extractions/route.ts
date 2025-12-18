@@ -13,24 +13,28 @@ export async function POST(request: NextRequest) {
     console.log('patientId:', patientId || '');
 
     // Validate extraction object and sanitize
-    const safeString = (v: any) => (typeof v === 'string' ? v : '');
-    const safeStringArray = (v: any): string[] => Array.isArray(v) ? v.map((x) => safeString(x).trim()).filter(Boolean) : [];
-    const safeMeds = (v: any): Array<{name: string, dose: string, route: string, frequency: string, duration: string}> => {
+    const safeString = (v: unknown) => (typeof v === 'string' ? v : '');
+    const safeStringArray = (v: unknown): string[] => Array.isArray(v) ? v.map((x) => safeString(x).trim()).filter(Boolean) : [];
+    const safeMeds = (v: unknown): Array<{name: string, dose: string, route: string, frequency: string, duration: string}> => {
       if (!Array.isArray(v)) return [];
-      return v.map((m) => ({
-        name: safeString(m?.name),
-        dose: safeString(m?.dose),
-        route: safeString(m?.route),
-        frequency: safeString(m?.frequency),
-        duration: safeString(m?.duration),
-      }));
+      return v.map((m: unknown) => {
+        const med = m as Record<string, unknown>;
+        return {
+          name: safeString(med?.name),
+          dose: safeString(med?.dose),
+          route: safeString(med?.route),
+          frequency: safeString(med?.frequency),
+          duration: safeString(med?.duration),
+        };
+      });
     };
 
-    const ex = extraction && typeof extraction === 'object' ? extraction : {};
+    const ex = extraction && typeof extraction === 'object' ? extraction as Record<string, unknown> : {};
+    const patient = ex?.patient as Record<string, unknown> | undefined;
     const sanitized = {
       patient: {
-        id: safeString(ex?.patient?.id) || safeString(patientId) || '',
-        name: safeString(ex?.patient?.name) || '',
+        id: safeString(patient?.id) || safeString(patientId) || '',
+        name: safeString(patient?.name) || '',
       },
       symptoms: safeStringArray(ex?.symptoms),
       diagnoses: safeStringArray(ex?.diagnoses),

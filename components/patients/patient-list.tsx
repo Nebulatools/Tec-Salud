@@ -65,11 +65,27 @@ export default function PatientList() {
   const [patientToEdit, setPatientToEdit] = useState<Patient | null>(null)
   const [patientReports, setPatientReports] = useState<MedicalReport[]>([])
   const [loadingReports, setLoadingReports] = useState(false)
-  const [selectedReport, setSelectedReport] = useState<any>(null)
+  const [selectedReport, setSelectedReport] = useState<MedicalReport | null>(null)
   const [isReportModalOpen, setIsReportModalOpen] = useState(false)
   const [reportToDelete, setReportToDelete] = useState<MedicalReport | null>(null)
   const [showReportDeleteModal, setShowReportDeleteModal] = useState(false)
-  const [extractionsByReport, setExtractionsByReport] = useState<Record<string, any>>({})
+
+  interface ClinicalExtraction {
+    symptoms?: string[]
+    diagnoses?: string[]
+    medications?: Array<{
+      name?: string
+      dose?: string
+      route?: string
+      frequency?: string
+      duration?: string
+    }>
+    patient_snapshot?: {
+      name?: string
+    }
+  }
+
+  const [extractionsByReport, setExtractionsByReport] = useState<Record<string, ClinicalExtraction>>({})
   
   // Estados para los modales elegantes
   const [showDeleteModal, setShowDeleteModal] = useState(false)
@@ -83,7 +99,10 @@ export default function PatientList() {
   } | null>(null)
 
   useEffect(() => {
-    fetchPatients()
+    if (user) {
+      fetchPatients()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user])
 
   useEffect(() => {
@@ -97,6 +116,7 @@ export default function PatientList() {
     if (selectedPatient) {
       fetchPatientReports(selectedPatient.id)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPatient])
 
   const fetchPatients = async () => {
@@ -116,8 +136,8 @@ export default function PatientList() {
       if (data) {
         setPatients(data)
       }
-    } catch (error) {
-      console.error("Error fetching patients:", error)
+    } catch (err) {
+      console.error("Error fetching patients:", err)
     } finally {
       setLoading(false)
     }
@@ -141,7 +161,7 @@ export default function PatientList() {
       // Prefetch clinical extractions for nicer previews
       try {
         const entries = await Promise.all(
-          (data || []).map(async (r: any) => {
+          (data || []).map(async (r: MedicalReport) => {
             const aId = r.appointment_id
             const pId = r.patient_id || patientId
             let url = ''
@@ -155,8 +175,8 @@ export default function PatientList() {
             return [r.id, list[0] || null] as const
           })
         )
-        const map: Record<string, any> = {}
-        entries.forEach(([id, ex]) => { if (ex) map[id] = ex })
+        const map: Record<string, ClinicalExtraction> = {}
+        entries.forEach(([id, ex]) => { if (ex) map[id] = ex as ClinicalExtraction })
         setExtractionsByReport(map)
       } catch (e) {
         console.log('Prefetch extractions failed', e)
@@ -195,7 +215,7 @@ export default function PatientList() {
           )}
           {meds.length > 0 && (
             <ul className="list-disc pl-5">
-              {meds.map((m: any, i: number) => (
+              {meds.map((m, i: number) => (
                 <li key={i}>{m?.name}{m?.dose?` • ${m.dose}`:''}{m?.route?` • ${m.route}`:''}{m?.frequency?` • ${m.frequency}`:''}</li>
               ))}
             </ul>
@@ -264,8 +284,8 @@ export default function PatientList() {
         description: `El paciente ${patientToDelete.first_name} ${patientToDelete.last_name} ha sido eliminado exitosamente.`
       })
       setShowNotificationModal(true)
-    } catch (error) {
-      console.error("Error deleting patient:", error)
+    } catch (err) {
+      console.error("Error deleting patient:", err)
       setNotificationData({
         type: "error",
         title: "Error al eliminar",

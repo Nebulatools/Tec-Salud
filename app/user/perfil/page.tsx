@@ -13,7 +13,6 @@ import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Checkbox } from "@/components/ui/checkbox"
 import {
   User,
   Heart,
@@ -116,10 +115,10 @@ export default function PerfilPage() {
         .maybeSingle()
 
       if (data) {
-        const gi = data.general_info as any
-        const v = data.vitals as any
-        const l = data.lifestyle as any
-        const c = data.conditions as any
+        const gi = data.general_info as Record<string, unknown> | null
+        const v = data.vitals as Record<string, unknown> | null
+        const l = data.lifestyle as Record<string, unknown> | null
+        const c = data.conditions as Record<string, unknown> | null
 
         // Ensure arrays are actually arrays
         const allergiesRaw = gi?.allergies
@@ -132,20 +131,20 @@ export default function PerfilPage() {
         const medsArr = Array.isArray(medsRaw) ? medsRaw : []
 
         setForm({
-          blood_type: gi?.blood_type ?? "",
-          height_cm: v?.height_cm ?? "",
-          weight_kg: v?.weight_kg ?? "",
+          blood_type: typeof gi?.blood_type === 'string' ? gi.blood_type : "",
+          height_cm: typeof v?.height_cm === 'string' ? v.height_cm : "",
+          weight_kg: typeof v?.weight_kg === 'string' ? v.weight_kg : "",
           allergies: allergiesArr,
-          other_allergy: gi?.other_allergy ?? "",
+          other_allergy: typeof gi?.other_allergy === 'string' ? gi.other_allergy : "",
           chronic_conditions: conditionsArr,
-          other_condition: c?.other_condition ?? "",
+          other_condition: typeof c?.other_condition === 'string' ? c.other_condition : "",
           medications: medsArr,
-          has_surgeries: c?.has_surgeries ?? null,
-          surgeries: c?.surgeries ?? "",
-          smoking: l?.smoking ?? "",
-          alcohol: l?.alcohol ?? "",
-          exercise: l?.exercise ?? "",
-          diet: l?.diet ?? "",
+          has_surgeries: typeof c?.has_surgeries === 'boolean' ? c.has_surgeries : null,
+          surgeries: typeof c?.surgeries === 'string' ? c.surgeries : "",
+          smoking: typeof l?.smoking === 'string' ? l.smoking : "",
+          alcohol: typeof l?.alcohol === 'string' ? l.alcohol : "",
+          exercise: typeof l?.exercise === 'string' ? l.exercise : "",
+          diet: typeof l?.diet === 'string' ? l.diet : "",
         })
       }
       setLoading(false)
@@ -455,7 +454,7 @@ export default function PerfilPage() {
           <CardContent className="space-y-3">
             {form.medications.length === 0 ? (
               <p className="text-sm text-gray-400 text-center py-4">
-                No has agregado medicamentos. Si tomas alguno, haz clic en "Agregar".
+                No has agregado medicamentos. Si tomas alguno, haz clic en &quot;Agregar&quot;.
               </p>
             ) : (
               form.medications.map((med, index) => (

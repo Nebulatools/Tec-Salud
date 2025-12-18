@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Mic, Square, Loader2, FileText, Pause, Play } from "lucide-react"
@@ -9,15 +9,25 @@ import { cn } from "@/lib/utils"
 import { useRecording } from "@/hooks/use-recording"
 import { AudioDeviceSelector } from "@/components/recording/audio-device-selector"
 
+import { ConsultationData } from "@/types/consultation"
+
 interface ConsultationRecordingProps {
   appointmentId: string
   patientId?: string
   patientName?: string
-  consultationData: any
-  onComplete: (data: any) => void
-  onDataUpdate?: (updater: any) => void
-  onRecordingStateChange: (isRecording: boolean) => void
+  consultationData: ConsultationData
+  onComplete: (data: RecordingData) => void
+  onDataUpdate?: (updater: ConsultationData | ((prev: ConsultationData) => ConsultationData)) => void
+  onRecordingStateChange: (recording: boolean) => void
   onNavigateToStep: (step: number) => void
+}
+
+interface RecordingData {
+  duration: number
+  startedAt: string
+  processedTranscript: string
+  audioBlob: Blob | null
+  isManualTranscript: boolean
 }
 
 export default function ConsultationRecording({
@@ -53,12 +63,14 @@ export default function ConsultationRecording({
   const [manualTranscriptMode, setManualTranscriptMode] = useState(false)
   const [isParsing, setIsParsing] = useState(false)
   const [parseError, setParseError] = useState<string | null>(null)
-  const [extractionPreview, setExtractionPreview] = useState<{
+  interface ExtractionPreview {
     patient: { id: string; name: string }
     symptoms: string[]
     diagnoses: string[]
     medications: { name: string; dose?: string; route?: string; frequency?: string; duration?: string }[]
-  } | null>(null)
+  }
+
+  const [extractionPreview, setExtractionPreview] = useState<ExtractionPreview | null>(null)
 
   const lastParsedRef = useRef<string>("")
 
@@ -143,24 +155,32 @@ export default function ConsultationRecording({
       if (!res.ok) {
         throw new Error(`Parse error ${res.status}`)
       }
-      const parsed = await res.json()
+      const parsed = await res.json() as {
+        patient?: { id?: string; name?: string }
+        symptoms?: unknown[]
+        diagnoses?: unknown[]
+        medications?: unknown[]
+      }
 
       // Basic sanitize
-      const safe = {
+      const safe: ExtractionPreview = {
         patient: {
           id: typeof parsed?.patient?.id === 'string' ? parsed.patient.id : (patientId || ''),
           name: typeof parsed?.patient?.name === 'string' ? parsed.patient.name : ''
         },
-        symptoms: Array.isArray(parsed?.symptoms) ? parsed.symptoms.filter((s: any) => typeof s === 'string') : [],
-        diagnoses: Array.isArray(parsed?.diagnoses) ? parsed.diagnoses.filter((s: any) => typeof s === 'string') : [],
+        symptoms: Array.isArray(parsed?.symptoms) ? parsed.symptoms.filter((s): s is string => typeof s === 'string') : [],
+        diagnoses: Array.isArray(parsed?.diagnoses) ? parsed.diagnoses.filter((s): s is string => typeof s === 'string') : [],
         medications: Array.isArray(parsed?.medications)
-          ? parsed.medications.map((m: any) => ({
-              name: typeof m?.name === 'string' ? m.name : '',
-              dose: typeof m?.dose === 'string' ? m.dose : '',
-              route: typeof m?.route === 'string' ? m.route : '',
-              frequency: typeof m?.frequency === 'string' ? m.frequency : '',
-              duration: typeof m?.duration === 'string' ? m.duration : ''
-            }))
+          ? parsed.medications.map((m: unknown) => {
+              const med = m as { name?: string; dose?: string; route?: string; frequency?: string; duration?: string }
+              return {
+                name: typeof med?.name === 'string' ? med.name : '',
+                dose: typeof med?.dose === 'string' ? med.dose : '',
+                route: typeof med?.route === 'string' ? med.route : '',
+                frequency: typeof med?.frequency === 'string' ? med.frequency : '',
+                duration: typeof med?.duration === 'string' ? med.duration : ''
+              }
+            })
           : []
       }
 
@@ -168,10 +188,12 @@ export default function ConsultationRecording({
       lastParsedRef.current = text
 
       // Push into shared state (non-blocking)
-      if (typeof (onDataUpdate as any) === 'function') {
+      if (typeof onDataUpdate === 'function') {
         try {
-          (onDataUpdate as any)((prev: any) => ({ ...prev, extractionPreview: safe }))
-        } catch {}
+          onDataUpdate((prev: ConsultationData) => ({ ...prev, extractionPreview: safe }))
+        } catch {
+          // Ignore update errors
+        }
       }
 
       // Persist silently
@@ -183,8 +205,7 @@ export default function ConsultationRecording({
       if (!saveRes.ok) {
         console.warn('Failed to save clinical extraction')
       }
-    } catch (e: any) {
-      console.error('Auto-parse error:', e)
+    } catch {
       setParseError('No se pudo procesar la transcripción automáticamente.')
     } finally {
       setIsParsing(false)
@@ -200,6 +221,7 @@ export default function ConsultationRecording({
       const t = setTimeout(() => triggerParseAndPersist(transcript), 150)
       return () => clearTimeout(t)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isTranscribing, transcript, manualTranscriptMode])
 
   // Debounced auto-parse for manual transcript
@@ -208,6 +230,7 @@ export default function ConsultationRecording({
       const t = setTimeout(() => triggerParseAndPersist(transcript), 1000)
       return () => clearTimeout(t)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [manualTranscriptMode, transcript])
 
   const handleComplete = () => {

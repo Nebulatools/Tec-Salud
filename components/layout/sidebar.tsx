@@ -42,15 +42,16 @@ export default function Sidebar({ onCollapseChange }: { onCollapseChange?: (coll
     setIsOpen(false)
   }, [pathname])
 
-  // Load collapsed state from localStorage
+  // Load collapsed state from localStorage on mount
   useEffect(() => {
     const saved = localStorage.getItem("sidebar-collapsed")
     if (saved) {
-      const collapsed = JSON.parse(saved)
+      const collapsed = JSON.parse(saved) as boolean
       setIsCollapsed(collapsed)
       onCollapseChange?.(collapsed)
     }
-  }, [onCollapseChange])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Save collapsed state to localStorage
   const toggleCollapsed = () => {

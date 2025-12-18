@@ -79,7 +79,7 @@ export default function EditPatientForm({ patient, onSuccess, onCancel }: EditPa
       } else {
         onSuccess()
       }
-    } catch (error) {
+    } catch {
       setError("Error al actualizar el paciente")
     } finally {
       setLoading(false)

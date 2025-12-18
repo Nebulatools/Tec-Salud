@@ -19,7 +19,7 @@ type Question = {
   id: string
   prompt: string
   field_type: string
-  options: any
+  options: Record<string, unknown>
   is_required: boolean
   specialty_id: string
 }
@@ -66,7 +66,7 @@ const fallbackQuestions: Record<string, { prompt: string; field_type: string; or
   ],
 }
 
-const buildRecommendedTests = (specName: string, answers: Record<string, any>, questions: Question[]): string[] => {
+const buildRecommendedTests = (specName: string, answers: Record<string, unknown>, questions: Question[]): string[] => {
   const base = recommendedTestsBySpecialty[specName] ?? []
   const byPrompt = (text: string) =>
     questions.find((q) => q.prompt.toLowerCase().includes(text.toLowerCase()))?.id ?? ""
@@ -128,7 +128,7 @@ export function SpecialistMarketplace() {
   const [specialties, setSpecialties] = useState<Specialty[]>([])
   const [doctors, setDoctors] = useState<DoctorOption[]>([])
   const [questions, setQuestions] = useState<Question[]>([])
-  const [answers, setAnswers] = useState<Record<string, any>>({})
+  const [answers, setAnswers] = useState<Record<string, unknown>>({})
   const [selectedSpecialty, setSelectedSpecialty] = useState<string>("")
   const [selectedDoctor, setSelectedDoctor] = useState<string>("")
   const [loading, setLoading] = useState(true)
@@ -140,7 +140,6 @@ export function SpecialistMarketplace() {
   const [labOrder, setLabOrder] = useState<{ id: string; tests: string[]; lab_provider: string | null; status: string } | null>(null)
   const [labProviders, setLabProviders] = useState<{ id: string; name: string }[]>([])
   const [uploading, setUploading] = useState<string | null>(null)
-  const [answersLoaded, setAnswersLoaded] = useState(false)
 
   useEffect(() => {
     const load = async () => {
@@ -183,7 +182,7 @@ export function SpecialistMarketplace() {
         .eq("specialty_id", selectedSpecialty)
 
       const mapped =
-        data?.map((row: any) => ({
+        data?.map((row: { doctor_id: string; doctors?: { first_name?: string; last_name?: string; email?: string } | null }) => ({
           id: row.doctor_id,
           name: `${row.doctors?.first_name ?? ""} ${row.doctors?.last_name ?? ""}`.trim() || "Doctor sin nombre",
           email: row.doctors?.email ?? "",
@@ -206,15 +205,16 @@ export function SpecialistMarketplace() {
         .limit(1)
       const row = data?.[0]
       if (row) {
+        const recommendedTests = row.recommended_tests as Record<string, unknown>
         const tests =
           Array.isArray(row.recommended_tests) && row.recommended_tests.length > 0
-            ? row.recommended_tests
+            ? row.recommended_tests as string[]
             : typeof row.recommended_tests === "object" && row.recommended_tests !== null
-              ? (row.recommended_tests as any).tests ?? []
+              ? ((recommendedTests.tests ?? []) as string[])
               : []
         const labProv =
           typeof row.recommended_tests === "object" && row.recommended_tests !== null
-            ? (row.recommended_tests as any).lab_provider ?? null
+            ? ((recommendedTests.lab_provider ?? null) as string | null)
             : null
         setLabOrder({ id: row.id, tests, lab_provider: labProv, status: row.status })
       } else {
@@ -314,31 +314,57 @@ export function SpecialistMarketplace() {
     loadQuestions()
     loadLinkStatus()
     loadOrder()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSpecialty, selectedDoctor, user])
 
-  const loadExistingResponses = async () => {
-    if (!user || !selectedSpecialty || linkStatus !== "accepted") return
+  const loadLatestOrder = async () => {
+    if (!user || !selectedSpecialty || !selectedDoctor) return
     const { data } = await supabase
-      .from("specialist_responses")
-      .select("question_id, answer")
+      .from("lab_orders")
+      .select("id, recommended_tests, status")
       .eq("patient_user_id", user.id)
+      .eq("doctor_id", selectedDoctor)
       .eq("specialty_id", selectedSpecialty)
-    if (!data || data.length === 0) {
-      setAnswersLoaded(true)
-      return
+      .order("recommended_at", { ascending: false })
+      .limit(1)
+    const row = data?.[0]
+    if (row) {
+      const recommendedTests = row.recommended_tests as Record<string, unknown>
+      const tests =
+        Array.isArray(row.recommended_tests) && row.recommended_tests.length > 0
+          ? row.recommended_tests as string[]
+          : typeof row.recommended_tests === "object" && row.recommended_tests !== null
+            ? ((recommendedTests.tests ?? []) as string[])
+            : []
+      const labProv =
+        typeof row.recommended_tests === "object" && row.recommended_tests !== null
+          ? ((recommendedTests.lab_provider ?? null) as string | null)
+          : null
+      setLabOrder({ id: row.id, tests, lab_provider: labProv, status: row.status })
     }
-    const mapped: Record<string, any> = {}
-    data.forEach((r) => {
-      const val = r.answer && typeof r.answer === "object" && "value" in r.answer ? (r.answer as any).value : r.answer
-      mapped[r.question_id] = val
-    })
-    setAnswers(mapped)
-    setResponsesSaved(true)
-    setAnswersLoaded(true)
   }
 
   useEffect(() => {
-    setAnswersLoaded(false)
+    const loadExistingResponses = async () => {
+      if (!user || !selectedSpecialty || linkStatus !== "accepted") return
+      const { data } = await supabase
+        .from("specialist_responses")
+        .select("question_id, answer")
+        .eq("patient_user_id", user.id)
+        .eq("specialty_id", selectedSpecialty)
+      if (!data || data.length === 0) {
+        return
+      }
+      const mapped: Record<string, unknown> = {}
+      data.forEach((r) => {
+        const answer = r.answer as Record<string, unknown> | null
+        const val = answer && typeof answer === "object" && "value" in answer ? answer.value : answer
+        mapped[r.question_id] = val
+      })
+      setAnswers(mapped)
+      setResponsesSaved(true)
+    }
+
     if (linkStatus === "accepted") {
       loadExistingResponses()
       loadLatestOrder()
@@ -347,6 +373,7 @@ export function SpecialistMarketplace() {
       setResponsesSaved(false)
       setLabOrder(null)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [linkStatus])
 
   const handleRequestLink = async () => {
@@ -465,32 +492,6 @@ export function SpecialistMarketplace() {
     }
   }
 
-  const loadLatestOrder = async () => {
-    if (!user || !selectedSpecialty || !selectedDoctor) return
-    const { data } = await supabase
-      .from("lab_orders")
-      .select("id, recommended_tests, status")
-      .eq("patient_user_id", user.id)
-      .eq("doctor_id", selectedDoctor)
-      .eq("specialty_id", selectedSpecialty)
-      .order("recommended_at", { ascending: false })
-      .limit(1)
-    const row = data?.[0]
-    if (row) {
-      const tests =
-        Array.isArray(row.recommended_tests) && row.recommended_tests.length > 0
-          ? row.recommended_tests
-          : typeof row.recommended_tests === "object" && row.recommended_tests !== null
-            ? (row.recommended_tests as any).tests ?? []
-            : []
-      const labProv =
-        typeof row.recommended_tests === "object" && row.recommended_tests !== null
-          ? (row.recommended_tests as any).lab_provider ?? null
-          : null
-      setLabOrder({ id: row.id, tests, lab_provider: labProv, status: row.status })
-    }
-  }
-
   const handleLabChoice = async (choice: string) => {
     if (!labOrder || !user) return
     const payload = { tests: labOrder.tests, lab_provider: choice }
@@ -581,7 +582,7 @@ export function SpecialistMarketplace() {
           </Select>
         )
       case "single_select": {
-        const opts: string[] = Array.isArray(q.options) ? (q.options as string[]) : []
+        const opts: string[] = Array.isArray(q.options) ? q.options : []
         return (
           <Select
             value={value ?? ""}
@@ -602,7 +603,7 @@ export function SpecialistMarketplace() {
         )
       }
       case "multi_select": {
-        const opts: string[] = Array.isArray(q.options) ? (q.options as string[]) : []
+        const opts: string[] = Array.isArray(q.options) ? q.options : []
         const selected: string[] = value ?? []
         return (
           <div className="flex flex-wrap gap-2">

@@ -17,16 +17,10 @@ const sizeMap = {
   xl: { width: 220, height: 88, markSize: 64 },
 }
 
-export function ZuliLogo({
-  className,
-  size = "md",
-  variant = "full",
-  theme = "dark",
-}: ZuliLogoProps) {
-  const { width, height, markSize } = sizeMap[size]
-
-  // Logomark - The AI collaboration symbol (stylized cross/plus)
-  const Logomark = ({ className: markClass }: { className?: string }) => (
+// Logomark - The AI collaboration symbol (stylized cross/plus)
+// Moved outside component to avoid re-creating during render
+function Logomark({ className: markClass = "" }: { className?: string }) {
+  return (
     <svg
       viewBox="0 0 100 100"
       fill="none"
@@ -53,9 +47,11 @@ export function ZuliLogo({
       />
     </svg>
   )
+}
 
-  // Text part of the logo
-  const LogoText = ({ textColor }: { textColor: string }) => (
+// Text part of the logo - moved outside component
+function LogoText({ textColor }: { textColor: string }) {
+  return (
     <svg
       viewBox="0 0 180 60"
       fill="none"
@@ -100,7 +96,15 @@ export function ZuliLogo({
       />
     </svg>
   )
+}
 
+export function ZuliLogo({
+  className,
+  size = "md",
+  variant = "full",
+  theme = "dark",
+}: ZuliLogoProps) {
+  const { width, height, markSize } = sizeMap[size]
   const textColor = theme === "light" ? "#FFFFFF" : theme === "dark" ? "#141633" : "#141633"
 
   if (variant === "mark") {

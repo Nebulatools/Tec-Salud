@@ -28,45 +28,66 @@ export function LinkRequests({ doctorId }: { doctorId: string }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const load = async () => {
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true)
+      setError(null)
+      const { data, error: linksError } = await supabase
+        .from("doctor_patient_links")
+        .select("id, patient_user_id, status, requested_by, requested_at")
+        .eq("doctor_id", doctorId)
+        .order("requested_at", { ascending: false })
+
+      if (linksError) {
+        setError(linksError.message)
+        setLoading(false)
+        return
+      }
+
+      setLinks(data ?? [])
+
+      const ids = Array.from(new Set((data ?? []).map((l) => l.patient_user_id)))
+      if (ids.length > 0) {
+        const { data: users } = await supabase.from("app_users").select("id,email,full_name").in("id", ids)
+        const map: Record<string, PatientInfo> = {}
+        users?.forEach((u) => {
+          map[u.id] = u
+        })
+        setPatients(map)
+      }
+      setLoading(false)
+    }
+
+    if (doctorId) void load()
+  }, [doctorId])
+
+  const updateStatus = async (id: string, status: LinkRow["status"]) => {
     setLoading(true)
-    setError(null)
+    await supabase
+      .from("doctor_patient_links")
+      .update({ status, responded_at: new Date().toISOString() })
+      .eq("id", id)
+
+    // Reload data after update
     const { data, error: linksError } = await supabase
       .from("doctor_patient_links")
       .select("id, patient_user_id, status, requested_by, requested_at")
       .eq("doctor_id", doctorId)
       .order("requested_at", { ascending: false })
 
-    if (linksError) {
-      setError(linksError.message)
-      setLoading(false)
-      return
-    }
-
-    setLinks(data ?? [])
-
-    const ids = Array.from(new Set((data ?? []).map((l) => l.patient_user_id)))
-    if (ids.length > 0) {
-      const { data: users } = await supabase.from("app_users").select("id,email,full_name").in("id", ids)
-      const map: Record<string, PatientInfo> = {}
-      users?.forEach((u) => {
-        map[u.id] = u
-      })
-      setPatients(map)
+    if (!linksError && data) {
+      setLinks(data)
+      const ids = Array.from(new Set(data.map((l) => l.patient_user_id)))
+      if (ids.length > 0) {
+        const { data: users } = await supabase.from("app_users").select("id,email,full_name").in("id", ids)
+        const map: Record<string, PatientInfo> = {}
+        users?.forEach((u) => {
+          map[u.id] = u
+        })
+        setPatients(map)
+      }
     }
     setLoading(false)
-  }
-
-  useEffect(() => {
-    if (doctorId) load()
-  }, [doctorId])
-
-  const updateStatus = async (id: string, status: LinkRow["status"]) => {
-    await supabase
-      .from("doctor_patient_links")
-      .update({ status, responded_at: new Date().toISOString() })
-      .eq("id", id)
-    load()
   }
 
   const statusBadge = (statusValue: LinkRow["status"]) => {

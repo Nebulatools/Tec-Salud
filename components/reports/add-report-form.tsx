@@ -55,7 +55,10 @@ export default function AddReportForm({ onSuccess, onCancel }: AddReportFormProp
   ]
 
   useEffect(() => {
-    fetchPatients()
+    if (user) {
+      fetchPatients()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user])
 
   const fetchPatients = async () => {
@@ -74,8 +77,8 @@ export default function AddReportForm({ onSuccess, onCancel }: AddReportFormProp
       if (data) {
         setPatients(data)
       }
-    } catch (error) {
-      console.error("Error fetching patients:", error)
+    } catch (err) {
+      console.error("Error fetching patients:", err)
     }
   }
 
@@ -109,7 +112,7 @@ export default function AddReportForm({ onSuccess, onCancel }: AddReportFormProp
       } else {
         onSuccess()
       }
-    } catch (error) {
+    } catch {
       setError("Error al crear el reporte")
     } finally {
       setLoading(false)

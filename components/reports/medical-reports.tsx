@@ -42,9 +42,24 @@ export default function MedicalReports() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [showCancelConfirmAdd, setShowCancelConfirmAdd] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
-  const [extraction, setExtraction] = useState<any | null>(null)
-  const [loadingExtraction, setLoadingExtraction] = useState(false)
-  
+
+  interface ClinicalExtraction {
+    symptoms?: string[]
+    diagnoses?: string[]
+    medications?: Array<{
+      name?: string
+      dose?: string
+      route?: string
+      frequency?: string
+      duration?: string
+    }>
+    patient_snapshot?: {
+      name?: string
+    }
+  }
+
+  const [extraction, setExtraction] = useState<ClinicalExtraction | null>(null)
+
   // Estados para los modales elegantes
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [reportToDelete, setReportToDelete] = useState<MedicalReport | null>(null)
@@ -56,7 +71,10 @@ export default function MedicalReports() {
   } | null>(null)
 
   useEffect(() => {
-    fetchReports()
+    if (user) {
+      fetchReports()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user])
 
   useEffect(() => {
@@ -139,8 +157,8 @@ export default function MedicalReports() {
         setReports(reportsData)
         console.log("Reports set in state:", reportsData.length)
       }
-    } catch (error) {
-      console.error("Error fetching reports:", error)
+    } catch (err) {
+      console.error("Error fetching reports:", err)
     } finally {
       setLoading(false)
     }
@@ -150,11 +168,10 @@ export default function MedicalReports() {
   useEffect(() => {
     const loadExtraction = async () => {
       try {
-        setLoadingExtraction(true)
         setExtraction(null)
         if (!selectedReport) return
-        const appointmentId = (selectedReport as any)?.appointment_id
-        const patientId = (selectedReport as any)?.patient_id
+        const appointmentId = selectedReport.appointment_id
+        const patientId = selectedReport.patient_id
         let url = ''
         if (appointmentId) url = `/api/clinical-extractions?appointment_id=${appointmentId}&limit=1`
         else if (patientId) url = `/api/clinical-extractions?patient_id=${patientId}&limit=1`
@@ -163,9 +180,10 @@ export default function MedicalReports() {
         if (!res.ok) return
         const data = await res.json()
         const list = Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : []
-        if (list.length > 0) setExtraction(list[0])
-      } catch {}
-      finally { setLoadingExtraction(false) }
+        if (list.length > 0) setExtraction(list[0] as ClinicalExtraction)
+      } catch {
+        // Silent fail
+      }
     }
     loadExtraction()
   }, [selectedReport])
@@ -220,8 +238,8 @@ export default function MedicalReports() {
         description: `El reporte "${reportToDelete.title}" ha sido eliminado exitosamente.`
       })
       setShowNotificationModal(true)
-    } catch (error) {
-      console.error('Error deleting report:', error)
+    } catch (err) {
+      console.error('Error deleting report:', err)
       setNotificationData({
         type: "error",
         title: "Error inesperado",
@@ -446,7 +464,7 @@ export default function MedicalReports() {
                         <p className="text-gray-500 dark:text-gray-400">Tratamiento/Medicación</p>
                         {Array.isArray(extraction.medications) && extraction.medications.length ? (
                           <ul className="list-disc pl-5 text-gray-900 dark:text-white space-y-1">
-                            {extraction.medications.map((m: any, idx: number) => (
+                            {extraction.medications.map((m, idx: number) => (
                               <li key={idx}>{m?.name}{m?.dose?` • ${m.dose}`:''}{m?.route?` • ${m.route}`:''}{m?.frequency?` • ${m.frequency}`:''}{m?.duration?` • ${m.duration}`:''}</li>
                             ))}
                           </ul>

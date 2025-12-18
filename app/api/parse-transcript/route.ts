@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
         if (p) {
           patientName = `${p.first_name ?? ''} ${p.last_name ?? ''}`.trim();
         }
-      } catch (e) {
+      } catch {
         console.warn('Patient lookup failed, continuing without name');
       }
     }
@@ -120,7 +120,7 @@ export async function POST(request: NextRequest) {
       }
     };
 
-    let raw: any = trySafeParse(text || '{}');
+    let raw: unknown = trySafeParse(text || '{}');
     if (!raw) {
       console.error('Error parsing extraction AI response. Raw text (truncated):', text?.substring(0, 500));
       // Devolver estructura mínima válida para no romper el flujo
@@ -128,27 +128,32 @@ export async function POST(request: NextRequest) {
     }
 
     // Sanitize output
-    const safeString = (v: any) => (typeof v === 'string' ? v : '');
-    const safeStringArray = (v: any): string[] => Array.isArray(v) ? v.map((x) => safeString(x).trim()).filter(Boolean) : [];
-    const safeMeds = (v: any): Array<{name: string, dose: string, route: string, frequency: string, duration: string}> => {
+    const safeString = (v: unknown) => (typeof v === 'string' ? v : '');
+    const safeStringArray = (v: unknown): string[] => Array.isArray(v) ? v.map((x) => safeString(x).trim()).filter(Boolean) : [];
+    const safeMeds = (v: unknown): Array<{name: string, dose: string, route: string, frequency: string, duration: string}> => {
       if (!Array.isArray(v)) return [];
-      return v.map((m) => ({
-        name: safeString(m?.name),
-        dose: safeString(m?.dose),
-        route: safeString(m?.route),
-        frequency: safeString(m?.frequency),
-        duration: safeString(m?.duration),
-      }));
+      return v.map((m: unknown) => {
+        const med = m as Record<string, unknown>;
+        return {
+          name: safeString(med?.name),
+          dose: safeString(med?.dose),
+          route: safeString(med?.route),
+          frequency: safeString(med?.frequency),
+          duration: safeString(med?.duration),
+        };
+      });
     };
 
+    const rawObj = raw as Record<string, unknown>;
+    const rawPatient = rawObj?.patient as Record<string, unknown> | undefined;
     const sanitized = {
       patient: {
-        id: safeString(raw?.patient?.id) || safeString(patientId) || '',
-        name: safeString(raw?.patient?.name) || patientName || '',
+        id: safeString(rawPatient?.id) || safeString(patientId) || '',
+        name: safeString(rawPatient?.name) || patientName || '',
       },
-      symptoms: safeStringArray(raw?.symptoms),
-      diagnoses: safeStringArray(raw?.diagnoses),
-      medications: safeMeds(raw?.medications),
+      symptoms: safeStringArray(rawObj?.symptoms),
+      diagnoses: safeStringArray(rawObj?.diagnoses),
+      medications: safeMeds(rawObj?.medications),
     };
 
     return NextResponse.json(sanitized);

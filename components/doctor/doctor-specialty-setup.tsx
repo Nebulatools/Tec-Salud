@@ -16,7 +16,7 @@ const defaultSpecialties: Array<Pick<Specialty, "name" | "description">> = [
   { name: "Medicina Interna", description: "Atención integral de adultos" },
 ]
 
-const defaultQuestionsByName: Record<string, { prompt: string; field_type: string; options?: any; order_index: number }[]> = {
+const defaultQuestionsByName: Record<string, { prompt: string; field_type: string; options?: Record<string, unknown>; order_index: number }[]> = {
   Cardiología: [
     { prompt: "¿Presentas dolor de pecho al esfuerzo?", field_type: "boolean", order_index: 1 },
     { prompt: "¿Dolor en reposo o nocturno?", field_type: "boolean", order_index: 2 },
@@ -53,45 +53,45 @@ export function DoctorSpecialtySetup({ doctorId }: { doctorId: string }) {
 
   const chosen = useMemo(() => specialties.find((s) => s.id === selected), [specialties, selected])
 
-  const load = async () => {
-    setLoading(true)
-    setError(null)
-
-    const [
-      { data: specs, error: specsError },
-      { data: doctorRow, error: doctorError },
-      { data: existingSpecs, error: linksError },
-    ] = await Promise.all([
-      supabase.from("specialties").select("id,name,description").order("name"),
-      supabase.from("doctors").select("specialty").eq("id", doctorId).maybeSingle(),
-      supabase.from("doctor_specialties").select("specialty_id").eq("doctor_id", doctorId).order("is_primary", { ascending: false }),
-    ])
-
-    // Si no hay especialidades, crear las de base para que el flujo no quede vacío
-    if (!specsError && (specs?.length ?? 0) === 0) {
-      await supabase
-        .from("specialties")
-        .upsert(defaultSpecialties, { onConflict: "name" })
-      const { data: refreshed } = await supabase.from("specialties").select("id,name,description").order("name")
-      if (refreshed) {
-        setSpecialties(refreshed)
-      }
-    } else {
-      setSpecialties(specs ?? [])
-    }
-
-    if (specsError || doctorError || linksError) {
-      setError(specsError?.message ?? doctorError?.message ?? linksError?.message ?? "No se pudieron cargar los datos.")
-    }
-
-    const primary = existingSpecs?.[0]?.specialty_id ?? ""
-    setSelected(primary)
-    setCurrentSpecialty(doctorRow?.specialty ?? null)
-    setLoading(false)
-  }
-
   useEffect(() => {
-    if (doctorId) load()
+    const load = async () => {
+      setLoading(true)
+      setError(null)
+
+      const [
+        { data: specs, error: specsError },
+        { data: doctorRow, error: doctorError },
+        { data: existingSpecs, error: linksError },
+      ] = await Promise.all([
+        supabase.from("specialties").select("id,name,description").order("name"),
+        supabase.from("doctors").select("specialty").eq("id", doctorId).maybeSingle(),
+        supabase.from("doctor_specialties").select("specialty_id").eq("doctor_id", doctorId).order("is_primary", { ascending: false }),
+      ])
+
+      // Si no hay especialidades, crear las de base para que el flujo no quede vacío
+      if (!specsError && (specs?.length ?? 0) === 0) {
+        await supabase
+          .from("specialties")
+          .upsert(defaultSpecialties, { onConflict: "name" })
+        const { data: refreshed } = await supabase.from("specialties").select("id,name,description").order("name")
+        if (refreshed) {
+          setSpecialties(refreshed)
+        }
+      } else {
+        setSpecialties(specs ?? [])
+      }
+
+      if (specsError || doctorError || linksError) {
+        setError(specsError?.message ?? doctorError?.message ?? linksError?.message ?? "No se pudieron cargar los datos.")
+      }
+
+      const primary = existingSpecs?.[0]?.specialty_id ?? ""
+      setSelected(primary)
+      setCurrentSpecialty(doctorRow?.specialty ?? null)
+      setLoading(false)
+    }
+
+    if (doctorId) void load()
   }, [doctorId])
 
   const handleSave = async (e: React.FormEvent) => {

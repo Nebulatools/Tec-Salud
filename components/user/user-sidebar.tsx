@@ -16,8 +16,6 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
-  Calendar,
-  FileText,
 } from "lucide-react"
 
 const navigation = [
@@ -65,7 +63,8 @@ export default function UserSidebar({
       setIsCollapsed(collapsed)
       onCollapseChange?.(collapsed)
     }
-  }, [onCollapseChange])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Save collapsed state to localStorage
   const toggleCollapsed = () => {

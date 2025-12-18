@@ -5,14 +5,13 @@ import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/hooks/use-auth"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 type LabOrder = {
   id: string
-  recommended_tests: any
+  recommended_tests: Record<string, unknown>
   notes: string | null
   status: "pending_upload" | "awaiting_review" | "reviewed"
   doctor: { first_name: string; last_name: string; email: string } | null
@@ -46,8 +45,8 @@ export function LabOrders() {
         recommended_tests: row.recommended_tests,
         notes: row.notes,
         status: row.status,
-        doctor: row.doctors as any,
-        specialty: row.specialties as any,
+        doctor: row.doctors as { first_name: string; last_name: string; email: string } | null,
+        specialty: row.specialties as { name: string } | null,
       })) ?? []
 
     setOrders(mapped)
@@ -56,6 +55,7 @@ export function LabOrders() {
 
   useEffect(() => {
     loadOrders()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user])
 
   const handleUpload = async (orderId: string, file: File | null) => {
@@ -94,16 +94,21 @@ export function LabOrders() {
     loadOrders()
   }
 
-  const parseTests = (recommended: any) => {
+  const parseTests = (recommended: Record<string, unknown>) => {
     if (!recommended) return { tests: [], lab_provider: null }
     if (Array.isArray(recommended)) return { tests: recommended, lab_provider: null }
     if (typeof recommended === "object" && recommended !== null) {
-      return { tests: recommended.tests ?? recommended, lab_provider: recommended.lab_provider ?? null }
+      const tests = recommended.tests ?? recommended
+      const labProvider = recommended.lab_provider
+      return {
+        tests: Array.isArray(tests) ? tests : [],
+        lab_provider: typeof labProvider === "string" ? labProvider : null
+      }
     }
     return { tests: [], lab_provider: null }
   }
 
-  const handleLabChoice = async (orderId: string, choice: string, current: any) => {
+  const handleLabChoice = async (orderId: string, choice: string, current: Record<string, unknown>) => {
     if (!user) return
     setStatus(null)
     setError(null)

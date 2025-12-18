@@ -33,7 +33,8 @@ export default function PendingAppointments() {
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [appointmentToDelete, setAppointmentToDelete] = useState<Appointment | null>(null)
 
-  const fetchPendingAppointments = async () => {
+  useEffect(() => {
+    const fetchPendingAppointments = async () => {
     if (!user) return
 
     try {
@@ -83,14 +84,14 @@ export default function PendingAppointments() {
       }
 
       if (data) {
-        const formattedAppointments: Appointment[] = (data as any[]).map((apt: any) => ({
-          id: apt.id,
-          appointment_date: apt.appointment_date,
-          start_time: apt.start_time,
-          end_time: apt.end_time,
-          status: apt.status,
-          patient_id: apt.patient_id,
-          patient: Array.isArray(apt.patients) ? apt.patients[0] : apt.patients,
+        const formattedAppointments: Appointment[] = (data as Record<string, unknown>[]).map((apt: Record<string, unknown>) => ({
+          id: String(apt.id),
+          appointment_date: String(apt.appointment_date),
+          start_time: String(apt.start_time),
+          end_time: String(apt.end_time),
+          status: String(apt.status),
+          patient_id: String(apt.patient_id),
+          patient: (Array.isArray(apt.patients) ? apt.patients[0] : apt.patients) as { id: string; first_name: string; last_name: string },
         }))
         setAppointments(formattedAppointments)
       }
@@ -99,10 +100,8 @@ export default function PendingAppointments() {
     } finally {
       setLoading(false)
     }
-  }
-
-  useEffect(() => {
-    fetchPendingAppointments()
+    }
+    void fetchPendingAppointments()
   }, [user])
 
   const formatDate = (dateString: string) => {
@@ -136,9 +135,53 @@ export default function PendingAppointments() {
       await supabase.from('appointments').delete().eq('id', appointmentToDelete.id)
       setShowDeleteModal(false)
       setAppointmentToDelete(null)
-      fetchPendingAppointments()
-    } catch (e) {
-      console.error('Error deleting appointment', e)
+      // Re-fetch appointments after deletion
+      const fetchAgain = async () => {
+        if (!user) return
+        try {
+          const { data: doctor } = await supabase.from("doctors").select("id").eq("user_id", user.id).single()
+          if (!doctor) return
+          const today = new Date().toISOString().split("T")[0]
+          const { data } = await supabase
+            .from("appointments")
+            .select(`
+              id,
+              appointment_date,
+              start_time,
+              end_time,
+              status,
+              patient_id,
+              patients!inner (
+                id,
+                first_name,
+                last_name
+              )
+            `)
+            .eq("doctor_id", doctor.id)
+            .eq("status", "Programada")
+            .gte("appointment_date", today)
+            .order("appointment_date", { ascending: true })
+            .order("start_time", { ascending: true })
+            .limit(6)
+          if (data) {
+            const formattedAppointments: Appointment[] = (data as Record<string, unknown>[]).map((apt: Record<string, unknown>) => ({
+              id: String(apt.id),
+              appointment_date: String(apt.appointment_date),
+              start_time: String(apt.start_time),
+              end_time: String(apt.end_time),
+              status: String(apt.status),
+              patient_id: String(apt.patient_id),
+              patient: (Array.isArray(apt.patients) ? apt.patients[0] : apt.patients) as { id: string; first_name: string; last_name: string },
+            }))
+            setAppointments(formattedAppointments)
+          }
+        } catch (error) {
+          console.error("Error fetching appointments:", error)
+        }
+      }
+      void fetchAgain()
+    } catch {
+      // Silently handle error
     }
   }
 

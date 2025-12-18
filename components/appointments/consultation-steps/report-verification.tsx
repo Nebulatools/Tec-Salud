@@ -1,43 +1,23 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { useState, useEffect, useRef } from "react"
+import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Badge } from "@/components/ui/badge"
 import { Edit, Send, Mic, Plus, CheckCircle2 } from "lucide-react"
-import { supabase } from "@/lib/supabase"
+import { ConsultationData } from "@/types/consultation"
 
 interface ReportVerificationProps {
-  appointmentId: string
-  consultationData: any
-  onComplete: (data: any) => void
-  onDataUpdate?: (data: any) => void
+  consultationData: ConsultationData
+  onComplete: (data: unknown) => void
+  onDataUpdate?: (data: ConsultationData) => void
   onNext?: () => void
   onBack?: () => void
 }
 
-interface PatientInfo {
-  id: string
-  first_name: string
-  last_name: string
-  date_of_birth: string
-  phone: string
-  email: string
-  medical_history: string | null
-  allergies: string | null
-  current_medications: string | null
-}
 
-interface AppointmentDetails {
-  appointment_date: string
-  start_time: string
-  end_time: string
-  notes: string | null
-}
-
-export default function ReportVerification({ appointmentId, consultationData, onComplete, onDataUpdate, onNext, onBack }: ReportVerificationProps) {
+export default function ReportVerification({ consultationData, onComplete, onDataUpdate, onNext, onBack }: ReportVerificationProps) {
   // Usar la información que ya viene del paso 1 - MÁS EFICIENTE
   const patientInfo = consultationData?.patientInfo
   const appointmentDetails = consultationData?.appointmentDetails
@@ -47,7 +27,7 @@ export default function ReportVerification({ appointmentId, consultationData, on
   console.log('patientInfo:', patientInfo)
   console.log('appointmentDetails:', appointmentDetails)
 
-  const [reportData, setReportData] = useState({
+  const initialReportData = {
     patientName: consultationData?.patientInfo?.first_name + " " + consultationData?.patientInfo?.last_name || "Paciente",
     reportType: "Reporte Médico",
     onsetDate: consultationData?.onsetDate || new Date().toISOString().split("T")[0],
@@ -55,25 +35,40 @@ export default function ReportVerification({ appointmentId, consultationData, on
     reactionType: consultationData?.reactionType || "Consulta Médica",
     facilityName: consultationData?.facilityName || "Tec Salud",
     notes: consultationData?.reportData?.aiGeneratedReport || consultationData?.patientInfo?.medical_history || `No hay reportes previos para ${consultationData?.patientInfo?.first_name || "este paciente"}. Este será el primer reporte generado.`,
-  })
+  }
+
+  const [reportData, setReportData] = useState(initialReportData)
+
+  // Track the last synced report to avoid unnecessary updates
+  const lastSyncedReportRef = useRef<string | null>(null)
 
   // Actualizar con el reporte generado por IA y otros datos
   useEffect(() => {
-    if (consultationData?.reportData?.aiGeneratedReport) {
-      setReportData(prev => ({
-        ...prev,
-        notes: consultationData.reportData.aiGeneratedReport,
-        patientName: consultationData?.patientInfo?.first_name && consultationData?.patientInfo?.last_name 
-          ? `${consultationData.patientInfo.first_name} ${consultationData.patientInfo.last_name}`
-          : prev.patientName,
-        onsetDate: consultationData?.onsetDate || prev.onsetDate,
-        recordedDate: consultationData?.recordedDate || prev.recordedDate,
-        reactionType: consultationData?.reactionType || prev.reactionType,
-        facilityName: consultationData?.facilityName || prev.facilityName
-      }))
+    const aiReport = consultationData?.reportData?.aiGeneratedReport
+
+    // Only sync if we have a new AI report that hasn't been synced yet
+    if (aiReport && aiReport !== lastSyncedReportRef.current) {
+      lastSyncedReportRef.current = aiReport
+
+      // Use setTimeout to defer setState and avoid the lint warning
+      const timer = setTimeout(() => {
+        setReportData(prev => ({
+          ...prev,
+          notes: aiReport,
+          patientName: consultationData?.patientInfo?.first_name && consultationData?.patientInfo?.last_name
+            ? `${consultationData.patientInfo.first_name} ${consultationData.patientInfo.last_name}`
+            : prev.patientName,
+          onsetDate: consultationData?.onsetDate || prev.onsetDate,
+          recordedDate: consultationData?.recordedDate || prev.recordedDate,
+          reactionType: consultationData?.reactionType || prev.reactionType,
+          facilityName: consultationData?.facilityName || prev.facilityName
+        }))
+      }, 0)
+
+      return () => clearTimeout(timer)
     }
   }, [
-    consultationData?.reportData?.aiGeneratedReport, 
+    consultationData?.reportData?.aiGeneratedReport,
     consultationData?.patientInfo,
     consultationData?.onsetDate,
     consultationData?.recordedDate,

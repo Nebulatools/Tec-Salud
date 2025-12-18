@@ -53,84 +53,84 @@ export default function UserPortalPage() {
   })
 
   useEffect(() => {
+    const loadProgress = async () => {
+      if (!user) return
+      setLoading(true)
+
+      // Verificar cuestionario base
+      const { data: baseline } = await supabase
+        .from("patient_baseline_forms")
+        .select("general_info, vitals, lifestyle, conditions")
+        .eq("patient_user_id", user.id)
+        .maybeSingle()
+
+      const hasBaseline =
+        baseline &&
+        Object.values(baseline).some(
+          (section) =>
+            section && Object.values(section as object).some((v) => v && String(v).trim())
+        )
+
+      // Obtener lab_orders para ver especialidades y estado
+      const { data: orders } = await supabase
+        .from("lab_orders")
+        .select(
+          "specialty_id, doctor_id, status, specialties(name), doctors(first_name, last_name), lab_results(id)"
+        )
+        .eq("patient_user_id", user.id)
+
+      // Obtener respuestas de especialidad
+      const { data: responses } = await supabase
+        .from("specialist_responses")
+        .select("specialty_id")
+        .eq("patient_user_id", user.id)
+
+      const responsesBySpecialty = new Set(responses?.map((r) => r.specialty_id) ?? [])
+
+      // Mapear cuestionarios de especialidad
+      const specialtyMap = new Map<
+        string,
+        {
+          specialty_id: string
+          specialty_name: string
+          doctor_name: string
+          completed: boolean
+          has_lab_results: boolean
+          status: string
+        }
+      >()
+
+      orders?.forEach((o: {
+        specialty_id: string
+        doctor_id: string
+        status: string
+        specialties?: { name: string } | null
+        doctors?: { first_name: string; last_name: string } | null
+        lab_results?: { id: string }[] | null
+      }) => {
+        const key = o.specialty_id
+        if (!specialtyMap.has(key)) {
+          specialtyMap.set(key, {
+            specialty_id: o.specialty_id,
+            specialty_name: o.specialties?.name ?? "Especialidad",
+            doctor_name: `Dr. ${o.doctors?.first_name ?? ""} ${o.doctors?.last_name ?? ""}`.trim(),
+            completed: responsesBySpecialty.has(o.specialty_id),
+            has_lab_results: (o.lab_results?.length ?? 0) > 0,
+            status: o.status,
+          })
+        }
+      })
+
+      setProgress({
+        baselineCompleted: !!hasBaseline,
+        specialtyQuestionnaires: Array.from(specialtyMap.values()),
+      })
+
+      setLoading(false)
+    }
+
     if (user) loadProgress()
   }, [user])
-
-  const loadProgress = async () => {
-    if (!user) return
-    setLoading(true)
-
-    // Verificar cuestionario base
-    const { data: baseline } = await supabase
-      .from("patient_baseline_forms")
-      .select("general_info, vitals, lifestyle, conditions")
-      .eq("patient_user_id", user.id)
-      .maybeSingle()
-
-    const hasBaseline =
-      baseline &&
-      Object.values(baseline).some(
-        (section) =>
-          section && Object.values(section as object).some((v) => v && String(v).trim())
-      )
-
-    // Obtener vinculaciones aceptadas
-    const { data: links } = await supabase
-      .from("doctor_patient_links")
-      .select("doctor_id, doctors(first_name, last_name)")
-      .eq("patient_user_id", user.id)
-      .eq("status", "accepted")
-
-    // Obtener lab_orders para ver especialidades y estado
-    const { data: orders } = await supabase
-      .from("lab_orders")
-      .select(
-        "specialty_id, doctor_id, status, specialties(name), doctors(first_name, last_name), lab_results(id)"
-      )
-      .eq("patient_user_id", user.id)
-
-    // Obtener respuestas de especialidad
-    const { data: responses } = await supabase
-      .from("specialist_responses")
-      .select("specialty_id")
-      .eq("patient_user_id", user.id)
-
-    const responsesBySpecialty = new Set(responses?.map((r) => r.specialty_id) ?? [])
-
-    // Mapear cuestionarios de especialidad
-    const specialtyMap = new Map<
-      string,
-      {
-        specialty_id: string
-        specialty_name: string
-        doctor_name: string
-        completed: boolean
-        has_lab_results: boolean
-        status: string
-      }
-    >()
-
-    orders?.forEach((o: any) => {
-      const key = o.specialty_id
-      if (!specialtyMap.has(key)) {
-        specialtyMap.set(key, {
-          specialty_id: o.specialty_id,
-          specialty_name: o.specialties?.name ?? "Especialidad",
-          doctor_name: `Dr. ${o.doctors?.first_name ?? ""} ${o.doctors?.last_name ?? ""}`.trim(),
-          completed: responsesBySpecialty.has(o.specialty_id),
-          has_lab_results: (o.lab_results?.length ?? 0) > 0,
-          status: o.status,
-        })
-      }
-    })
-
-    setProgress({
-      baselineCompleted: !!hasBaseline,
-      specialtyQuestionnaires: Array.from(specialtyMap.values()),
-    })
-
-    setLoading(false)
-  }
 
   const totalSteps = 1 + progress.specialtyQuestionnaires.length * 2
   const completedSteps =
@@ -293,7 +293,7 @@ export default function UserPortalPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {progress.specialtyQuestionnaires.map((q, idx) => (
+              {progress.specialtyQuestionnaires.map((q) => (
                 <div
                   key={q.specialty_id}
                   className="flex items-center justify-between p-4 rounded-lg bg-gray-50 border"

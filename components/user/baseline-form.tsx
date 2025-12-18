@@ -49,15 +49,20 @@ export function BaselineForm() {
         .maybeSingle()
 
       if (data) {
+        const generalInfo = data.general_info as Record<string, unknown>
+        const vitals = data.vitals as Record<string, unknown>
+        const conditions = data.conditions as Record<string, unknown>
+        const lifestyle = data.lifestyle as Record<string, unknown>
+
         setForm({
-          blood_type: (data.general_info as any)?.blood_type ?? "",
-          height_cm: (data.vitals as any)?.height_cm ?? "",
-          weight_kg: (data.vitals as any)?.weight_kg ?? "",
-          allergies: (data.general_info as any)?.allergies ?? "",
-          chronic_conditions: (data.conditions as any)?.chronic_conditions ?? "",
-          medications: (data.conditions as any)?.medications ?? "",
-          surgeries: (data.conditions as any)?.surgeries ?? "",
-          lifestyle: (data.lifestyle as any)?.notes ?? "",
+          blood_type: (generalInfo?.blood_type as string) ?? "",
+          height_cm: (vitals?.height_cm as string) ?? "",
+          weight_kg: (vitals?.weight_kg as string) ?? "",
+          allergies: (generalInfo?.allergies as string) ?? "",
+          chronic_conditions: (conditions?.chronic_conditions as string) ?? "",
+          medications: (conditions?.medications as string) ?? "",
+          surgeries: (conditions?.surgeries as string) ?? "",
+          lifestyle: (lifestyle?.notes as string) ?? "",
         })
       }
       setLoading(false)

@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
     console.log('Received report data:', reportData);
 
     // Validar y procesar patient_id
-    let patientId = reportData.patient_id;
+    const patientId = reportData.patient_id;
     console.log('=== PATIENT ID VALIDATION ===');
     console.log('Original patient_id:', patientId);
     
@@ -78,12 +78,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Asegurarse de que ai_suggestions sea un array válido de strings
-    let aiSuggestions = reportData.ai_suggestions;
-    if (!Array.isArray(aiSuggestions)) {
-      aiSuggestions = [];
-    } else {
-      aiSuggestions = aiSuggestions
-        .map((v: any) => (typeof v === 'string' ? v : ''))
+    let aiSuggestions: string[] = [];
+    if (Array.isArray(reportData.ai_suggestions)) {
+      aiSuggestions = reportData.ai_suggestions
+        .map((v: unknown) => (typeof v === 'string' ? v : ''))
         .filter((v: string) => !!v);
     }
 
@@ -120,7 +118,8 @@ export async function POST(request: NextRequest) {
     console.log('Data to save:', insertData);
 
     // Verificar si ya existe un reporte para esta cita
-    let data, error;
+    let data: unknown;
+    let error: unknown;
     
     if (reportData.appointment_id) {
       // Buscar reporte existente
@@ -171,11 +170,12 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       console.error('Database error:', error);
+      const dbError = error as { message?: string; code?: string };
       return NextResponse.json(
-        { 
+        {
           error: 'Error saving report to database',
-          details: error.message,
-          code: error.code
+          details: dbError.message,
+          code: dbError.code
         },
         { status: 500 }
       );

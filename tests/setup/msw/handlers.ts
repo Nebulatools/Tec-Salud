@@ -1,5 +1,11 @@
 import { http, HttpResponse } from 'msw';
 
+interface ParseTranscriptBody {
+  transcript?: string
+  patientId?: string
+  [key: string]: unknown
+}
+
 export const handlers = [
   http.post('/api/enrich-report', async () => {
     return HttpResponse.json({
@@ -14,8 +20,8 @@ export const handlers = [
     });
   }),
   http.post('/api/parse-transcript', async ({ request }) => {
-    const raw = await request.json().catch(() => ({} as any));
-    const body: any = (raw && typeof raw === 'object') ? raw : {}
+    const raw = await request.json().catch(() => ({}));
+    const body = (raw && typeof raw === 'object') ? raw as ParseTranscriptBody : {}
     if (!body?.transcript) {
       return new HttpResponse(JSON.stringify({ error: 'missing transcript' }), { status: 400 });
     }
@@ -27,12 +33,12 @@ export const handlers = [
     });
   }),
   http.post('/api/clinical-extractions', async ({ request }) => {
-    const raw = await request.json().catch(() => ({} as any));
-    const body: any = (raw && typeof raw === 'object') ? raw : {}
+    const raw = await request.json().catch(() => ({}));
+    const body = (raw && typeof raw === 'object') ? raw as Record<string, unknown> : {}
     return HttpResponse.json({
       id: 'uuid-extraction-mock',
       extracted_at: new Date().toISOString(),
-      ...(body as any)
+      ...body
     });
   }),
   http.get('/api/clinical-extractions', async () => {
@@ -48,7 +54,7 @@ export const handlers = [
     const body = await request.json();
     return HttpResponse.json({
       id: 'uuid-report-mock',
-      ...(body as any)
+      ...(body as Record<string, unknown>)
     });
   })
 ];
