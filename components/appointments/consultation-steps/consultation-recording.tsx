@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Mic, Square, Loader2, FileText, Pause, Play } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useRecording } from "@/hooks/use-recording"
+import { AudioDeviceSelector } from "@/components/recording/audio-device-selector"
 
 interface ConsultationRecordingProps {
   appointmentId: string
@@ -376,10 +377,13 @@ export default function ConsultationRecording({
           {/* Opciones iniciales - solo si no hay transcript Y no está en modo manual */}
           {!isRecording && !isTranscribing && !transcript && !manualTranscriptMode && (
             <div className="space-y-6 pt-4">
+              {/* Selector de dispositivo de audio */}
+              <AudioDeviceSelector className="max-w-sm mx-auto" />
+
               <p className="text-gray-500 text-sm">
                 Seleccione una opción para continuar:
               </p>
-              
+
               {/* Opciones de transcripción */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <Button 
