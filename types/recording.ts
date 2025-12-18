@@ -68,41 +68,6 @@ export interface RecordingActions {
 }
 
 /**
- * Represents an audio input device (microphone)
- */
-export interface AudioDevice {
-  deviceId: string
-  label: string
-  groupId: string
-}
-
-/**
- * Permission status for microphone access
- */
-export type AudioPermissionStatus = 'prompt' | 'granted' | 'denied' | 'unknown'
-
-/**
- * State for audio device management
- */
-export interface AudioDeviceState {
-  devices: AudioDevice[]
-  selectedDeviceId: string | null
-  permissionStatus: AudioPermissionStatus
-  isEnumerating: boolean
-  error: string | null
-}
-
-/**
- * Actions for audio device management
- */
-export interface AudioDeviceActions {
-  enumerateDevices: () => Promise<void>
-  selectDevice: (deviceId: string) => void
-  requestPermission: () => Promise<boolean>
-  clearDeviceError: () => void
-}
-
-/**
  * Complete context value including state, actions, and UI state
  */
 export interface RecordingContextValue extends RecordingState, RecordingActions {
@@ -111,7 +76,4 @@ export interface RecordingContextValue extends RecordingState, RecordingActions 
   togglePillExpanded: () => void
   showStopModal: boolean
   setShowStopModal: (show: boolean) => void
-  // Audio device management
-  audioDevices: AudioDeviceState
-  deviceActions: AudioDeviceActions
 }
