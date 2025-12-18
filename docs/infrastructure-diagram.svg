@@ -1,0 +1,347 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 1450">
+  <defs>
+    <linearGradient id="headerGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#0d9488;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#14b8a6;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="vercelGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#000000;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1a1a1a;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="supabaseGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#3ECF8E;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#2da06d;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="geminiGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#4285F4;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1a73e8;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="openaiGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#10a37f;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0d8a6a;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="authGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#7c3aed;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#5b21b6;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="dataFlowGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#0ea5e9;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#06b6d4;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="consultFlowGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#f59e0b;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#d97706;stop-opacity:1" />
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="2" dy="2" stdDeviation="3" flood-opacity="0.3"/>
+    </filter>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#666"/>
+    </marker>
+    <marker id="arrowheadTeal" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#14b8a6"/>
+    </marker>
+    <marker id="arrowheadCyan" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#06b6d4"/>
+    </marker>
+    <marker id="arrowheadOrange" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#f59e0b"/>
+    </marker>
+    <marker id="arrowheadGreen" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#10b981"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1400" height="1450" fill="#f8fafc"/>
+
+  <!-- Header -->
+  <rect x="0" y="0" width="1400" height="80" fill="url(#headerGrad)"/>
+  <text x="700" y="35" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="white" text-anchor="middle">TEC-SALUD - INFRASTRUCTURE DIAGRAM</text>
+  <text x="700" y="60" font-family="Arial, sans-serif" font-size="14" fill="#ccfbf1" text-anchor="middle">https://tec-salud.vercel.app | EzyAI Medical Platform</text>
+
+  <!-- Clients Section -->
+  <rect x="50" y="100" width="1300" height="100" rx="10" fill="white" stroke="#e2e8f0" stroke-width="2" filter="url(#shadow)"/>
+  <text x="700" y="125" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="#0d9488" text-anchor="middle">CLIENTS</text>
+
+  <!-- Doctors -->
+  <rect x="150" y="140" width="150" height="50" rx="8" fill="#0d9488" filter="url(#shadow)"/>
+  <text x="225" y="160" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="white" text-anchor="middle">Doctors</text>
+  <text x="225" y="178" font-family="Arial, sans-serif" font-size="10" fill="#ccfbf1" text-anchor="middle">(Dashboard)</text>
+
+  <!-- Patients -->
+  <rect x="625" y="140" width="150" height="50" rx="8" fill="#0d9488" filter="url(#shadow)"/>
+  <text x="700" y="160" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="white" text-anchor="middle">Patients</text>
+  <text x="700" y="178" font-family="Arial, sans-serif" font-size="10" fill="#ccfbf1" text-anchor="middle">(User View)</text>
+
+  <!-- Specialists -->
+  <rect x="1100" y="140" width="150" height="50" rx="8" fill="#0d9488" filter="url(#shadow)"/>
+  <text x="1175" y="160" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="white" text-anchor="middle">Specialists</text>
+  <text x="1175" y="178" font-family="Arial, sans-serif" font-size="10" fill="#ccfbf1" text-anchor="middle">(Marketplace)</text>
+
+  <!-- Connection lines from clients -->
+  <line x1="225" y1="190" x2="225" y2="220" stroke="#0d9488" stroke-width="2"/>
+  <line x1="700" y1="190" x2="700" y2="220" stroke="#0d9488" stroke-width="2"/>
+  <line x1="1175" y1="190" x2="1175" y2="220" stroke="#0d9488" stroke-width="2"/>
+  <line x1="225" y1="220" x2="1175" y2="220" stroke="#0d9488" stroke-width="2"/>
+  <line x1="700" y1="220" x2="700" y2="250" stroke="#0d9488" stroke-width="2" marker-end="url(#arrowheadTeal)"/>
+
+  <!-- HTTPS Label -->
+  <rect x="620" y="225" width="160" height="20" rx="4" fill="#ccfbf1"/>
+  <text x="700" y="239" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="#0d9488" text-anchor="middle">HTTPS (TLS 1.3)</text>
+
+  <!-- Vercel Edge Network -->
+  <rect x="50" y="260" width="1300" height="270" rx="10" fill="url(#vercelGrad)" filter="url(#shadow)"/>
+  <text x="700" y="290" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="white" text-anchor="middle">VERCEL EDGE NETWORK</text>
+  <text x="700" y="310" font-family="Arial, sans-serif" font-size="11" fill="#94a3b8" text-anchor="middle">Global CDN - 100+ Edge Locations</text>
+
+  <!-- Edge Middleware -->
+  <rect x="80" y="325" width="1240" height="50" rx="6" fill="#27272a" stroke="#3f3f46" stroke-width="1"/>
+  <text x="700" y="345" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#a1a1aa" text-anchor="middle">EDGE MIDDLEWARE</text>
+  <text x="700" y="365" font-family="Arial, sans-serif" font-size="10" fill="#71717a" text-anchor="middle">Request Routing | Security Headers | CORS Handling | Cache Control | Environment Variables</text>
+
+  <!-- Static Assets -->
+  <rect x="80" y="390" width="280" height="125" rx="8" fill="#18181b" stroke="#3f3f46" stroke-width="1"/>
+  <text x="220" y="415" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="white" text-anchor="middle">STATIC ASSETS</text>
+  <text x="220" y="435" font-family="Arial, sans-serif" font-size="10" fill="#a1a1aa" text-anchor="middle">/public/*</text>
+  <text x="220" y="455" font-family="Arial, sans-serif" font-size="9" fill="#71717a" text-anchor="middle">Images, Static files</text>
+  <text x="220" y="470" font-family="Arial, sans-serif" font-size="9" fill="#71717a" text-anchor="middle">Fonts: Archivo, Brygada 1918</text>
+  <text x="220" y="485" font-family="Arial, sans-serif" font-size="9" fill="#71717a" text-anchor="middle">ZULI Design System</text>
+  <text x="220" y="505" font-family="Arial, sans-serif" font-size="9" fill="#22c55e" text-anchor="middle">Edge Optimized Cache</text>
+
+  <!-- Next.js App Router -->
+  <rect x="380" y="390" width="310" height="125" rx="8" fill="#18181b" stroke="#3f3f46" stroke-width="1"/>
+  <text x="535" y="415" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="white" text-anchor="middle">NEXT.JS 16 APP ROUTER</text>
+  <text x="535" y="435" font-family="Arial, sans-serif" font-size="10" fill="#a1a1aa" text-anchor="middle">Server + Client Components</text>
+  <text x="535" y="455" font-family="Arial, sans-serif" font-size="9" fill="#71717a" text-anchor="middle">/login (Auth)</text>
+  <text x="535" y="470" font-family="Arial, sans-serif" font-size="9" fill="#71717a" text-anchor="middle">/dashboard/* (Doctor routes)</text>
+  <text x="535" y="485" font-family="Arial, sans-serif" font-size="9" fill="#71717a" text-anchor="middle">/user/* (Patient routes)</text>
+  <text x="535" y="505" font-family="Arial, sans-serif" font-size="9" fill="#22c55e" text-anchor="middle">ISR + Edge Caching</text>
+
+  <!-- API Routes -->
+  <rect x="710" y="390" width="310" height="125" rx="8" fill="#18181b" stroke="#3f3f46" stroke-width="1"/>
+  <text x="865" y="415" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="white" text-anchor="middle">API ROUTES (Serverless)</text>
+  <text x="865" y="435" font-family="Arial, sans-serif" font-size="10" fill="#a1a1aa" text-anchor="middle">Next.js API Functions</text>
+  <text x="865" y="455" font-family="Arial, sans-serif" font-size="9" fill="#71717a" text-anchor="middle">/api/transcribe (Audio to Text)</text>
+  <text x="865" y="470" font-family="Arial, sans-serif" font-size="9" fill="#71717a" text-anchor="middle">/api/parse-transcript (Extract Data)</text>
+  <text x="865" y="485" font-family="Arial, sans-serif" font-size="9" fill="#71717a" text-anchor="middle">/api/enrich-report, /api/virtual-intern</text>
+  <text x="865" y="505" font-family="Arial, sans-serif" font-size="9" fill="#f59e0b" text-anchor="middle">Node.js Serverless Runtime</text>
+
+  <!-- Vercel Logo placeholder -->
+  <rect x="1040" y="390" width="280" height="125" rx="8" fill="#18181b" stroke="#3f3f46" stroke-width="1"/>
+  <text x="1180" y="430" font-family="Arial, sans-serif" font-size="28" font-weight="bold" fill="white" text-anchor="middle">V</text>
+  <text x="1180" y="455" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="white" text-anchor="middle">VERCEL</text>
+  <text x="1180" y="475" font-family="Arial, sans-serif" font-size="10" fill="#71717a" text-anchor="middle">Platform Features:</text>
+  <text x="1180" y="490" font-family="Arial, sans-serif" font-size="9" fill="#71717a" text-anchor="middle">Auto-scaling, SSL, CI/CD</text>
+  <text x="1180" y="505" font-family="Arial, sans-serif" font-size="9" fill="#71717a" text-anchor="middle">GitHub Actions Integration</text>
+
+  <!-- Connection from API Routes to Backend -->
+  <line x1="865" y1="515" x2="865" y2="560" stroke="#666" stroke-width="2" stroke-dasharray="5,5" marker-end="url(#arrowhead)"/>
+
+  <!-- Backend Services Section -->
+  <rect x="50" y="570" width="1300" height="250" rx="10" fill="white" stroke="#e2e8f0" stroke-width="2" filter="url(#shadow)"/>
+  <text x="700" y="595" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="#0d9488" text-anchor="middle">BACKEND SERVICES</text>
+
+  <!-- Supabase Auth -->
+  <rect x="80" y="610" width="200" height="190" rx="8" fill="url(#authGrad)" filter="url(#shadow)"/>
+  <text x="180" y="635" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="white" text-anchor="middle">AUTHENTICATION</text>
+  <rect x="95" y="645" width="170" height="140" rx="6" fill="rgba(255,255,255,0.1)"/>
+  <text x="180" y="665" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="white" text-anchor="middle">Supabase Auth</text>
+  <text x="180" y="685" font-family="Arial, sans-serif" font-size="9" fill="#e9d5ff" text-anchor="middle">JWT Tokens</text>
+  <text x="180" y="700" font-family="Arial, sans-serif" font-size="9" fill="#e9d5ff" text-anchor="middle">Email/Password</text>
+  <text x="180" y="715" font-family="Arial, sans-serif" font-size="9" fill="#e9d5ff" text-anchor="middle">Session Management</text>
+  <text x="180" y="735" font-family="Arial, sans-serif" font-size="9" fill="#c4b5fd" text-anchor="middle">Roles:</text>
+  <text x="180" y="750" font-family="Arial, sans-serif" font-size="8" fill="#c4b5fd" text-anchor="middle">doctor (admin) | user (patient)</text>
+  <text x="180" y="770" font-family="Arial, sans-serif" font-size="9" fill="#a78bfa" text-anchor="middle">RLS Policies Enabled</text>
+
+  <!-- Supabase PostgreSQL -->
+  <rect x="300" y="610" width="300" height="190" rx="8" fill="url(#supabaseGrad)" filter="url(#shadow)"/>
+  <text x="450" y="635" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="white" text-anchor="middle">DATABASE</text>
+  <rect x="315" y="645" width="270" height="140" rx="6" fill="rgba(255,255,255,0.1)"/>
+  <text x="450" y="665" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="white" text-anchor="middle">Supabase PostgreSQL</text>
+  <text x="450" y="685" font-family="Arial, sans-serif" font-size="9" fill="#bbf7d0" text-anchor="middle">Project: didbxinquugseweufvpr</text>
+  <text x="450" y="705" font-family="Arial, sans-serif" font-size="9" fill="#86efac" text-anchor="middle">Tables:</text>
+  <text x="450" y="720" font-family="Arial, sans-serif" font-size="8" fill="#86efac" text-anchor="middle">doctors | patients | appointments</text>
+  <text x="450" y="735" font-family="Arial, sans-serif" font-size="8" fill="#86efac" text-anchor="middle">medical_reports | clinical_extractions</text>
+  <text x="450" y="755" font-family="Arial, sans-serif" font-size="9" fill="#4ade80" text-anchor="middle">Row Level Security (RLS)</text>
+  <text x="450" y="770" font-family="Arial, sans-serif" font-size="9" fill="#4ade80" text-anchor="middle">Real-time | Auto APIs | Storage</text>
+
+  <!-- Google Gemini AI -->
+  <rect x="620" y="610" width="220" height="190" rx="8" fill="url(#geminiGrad)" filter="url(#shadow)"/>
+  <text x="730" y="635" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="white" text-anchor="middle">AI SERVICE 1</text>
+  <rect x="635" y="645" width="190" height="140" rx="6" fill="rgba(255,255,255,0.1)"/>
+  <text x="730" y="665" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="white" text-anchor="middle">Google Gemini</text>
+  <text x="730" y="685" font-family="Arial, sans-serif" font-size="9" fill="#bfdbfe" text-anchor="middle">gemini-1.5-flash</text>
+  <text x="730" y="700" font-family="Arial, sans-serif" font-size="9" fill="#bfdbfe" text-anchor="middle">gemini-1.5-pro-002</text>
+  <text x="730" y="720" font-family="Arial, sans-serif" font-size="9" fill="#93c5fd" text-anchor="middle">Features:</text>
+  <text x="730" y="735" font-family="Arial, sans-serif" font-size="8" fill="#93c5fd" text-anchor="middle">Audio Transcription</text>
+  <text x="730" y="750" font-family="Arial, sans-serif" font-size="8" fill="#93c5fd" text-anchor="middle">Clinical Data Extraction</text>
+  <text x="730" y="765" font-family="Arial, sans-serif" font-size="8" fill="#93c5fd" text-anchor="middle">Report Enrichment</text>
+  <text x="730" y="780" font-family="Arial, sans-serif" font-size="8" fill="#93c5fd" text-anchor="middle">Compliance Validation</text>
+
+  <!-- OpenAI -->
+  <rect x="860" y="610" width="220" height="190" rx="8" fill="url(#openaiGrad)" filter="url(#shadow)"/>
+  <text x="970" y="635" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="white" text-anchor="middle">AI SERVICE 2</text>
+  <rect x="875" y="645" width="190" height="140" rx="6" fill="rgba(255,255,255,0.1)"/>
+  <text x="970" y="665" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="white" text-anchor="middle">OpenAI</text>
+  <text x="970" y="685" font-family="Arial, sans-serif" font-size="9" fill="#86efac" text-anchor="middle">gpt-4o-mini</text>
+  <text x="970" y="710" font-family="Arial, sans-serif" font-size="9" fill="#bbf7d0" text-anchor="middle">Feature:</text>
+  <text x="970" y="730" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="#4ade80" text-anchor="middle">Virtual Intern</text>
+  <text x="970" y="750" font-family="Arial, sans-serif" font-size="8" fill="#bbf7d0" text-anchor="middle">Clinical Analysis</text>
+  <text x="970" y="765" font-family="Arial, sans-serif" font-size="8" fill="#bbf7d0" text-anchor="middle">Patient Form Analysis</text>
+  <text x="970" y="780" font-family="Arial, sans-serif" font-size="8" fill="#bbf7d0" text-anchor="middle">Lab Results Interpretation</text>
+
+  <!-- Testing Badge -->
+  <rect x="1100" y="610" width="230" height="190" rx="8" fill="#1e293b" filter="url(#shadow)"/>
+  <text x="1215" y="635" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="white" text-anchor="middle">TESTING &amp; CI/CD</text>
+  <rect x="1115" y="645" width="200" height="140" rx="6" fill="rgba(255,255,255,0.1)"/>
+  <text x="1215" y="670" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="#94a3b8" text-anchor="middle">Testing Stack</text>
+  <text x="1215" y="690" font-family="Arial, sans-serif" font-size="9" fill="#64748b" text-anchor="middle">Vitest (Unit/Integration)</text>
+  <text x="1215" y="705" font-family="Arial, sans-serif" font-size="9" fill="#64748b" text-anchor="middle">Playwright (E2E)</text>
+  <text x="1215" y="720" font-family="Arial, sans-serif" font-size="9" fill="#64748b" text-anchor="middle">MSW (API Mocking)</text>
+  <text x="1215" y="740" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="#94a3b8" text-anchor="middle">CI/CD Pipeline</text>
+  <text x="1215" y="760" font-family="Arial, sans-serif" font-size="9" fill="#64748b" text-anchor="middle">GitHub Actions</text>
+  <text x="1215" y="775" font-family="Arial, sans-serif" font-size="8" fill="#64748b" text-anchor="middle">Lint, TypeCheck, Test, Build</text>
+
+  <!-- ============================================== -->
+  <!-- DATA FLOW DIAGRAM SECTION -->
+  <!-- ============================================== -->
+  <rect x="50" y="840" width="1300" height="230" rx="10" fill="#ecfeff" stroke="#06b6d4" stroke-width="2" filter="url(#shadow)"/>
+  <text x="700" y="868" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="#0e7490" text-anchor="middle">DATA FLOW DIAGRAM</text>
+
+  <!-- Consultation Flow Title -->
+  <text x="700" y="895" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#0d9488" text-anchor="middle">CONSULTATION FLOW (5 STEPS)</text>
+
+  <!-- Step 1 -->
+  <rect x="100" y="910" width="100" height="55" rx="6" fill="#f59e0b" filter="url(#shadow)"/>
+  <text x="150" y="930" font-family="Arial, sans-serif" font-size="9" font-weight="bold" fill="white" text-anchor="middle">Step 1</text>
+  <text x="150" y="945" font-family="Arial, sans-serif" font-size="8" fill="#fef3c7" text-anchor="middle">Patient</text>
+  <text x="150" y="958" font-family="Arial, sans-serif" font-size="8" fill="#fef3c7" text-anchor="middle">Summary</text>
+
+  <!-- Step 2 -->
+  <rect x="260" y="910" width="100" height="55" rx="6" fill="#f59e0b" filter="url(#shadow)"/>
+  <text x="310" y="930" font-family="Arial, sans-serif" font-size="9" font-weight="bold" fill="white" text-anchor="middle">Step 2</text>
+  <text x="310" y="945" font-family="Arial, sans-serif" font-size="8" fill="#fef3c7" text-anchor="middle">Audio</text>
+  <text x="310" y="958" font-family="Arial, sans-serif" font-size="8" fill="#fef3c7" text-anchor="middle">Recording</text>
+
+  <!-- Step 3 -->
+  <rect x="420" y="910" width="100" height="55" rx="6" fill="#f59e0b" filter="url(#shadow)"/>
+  <text x="470" y="930" font-family="Arial, sans-serif" font-size="9" font-weight="bold" fill="white" text-anchor="middle">Step 3</text>
+  <text x="470" y="945" font-family="Arial, sans-serif" font-size="8" fill="#fef3c7" text-anchor="middle">Parse</text>
+  <text x="470" y="958" font-family="Arial, sans-serif" font-size="8" fill="#fef3c7" text-anchor="middle">Transcript</text>
+
+  <!-- Step 4 -->
+  <rect x="580" y="910" width="100" height="55" rx="6" fill="#f59e0b" filter="url(#shadow)"/>
+  <text x="630" y="930" font-family="Arial, sans-serif" font-size="9" font-weight="bold" fill="white" text-anchor="middle">Step 4</text>
+  <text x="630" y="945" font-family="Arial, sans-serif" font-size="8" fill="#fef3c7" text-anchor="middle">Enrich</text>
+  <text x="630" y="958" font-family="Arial, sans-serif" font-size="8" fill="#fef3c7" text-anchor="middle">Report</text>
+
+  <!-- Step 5 -->
+  <rect x="740" y="910" width="100" height="55" rx="6" fill="#f59e0b" filter="url(#shadow)"/>
+  <text x="790" y="930" font-family="Arial, sans-serif" font-size="9" font-weight="bold" fill="white" text-anchor="middle">Step 5</text>
+  <text x="790" y="945" font-family="Arial, sans-serif" font-size="8" fill="#fef3c7" text-anchor="middle">Final</text>
+  <text x="790" y="958" font-family="Arial, sans-serif" font-size="8" fill="#fef3c7" text-anchor="middle">Report</text>
+
+  <!-- Arrows between steps -->
+  <line x1="200" y1="937" x2="250" y2="937" stroke="#f59e0b" stroke-width="2" marker-end="url(#arrowheadOrange)"/>
+  <line x1="360" y1="937" x2="410" y2="937" stroke="#f59e0b" stroke-width="2" marker-end="url(#arrowheadOrange)"/>
+  <line x1="520" y1="937" x2="570" y2="937" stroke="#f59e0b" stroke-width="2" marker-end="url(#arrowheadOrange)"/>
+  <line x1="680" y1="937" x2="730" y2="937" stroke="#f59e0b" stroke-width="2" marker-end="url(#arrowheadOrange)"/>
+
+  <!-- AI Labels under steps -->
+  <rect x="260" y="970" width="100" height="25" rx="4" fill="#4285F4"/>
+  <text x="310" y="987" font-family="Arial, sans-serif" font-size="8" fill="white" text-anchor="middle">Gemini Transcribe</text>
+
+  <rect x="420" y="970" width="100" height="25" rx="4" fill="#4285F4"/>
+  <text x="470" y="987" font-family="Arial, sans-serif" font-size="8" fill="white" text-anchor="middle">Gemini Extract</text>
+
+  <rect x="580" y="970" width="100" height="25" rx="4" fill="#4285F4"/>
+  <text x="630" y="987" font-family="Arial, sans-serif" font-size="8" fill="white" text-anchor="middle">Gemini Enrich</text>
+
+  <rect x="740" y="970" width="100" height="25" rx="4" fill="#3ECF8E"/>
+  <text x="790" y="987" font-family="Arial, sans-serif" font-size="8" fill="white" text-anchor="middle">Supabase Save</text>
+
+  <!-- General Data Flow -->
+  <text x="1080" y="895" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#0d9488" text-anchor="middle">GENERAL FLOW</text>
+
+  <!-- Client Box -->
+  <rect x="900" y="910" width="80" height="45" rx="6" fill="#0d9488" filter="url(#shadow)"/>
+  <text x="940" y="930" font-family="Arial, sans-serif" font-size="9" font-weight="bold" fill="white" text-anchor="middle">Client</text>
+  <text x="940" y="945" font-family="Arial, sans-serif" font-size="7" fill="#ccfbf1" text-anchor="middle">(Doctor/Patient)</text>
+
+  <!-- Vercel Box -->
+  <rect x="1000" y="910" width="80" height="45" rx="6" fill="#000000" filter="url(#shadow)"/>
+  <text x="1040" y="930" font-family="Arial, sans-serif" font-size="9" font-weight="bold" fill="white" text-anchor="middle">Vercel</text>
+  <text x="1040" y="945" font-family="Arial, sans-serif" font-size="7" fill="#a1a1aa" text-anchor="middle">Edge</text>
+
+  <!-- API Box -->
+  <rect x="1100" y="910" width="80" height="45" rx="6" fill="#1e293b" filter="url(#shadow)"/>
+  <text x="1140" y="930" font-family="Arial, sans-serif" font-size="9" font-weight="bold" fill="white" text-anchor="middle">API</text>
+  <text x="1140" y="945" font-family="Arial, sans-serif" font-size="7" fill="#94a3b8" text-anchor="middle">Routes</text>
+
+  <!-- Supabase Box -->
+  <rect x="1200" y="910" width="80" height="45" rx="6" fill="url(#supabaseGrad)" filter="url(#shadow)"/>
+  <text x="1240" y="930" font-family="Arial, sans-serif" font-size="9" font-weight="bold" fill="white" text-anchor="middle">Supabase</text>
+  <text x="1240" y="945" font-family="Arial, sans-serif" font-size="7" fill="#bbf7d0" text-anchor="middle">PostgreSQL</text>
+
+  <!-- AI Services Box -->
+  <rect x="1100" y="970" width="80" height="45" rx="6" fill="url(#geminiGrad)" filter="url(#shadow)"/>
+  <text x="1140" y="990" font-family="Arial, sans-serif" font-size="9" font-weight="bold" fill="white" text-anchor="middle">AI APIs</text>
+  <text x="1140" y="1005" font-family="Arial, sans-serif" font-size="7" fill="#bfdbfe" text-anchor="middle">Gemini/OpenAI</text>
+
+  <!-- Arrows -->
+  <line x1="980" y1="932" x2="990" y2="932" stroke="#06b6d4" stroke-width="2" marker-end="url(#arrowheadCyan)"/>
+  <line x1="1080" y1="932" x2="1090" y2="932" stroke="#06b6d4" stroke-width="2" marker-end="url(#arrowheadCyan)"/>
+  <line x1="1180" y1="932" x2="1190" y2="932" stroke="#06b6d4" stroke-width="2" marker-end="url(#arrowheadCyan)"/>
+  <line x1="1140" y1="955" x2="1140" y2="965" stroke="#10b981" stroke-width="2" marker-end="url(#arrowheadGreen)"/>
+
+  <!-- ============================================== -->
+  <!-- TECH STACK SUMMARY -->
+  <!-- ============================================== -->
+  <rect x="50" y="1090" width="1300" height="80" rx="10" fill="#1e293b" filter="url(#shadow)"/>
+  <text x="700" y="1115" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="white" text-anchor="middle">TECHNOLOGY STACK SUMMARY</text>
+
+  <!-- Frontend -->
+  <text x="250" y="1140" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="#14b8a6" text-anchor="middle">FRONTEND</text>
+  <text x="250" y="1155" font-family="Arial, sans-serif" font-size="9" fill="#94a3b8" text-anchor="middle">Next.js 16 | React 19 | TypeScript | Tailwind | shadcn/ui</text>
+
+  <!-- Backend -->
+  <text x="700" y="1140" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="#3ECF8E" text-anchor="middle">BACKEND</text>
+  <text x="700" y="1155" font-family="Arial, sans-serif" font-size="9" fill="#94a3b8" text-anchor="middle">Supabase | PostgreSQL | RLS | Serverless Functions</text>
+
+  <!-- AI -->
+  <text x="1150" y="1140" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="#4285F4" text-anchor="middle">AI SERVICES</text>
+  <text x="1150" y="1155" font-family="Arial, sans-serif" font-size="9" fill="#94a3b8" text-anchor="middle">Google Gemini | OpenAI GPT-4o-mini</text>
+
+  <!-- Security Footer -->
+  <rect x="50" y="1190" width="1300" height="60" rx="10" fill="#fef2f2" stroke="#fecaca" stroke-width="1" filter="url(#shadow)"/>
+  <text x="700" y="1215" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#991b1b" text-anchor="middle">SECURITY LAYERS</text>
+  <text x="700" y="1235" font-family="Arial, sans-serif" font-size="10" fill="#b91c1c" text-anchor="middle">TLS 1.3 | Supabase JWT Auth | Row Level Security (RLS) | Input Validation (Zod) | Service Role Key (Server-only) | CORS Policy</text>
+
+  <!-- Footer -->
+  <rect x="0" y="1270" width="1400" height="180" fill="#0f172a"/>
+  <text x="700" y="1305" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="white" text-anchor="middle">Tec-Salud (EzyAI) - Medical Platform with AI</text>
+  <text x="700" y="1335" font-family="Arial, sans-serif" font-size="12" fill="#64748b" text-anchor="middle">Production URL: https://tec-salud.vercel.app</text>
+  <text x="700" y="1365" font-family="Arial, sans-serif" font-size="10" fill="#475569" text-anchor="middle">Generated: December 2024 | Platform: Vercel | Database: Supabase PostgreSQL</text>
+
+  <!-- Legend in footer -->
+  <text x="700" y="1395" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="#64748b" text-anchor="middle">LEGEND</text>
+
+  <line x1="200" y1="1420" x2="250" y2="1420" stroke="#06b6d4" stroke-width="3"/>
+  <text x="260" y="1424" font-family="Arial, sans-serif" font-size="9" fill="#64748b">Data Flow</text>
+
+  <line x1="380" y1="1420" x2="430" y2="1420" stroke="#f59e0b" stroke-width="3"/>
+  <text x="440" y="1424" font-family="Arial, sans-serif" font-size="9" fill="#64748b">Consultation Steps</text>
+
+  <line x1="580" y1="1420" x2="630" y2="1420" stroke="#10b981" stroke-width="2"/>
+  <text x="640" y="1424" font-family="Arial, sans-serif" font-size="9" fill="#64748b">AI Processing</text>
+
+  <rect x="780" y="1412" width="16" height="16" rx="3" fill="#0d9488"/>
+  <text x="805" y="1424" font-family="Arial, sans-serif" font-size="9" fill="#64748b">Client Component</text>
+
+  <rect x="950" y="1412" width="16" height="16" rx="3" fill="#3ECF8E"/>
+  <text x="975" y="1424" font-family="Arial, sans-serif" font-size="9" fill="#64748b">Supabase</text>
+
+  <rect x="1080" y="1412" width="16" height="16" rx="3" fill="#4285F4"/>
+  <text x="1105" y="1424" font-family="Arial, sans-serif" font-size="9" fill="#64748b">Google AI</text>
+</svg>
