@@ -68,9 +68,29 @@ export default function ConsultationRecording({
     symptoms: string[]
     diagnoses: string[]
     medications: { name: string; dose?: string; route?: string; frequency?: string; duration?: string }[]
+    speakerRoles: Record<string, string>
   }
 
   const [extractionPreview, setExtractionPreview] = useState<ExtractionPreview | null>(null)
+
+  // Function to replace speaker tags with descriptive names
+  const formatTranscriptWithSpeakers = (text: string, roles: Record<string, string>): string => {
+    if (!text || !roles || Object.keys(roles).length === 0) return text
+
+    let formatted = text
+    // Replace various speaker formats: [Speaker 0], [Speaker 1], SPEAKER_0, etc.
+    for (const [speakerId, role] of Object.entries(roles)) {
+      // Handle "SPEAKER_0" format
+      const regex1 = new RegExp(`\\[?${speakerId}\\]?:?`, 'gi')
+      // Handle "[Speaker 0]" format
+      const speakerNum = speakerId.replace(/\D/g, '')
+      const regex2 = new RegExp(`\\[Speaker\\s*${speakerNum}\\]:?`, 'gi')
+
+      formatted = formatted.replace(regex1, `[${role}]:`)
+      formatted = formatted.replace(regex2, `[${role}]:`)
+    }
+    return formatted
+  }
 
   const lastParsedRef = useRef<string>("")
 
@@ -160,6 +180,17 @@ export default function ConsultationRecording({
         symptoms?: unknown[]
         diagnoses?: unknown[]
         medications?: unknown[]
+        speakerRoles?: Record<string, unknown>
+      }
+
+      // Sanitize speakerRoles
+      const safeSpeakerRoles: Record<string, string> = {}
+      if (parsed?.speakerRoles && typeof parsed.speakerRoles === 'object') {
+        for (const [key, value] of Object.entries(parsed.speakerRoles)) {
+          if (typeof value === 'string') {
+            safeSpeakerRoles[key] = value
+          }
+        }
       }
 
       // Basic sanitize
@@ -181,7 +212,8 @@ export default function ConsultationRecording({
                 duration: typeof med?.duration === 'string' ? med.duration : ''
               }
             })
-          : []
+          : [],
+        speakerRoles: safeSpeakerRoles
       }
 
       setExtractionPreview(safe)
@@ -341,8 +373,30 @@ export default function ConsultationRecording({
           {/* Textarea para grabación/transcripción automática */}
           {(transcript || isTranscribing) && !manualTranscriptMode && (
             <div className="space-y-4">
+              {/* Speaker roles indicator */}
+              {extractionPreview?.speakerRoles && Object.keys(extractionPreview.speakerRoles).length > 0 && (
+                <div className="flex flex-wrap items-center justify-center gap-2 text-sm">
+                  <span className="text-gray-500">Participantes detectados:</span>
+                  {Object.entries(extractionPreview.speakerRoles).map(([speakerId, role]) => (
+                    <span
+                      key={speakerId}
+                      className={cn(
+                        "px-2 py-1 rounded-full text-xs font-medium",
+                        role === "Doctor" ? "bg-blue-100 text-blue-700" :
+                        role === "Paciente" ? "bg-green-100 text-green-700" :
+                        "bg-purple-100 text-purple-700"
+                      )}
+                    >
+                      {role}
+                    </span>
+                  ))}
+                </div>
+              )}
+
               <Textarea
-                value={transcript}
+                value={extractionPreview?.speakerRoles
+                  ? formatTranscriptWithSpeakers(transcript, extractionPreview.speakerRoles)
+                  : transcript}
                 onChange={(e) => setTranscript(e.target.value)}
                 placeholder={isTranscribing ? "Transcribiendo..." : "La transcripción aparecerá aquí o puedes escribir manualmente..."}
                 className="min-h-[150px] sm:min-h-[200px] text-sm border-gray-300 focus:ring-primary-500 focus:border-primary-500"
