@@ -20,7 +20,7 @@ jobs:
       NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
       NEXT_PUBLIC_SUPABASE_ANON_KEY: dummy-anon-key
       GEMINI_API_KEY: dummy-gemini-key
-      GEMINI_MODEL: gemini-1.5-flash
+      GEMINI_MODEL: gemini-2.5-flash
       NEXT_TELEMETRY_DISABLED: 1
     steps:
       - name: Checkout

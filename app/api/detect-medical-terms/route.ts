@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
     console.log(`Analyzing ${limitedWords.length} unique words`)
 
     const model = genAI.getGenerativeModel({
-      model: 'gemini-2.5-flash',
+      model: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
       generationConfig: {
         temperature: 0.1, // Low temperature for consistent classification
         maxOutputTokens: 2048,
