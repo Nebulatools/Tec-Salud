@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { GoogleGenerativeAI } from '@google/generative-ai'
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
+import { ai, MODEL } from '@/lib/ai/openrouter'
 
 const MEDICAL_DETECTION_PROMPT = `
 ROL Y MISIÓN
@@ -72,15 +70,26 @@ EJEMPLOS:
 interface MedicalTermResult {
   word: string
   isMedical: boolean
-  category?: 'medication' | 'diagnosis' | 'symptom' | 'anatomy' | 'procedure' | 'pain_verb' | 'intensity' | 'temporal' | 'emotional' | 'vital_sign' | 'other'
+  category?:
+    | 'medication'
+    | 'diagnosis'
+    | 'symptom'
+    | 'anatomy'
+    | 'procedure'
+    | 'pain_verb'
+    | 'intensity'
+    | 'temporal'
+    | 'emotional'
+    | 'vital_sign'
+    | 'other'
 }
 
 export async function POST(request: NextRequest) {
   console.log('=== DETECT MEDICAL TERMS API CALLED ===')
 
   try {
-    if (!process.env.GEMINI_API_KEY) {
-      console.error('GEMINI_API_KEY not found in environment variables')
+    if (!process.env.OPENROUTER_API_KEY) {
+      console.error('OPENROUTER_API_KEY not found in environment variables')
       return NextResponse.json(
         { error: 'Server configuration error: Missing API key' },
         { status: 500 }
@@ -90,10 +99,7 @@ export async function POST(request: NextRequest) {
     const { words } = await request.json()
 
     if (!words || !Array.isArray(words) || words.length === 0) {
-      return NextResponse.json(
-        { error: 'Words array is required' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'Words array is required' }, { status: 400 })
     }
 
     // Deduplicate and limit words to avoid token limits
@@ -103,14 +109,6 @@ export async function POST(request: NextRequest) {
 
     console.log(`Analyzing ${limitedWords.length} unique words`)
 
-    const model = genAI.getGenerativeModel({
-      model: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
-      generationConfig: {
-        temperature: 0.1, // Low temperature for consistent classification
-        maxOutputTokens: 2048,
-      },
-    })
-
     const prompt = `${MEDICAL_DETECTION_PROMPT}
 
 PALABRAS A ANALIZAR:
@@ -118,11 +116,15 @@ ${limitedWords.join(', ')}
 
 Responde con un array JSON:`
 
-    const result = await model.generateContent(prompt)
-    const response = await result.response
-    const text = response.text()
+    const response = await ai.chat.completions.create({
+      model: MODEL,
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.1,
+      max_tokens: 2048,
+    })
 
-    console.log('Gemini response:', text.substring(0, 200) + '...')
+    const text = response.choices[0]?.message?.content || ''
+    console.log('OpenRouter response:', text.substring(0, 200) + '...')
 
     // Parse the JSON response
     let medicalTerms: MedicalTermResult[] = []
@@ -134,29 +136,21 @@ Responde con un array JSON:`
         medicalTerms = JSON.parse(jsonMatch[0])
       } else {
         console.error('No JSON array found in response')
-        // Return empty results rather than failing
-        medicalTerms = limitedWords.map(word => ({
-          word,
-          isMedical: false,
-        }))
+        medicalTerms = limitedWords.map((word) => ({ word, isMedical: false }))
       }
     } catch (parseError) {
-      console.error('Failed to parse Gemini response:', parseError)
-      // Return empty results rather than failing
-      medicalTerms = limitedWords.map(word => ({
-        word,
-        isMedical: false,
-      }))
+      console.error('Failed to parse response:', parseError)
+      medicalTerms = limitedWords.map((word) => ({ word, isMedical: false }))
     }
 
-    // Ensure all requested words have a result (in case Gemini missed some)
-    const resultMap = new Map(medicalTerms.map(t => [t.word.toLowerCase(), t]))
-    const completeResults: MedicalTermResult[] = limitedWords.map(word => {
+    // Ensure all requested words have a result
+    const resultMap = new Map(medicalTerms.map((t) => [t.word.toLowerCase(), t]))
+    const completeResults: MedicalTermResult[] = limitedWords.map((word) => {
       const existing = resultMap.get(word.toLowerCase())
       return existing || { word, isMedical: false }
     })
 
-    console.log(`Detected ${completeResults.filter(t => t.isMedical).length} medical terms`)
+    console.log(`Detected ${completeResults.filter((t) => t.isMedical).length} medical terms`)
 
     return NextResponse.json(completeResults)
   } catch (error) {
@@ -164,10 +158,7 @@ Responde con un array JSON:`
 
     if (error instanceof Error) {
       if (error.message.includes('API key')) {
-        return NextResponse.json(
-          { error: 'Invalid API key configuration' },
-          { status: 401 }
-        )
+        return NextResponse.json({ error: 'Invalid API key configuration' }, { status: 401 })
       }
       if (error.message.includes('quota') || error.message.includes('rate')) {
         return NextResponse.json(
