@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/use-auth'
 import dynamic from 'next/dynamic'
+import { AIProgressIndicator, COMPLIANCE_STEPS, AIProgressStatus } from '@/components/ui/ai-progress-indicator'
 
 const MDEditor = dynamic(
   () => import('@uiw/react-md-editor').then(mod => mod.default),
@@ -60,7 +61,9 @@ export default function ComplianceAssistant({
   const [expandedField, setExpandedField] = useState<string | null>(null)
   const [allQuestions, setAllQuestions] = useState<string[]>([]) // Mantener todas las preguntas vistas
   const [doctorName, setDoctorName] = useState<string>('')
-  const [patientProfile, setPatientProfile] = useState<any | null>(null)
+  const [patientProfile, setPatientProfile] = useState<Record<string, unknown> | null>(null)
+  const [analysisStartTime, setAnalysisStartTime] = useState<Date | null>(null)
+  const [complianceProgressStep, setComplianceProgressStep] = useState<number>(-1)
   // Guards to avoid repeated analysis/suggestions
   const analysisInFlightRef = useRef(false)
   const lastAnalyzedForRef = useRef<string>('')
@@ -204,6 +207,8 @@ export default function ComplianceAssistant({
 
   const performInitialAnalysis = useCallback(async () => {
     setLoading(true)
+    setAnalysisStartTime(new Date())
+    setComplianceProgressStep(0) // Analyzing transcript
     try {
       const ensureIdentification = (
         reportMd: string,
@@ -330,6 +335,7 @@ export default function ComplianceAssistant({
       }
 
       // Call compliance API
+      setComplianceProgressStep(1) // Generating report
       const transcript = consultationData.transcript || consultationData.recordingData?.processedTranscript
       const complianceResponse = await fetch('/api/enrich-report', {
         method: 'POST',
@@ -356,6 +362,7 @@ export default function ComplianceAssistant({
         throw new Error(details ? `Failed to analyze compliance: ${details}` : 'Failed to analyze compliance')
       }
 
+      setComplianceProgressStep(2) // Validating compliance
       const complianceResult: ComplianceResponse = await complianceResponse.json()
       const fixedReport = ensureIdentification(
         complianceResult.improvedReport,
@@ -396,7 +403,8 @@ export default function ComplianceAssistant({
       setAllQuestions(newQuestions)
 
       // Generar sugerencias en un solo lugar y una sola vez por texto
-      await ensureSuggestions(fixedReport)
+      setComplianceProgressStep(3) // Generating suggestions
+      void ensureSuggestions(fixedReport)
 
       // Auto-marcar como completado cuando se termine el análisis inicial
       const reportData = {
@@ -609,10 +617,14 @@ export default function ComplianceAssistant({
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
-          <p className="text-muted-foreground">Analizando transcripción con IA...</p>
-        </div>
+        <AIProgressIndicator
+          steps={COMPLIANCE_STEPS}
+          currentStep={complianceProgressStep}
+          status="processing"
+          showElapsedTime
+          startTime={analysisStartTime || undefined}
+          className="max-w-md w-full"
+        />
       </div>
     )
   }

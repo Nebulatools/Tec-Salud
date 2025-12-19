@@ -12,6 +12,7 @@ import Header from "@/components/layout/header"
 import { RecordingProvider } from "@/contexts/recording-context"
 import RecordingPill from "@/components/recording/recording-pill"
 import StopRecordingModal from "@/components/recording/stop-recording-modal"
+import { CommandPalette, useCommandPalette } from "@/components/ui/command-palette"
 
 export default function DashboardLayout({
   children,
@@ -22,6 +23,7 @@ export default function DashboardLayout({
   const { role, loading: profileLoading } = useAppUser()
   const router = useRouter()
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const { open: commandPaletteOpen, setOpen: setCommandPaletteOpen } = useCommandPalette()
 
   useEffect(() => {
     if (!loading && !user) {
@@ -62,13 +64,16 @@ export default function DashboardLayout({
 
         {/* Main content area that takes remaining space */}
         <div className="flex-1 transition-all duration-300 ease-in-out">
-          <Header />
+          <Header onSearchClick={() => setCommandPaletteOpen(true)} />
           <main className="p-6">{children}</main>
         </div>
 
         {/* Global recording components - persist across navigation */}
         <RecordingPill />
         <StopRecordingModal />
+
+        {/* Command Palette - global search (Cmd+K) */}
+        <CommandPalette open={commandPaletteOpen} onOpenChange={setCommandPaletteOpen} />
       </div>
     </RecordingProvider>
   )

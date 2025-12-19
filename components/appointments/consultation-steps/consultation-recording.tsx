@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useMemo } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { Mic, Square, Loader2, FileText, Pause, Play } from "lucide-react"
+import { Mic, Square, FileText, Pause, Play } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useRecording } from "@/hooks/use-recording"
 import { AudioDeviceSelector } from "@/components/recording/audio-device-selector"
@@ -12,6 +12,7 @@ import { TranscriptionValidator } from "@/components/transcription-validation"
 import { EnhancedDiarizedTranscript } from "@/types/transcription-validation"
 
 import { ConsultationData } from "@/types/consultation"
+import { AIProgressIndicator, TRANSCRIPTION_STEPS, AIProgressStatus } from "@/components/ui/ai-progress-indicator"
 
 interface ConsultationRecordingProps {
   appointmentId: string
@@ -76,6 +77,48 @@ export default function ConsultationRecording({
   }
 
   const [extractionPreview, setExtractionPreview] = useState<ExtractionPreview | null>(null)
+  const [transcriptionStartTime, setTranscriptionStartTime] = useState<Date | null>(null)
+
+  // Compute AI progress state based on current status
+  const aiProgressState = useMemo((): { step: number; status: AIProgressStatus } => {
+    // Not processing
+    if (!isTranscribing && !isParsing) {
+      if (transcript && extractionPreview) {
+        return { step: 4, status: "complete" }
+      }
+      return { step: -1, status: "idle" }
+    }
+
+    // Processing transcription
+    if (isTranscribing && !transcript) {
+      // Still transcribing audio
+      return { step: 2, status: "processing" }
+    }
+
+    // Transcription done, extracting
+    if (isParsing) {
+      return { step: 3, status: "processing" }
+    }
+
+    // Transcription done, extraction done
+    if (transcript && !isParsing) {
+      return { step: 4, status: "complete" }
+    }
+
+    return { step: 0, status: "processing" }
+  }, [isTranscribing, isParsing, transcript, extractionPreview])
+
+  // Track when transcription starts
+  useEffect(() => {
+    if (isTranscribing && !transcriptionStartTime) {
+      setTranscriptionStartTime(new Date())
+    } else if (!isTranscribing && transcriptionStartTime) {
+      // Reset when processing completes
+      if (!isParsing) {
+        setTranscriptionStartTime(null)
+      }
+    }
+  }, [isTranscribing, isParsing, transcriptionStartTime])
 
   // Function to replace speaker tags with descriptive names
   const formatTranscriptWithSpeakers = (text: string, roles: Record<string, string>): string => {
@@ -333,28 +376,38 @@ export default function ConsultationRecording({
             </div>
           )}
 
-          <div className="flex justify-center">
-            <button
-              onClick={isRecording ? handleStopRecording : handleStartRecording}
-              disabled={isTranscribing}
-              className={cn(
-                "w-24 h-24 sm:w-32 sm:h-32 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg",
-                isRecording
-                  ? "bg-red-500 hover:bg-red-600 animate-pulse"
-                  : isTranscribing
-                  ? "bg-blue-500 cursor-not-allowed"
-                  : "bg-orange-500 hover:bg-orange-600"
-              )}
-            >
-              {isTranscribing ? (
-                <Loader2 className="w-10 h-10 sm:w-12 sm:h-12 text-white animate-spin" />
-              ) : isRecording ? (
-                <Square className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
-              ) : (
-                <Mic className="w-10 h-10 sm:w-12 sm:h-12 text-white" />
-              )}
-            </button>
-          </div>
+          {/* AI Progress Indicator - shows during transcription/parsing */}
+          {(isTranscribing || isParsing) && (
+            <AIProgressIndicator
+              steps={TRANSCRIPTION_STEPS}
+              currentStep={aiProgressState.step}
+              status={aiProgressState.status}
+              showElapsedTime
+              startTime={transcriptionStartTime || undefined}
+              className="max-w-md mx-auto"
+            />
+          )}
+
+          {/* Recording button - hidden during processing */}
+          {!isTranscribing && !isParsing && (
+            <div className="flex justify-center">
+              <button
+                onClick={isRecording ? handleStopRecording : handleStartRecording}
+                className={cn(
+                  "w-24 h-24 sm:w-32 sm:h-32 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg",
+                  isRecording
+                    ? "bg-red-500 hover:bg-red-600 animate-pulse"
+                    : "bg-orange-500 hover:bg-orange-600"
+                )}
+              >
+                {isRecording ? (
+                  <Square className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
+                ) : (
+                  <Mic className="w-10 h-10 sm:w-12 sm:h-12 text-white" />
+                )}
+              </button>
+            </div>
+          )}
 
           {(isRecording || isPaused) && (
             <div className="text-center space-y-4">
