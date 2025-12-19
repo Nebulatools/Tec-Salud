@@ -124,6 +124,7 @@ export async function POST(request: NextRequest) {
         end: seg.end,
         text: seg.text,
         speaker: seg.speaker,
+        words: seg.words || [], // Preserve word-level confidence data for validation UI
       })),
       fullText,
     }
