@@ -19,4 +19,5 @@ beforeAll(() => {
 afterAll(() => { console.error = originalError; });
 
 // Minimal env for API routes
-process.env.GEMINI_API_KEY = process.env.GEMINI_API_KEY || 'test-key';
+process.env.OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || 'test-key';
+process.env.AI_MODEL = process.env.AI_MODEL || 'google/gemini-2.0-flash-001';

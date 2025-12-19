@@ -4,14 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-EzyAI is a medical management system (Sistema de Gestión Médica) built for doctors to manage patients, appointments, and medical reports. The key differentiator is AI-powered consultation transcription using Google Gemini.
+EzyAI is a medical management system (Sistema de Gestión Médica) built for doctors to manage patients, appointments, and medical reports. The key differentiator is AI-powered consultation transcription using OpenRouter (unified access to 500+ AI models).
 
 ## Tech Stack
 
 - **Framework**: Next.js 15 with App Router, React 19, TypeScript
 - **Styling**: Tailwind CSS + Radix UI primitives (shadcn/ui pattern)
 - **Backend**: Supabase (PostgreSQL, Auth, real-time)
-- **AI**: Google Gemini API for audio transcription and clinical text processing
+- **AI**: OpenRouter API (default: Gemini Flash) for audio transcription and clinical text processing
 - **Testing**: Vitest (unit/integration), Playwright (E2E), MSW (API mocking)
 
 ## Commands
@@ -39,10 +39,13 @@ app/
 │   ├── dashboard/         # Main dashboard with stats
 │   └── expedientes/       # Patient records
 ├── api/                   # Next.js API routes
-│   ├── transcribe/        # Audio → text via Gemini
+│   ├── transcribe/        # Audio → text via OpenRouter
+│   ├── transcribe-diarized/  # Audio → text with speaker IDs via Replicate
 │   ├── parse-transcript/  # Extract clinical data from text
+│   ├── detect-medical-terms/  # Classify medical terminology
 │   ├── clinical-extractions/  # Store extraction results
 │   ├── enrich-report/     # AI-enhanced report generation
+│   ├── get-clinical-suggestions/  # AI clinical recommendations
 │   └── medical-reports/   # CRUD for reports
 └── login/                 # Public auth page
 
@@ -56,6 +59,8 @@ components/
 └── ui/                    # shadcn/ui base components
 
 lib/
+├── ai/
+│   └── openrouter.ts     # OpenRouter client (unified AI access)
 ├── supabase.ts           # Supabase client + Database types
 └── utils.ts              # cn() helper for Tailwind merging
 
@@ -97,7 +102,7 @@ Tables defined in `lib/supabase.ts` with TypeScript types:
 - **Setup**: `tests/setup/setupTests.ts` configures MSW server, silences React warnings
 - **Fixtures**: `tests/fixtures/transcripts/` contains sample transcripts
 
-MSW handlers mock external APIs (Gemini, Supabase) for deterministic testing.
+MSW handlers mock external APIs (OpenRouter, Supabase) for deterministic testing.
 
 ## Environment Variables
 
@@ -105,7 +110,9 @@ Required in `.env.local`:
 ```
 NEXT_PUBLIC_SUPABASE_URL=<supabase-project-url>
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<supabase-anon-key>
-GEMINI_API_KEY=<google-ai-api-key>
+OPENROUTER_API_KEY=<openrouter-api-key>
+AI_MODEL=google/gemini-2.0-flash-001  # Optional, can use any OpenRouter model
+REPLICATE_API_TOKEN=<replicate-token>  # For whisper-diarization
 ```
 
 ## Key Patterns

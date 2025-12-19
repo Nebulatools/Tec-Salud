@@ -1,7 +1,5 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import { NextRequest, NextResponse } from 'next/server';
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+import { NextRequest, NextResponse } from 'next/server'
+import { ai, MODEL } from '@/lib/ai/openrouter'
 
 const COMPLIANCE_PROMPT = `ROL Y MISIÓN
 Eres un Asistente de Documentación Médica especializado en Cumplimiento Normativo. Tu misión es tomar la transcripción de una consulta médica y transformarla en un reporte profesional que cumpla rigurosamente con los estándares de documentación requeridos. Eres un experto en estructurar información clínica y en identificar lagunas de información de acuerdo a un marco regulatorio estricto.
@@ -49,90 +47,81 @@ Tu respuesta final DEBE ser un único objeto JSON, sin ningún texto o explicaci
   * improvedReport: Un string que contiene el reporte médico completo y formateado.
   * missingInformation: Un array de strings, donde cada string es el nombre exacto del campo faltante según la lista de requerimientos.
   * questionsForDoctor: Un array de strings, donde cada string es la pregunta correspondiente para el médico.
-  * Si el reporte está completo, los arrays missingInformation y questionsForDoctor deben estar vacíos [].`;
+  * Si el reporte está completo, los arrays missingInformation y questionsForDoctor deben estar vacíos [].`
 
 export async function POST(request: NextRequest) {
-  console.log('=== ENRICH REPORT API CALLED ===');
-  
+  console.log('=== ENRICH REPORT API CALLED ===')
+
   try {
-    // Verificar variables de entorno
-    if (!process.env.GEMINI_API_KEY) {
-      console.error('GEMINI_API_KEY not found in environment variables');
+    if (!process.env.OPENROUTER_API_KEY) {
+      console.error('OPENROUTER_API_KEY not found in environment variables')
       return NextResponse.json(
         { error: 'Server configuration error: Missing API key' },
         { status: 500 }
-      );
+      )
     }
 
-    const { transcript, additionalInfo } = await request.json();
-    console.log('Received transcript length:', transcript?.length || 0);
-    console.log('Additional info provided:', additionalInfo?.length || 0);
+    const { transcript, additionalInfo } = await request.json()
+    console.log('Received transcript length:', transcript?.length || 0)
+    console.log('Additional info provided:', additionalInfo?.length || 0)
 
     if (!transcript) {
-      return NextResponse.json(
-        { error: 'Transcript is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Transcript is required' }, { status: 400 })
     }
 
     // Si hay información adicional, agrégala a la transcripción
-    let fullTranscript = transcript;
+    let fullTranscript = transcript
     if (additionalInfo && additionalInfo.length > 0) {
-      fullTranscript += "\n\n=== INFORMACIÓN ADICIONAL PROPORCIONADA POR EL MÉDICO ===\n";
-      additionalInfo.forEach((info: { question: string, answer: string }) => {
-        fullTranscript += `\nPregunta: ${info.question}\nRespuesta: ${info.answer}\n`;
-      });
+      fullTranscript += '\n\n=== INFORMACIÓN ADICIONAL PROPORCIONADA POR EL MÉDICO ===\n'
+      additionalInfo.forEach((info: { question: string; answer: string }) => {
+        fullTranscript += `\nPregunta: ${info.question}\nRespuesta: ${info.answer}\n`
+      })
     }
 
-    console.log('Initializing Gemini model...');
-    const model = genAI.getGenerativeModel({ 
-      model: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
-      generationConfig: {
-        temperature: 0.1,
-        topK: 1,
-        topP: 0.1,
-        maxOutputTokens: 8192,
-        responseMimeType: "application/json",
-      }
-    });
+    console.log('Calling OpenRouter API...')
+    const response = await ai.chat.completions.create({
+      model: MODEL,
+      messages: [
+        {
+          role: 'user',
+          content: COMPLIANCE_PROMPT + '\n\nTRANSCRIPCIÓN:\n' + fullTranscript,
+        },
+      ],
+      temperature: 0.1,
+      max_tokens: 8192,
+      response_format: { type: 'json_object' },
+    })
 
-    console.log('Calling Gemini API...');
-    const result = await model.generateContent(COMPLIANCE_PROMPT + "\n\nTRANSCRIPCIÓN:\n" + fullTranscript);
-    
-    console.log('Getting response...');
-    const response = await result.response;
-    const text = response.text();
-    
-    console.log('AI Response length:', text?.length || 0);
-    console.log('AI Response preview:', text?.substring(0, 200));
-    
+    const text = response.choices[0]?.message?.content || ''
+    console.log('AI Response length:', text.length)
+    console.log('AI Response preview:', text.substring(0, 200))
+
     try {
-      const parsedResponse = JSON.parse(text);
-      console.log('Successfully parsed AI response');
-      return NextResponse.json(parsedResponse);
+      const parsedResponse = JSON.parse(text)
+      console.log('Successfully parsed AI response')
+      return NextResponse.json(parsedResponse)
     } catch (parseError) {
-      console.error('Error parsing AI response:', parseError);
-      console.error('Raw AI response:', text);
+      console.error('Error parsing AI response:', parseError)
+      console.error('Raw AI response:', text)
       return NextResponse.json(
-        { error: 'Invalid response format from AI', details: text?.substring(0, 500) },
+        { error: 'Invalid response format from AI', details: text.substring(0, 500) },
         { status: 500 }
-      );
+      )
     }
-
   } catch (error) {
-    console.error('Error in enrich-report API:', error);
+    console.error('Error in enrich-report API:', error)
     console.error('Error details:', {
       message: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : undefined,
-      name: error instanceof Error ? error.name : undefined
-    });
-    
+      name: error instanceof Error ? error.name : undefined,
+    })
+
     return NextResponse.json(
-      { 
+      {
         error: 'Internal server error',
-        details: error instanceof Error ? error.message : 'Unknown error'
+        details: error instanceof Error ? error.message : 'Unknown error',
       },
       { status: 500 }
-    );
+    )
   }
 }
