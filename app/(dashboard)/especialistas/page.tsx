@@ -28,10 +28,11 @@ export default function EspecialistasPage() {
       </p>
 
       <div className="space-y-4">
-        <h2 className="text-lg font-semibold text-gray-900">Vinculaciones y laboratorios</h2>
+        <h2 className="text-lg font-semibold text-gray-900">Vinculaciones</h2>
         <LinkRequests doctorId={doctorId} />
-        <LabOrdersAdmin doctorId={doctorId} />
       </div>
+
+      <LabOrdersAdmin doctorId={doctorId} />
     </div>
   )
 }

@@ -19,8 +19,8 @@ export default function Sidebar({ onCollapseChange }: { onCollapseChange?: (coll
       storageKey="sidebar-collapsed"
       onCollapseChange={onCollapseChange}
       logoSlot={
-        <div className="flex items-center justify-center w-full bg-white rounded-2xl p-4 shadow-lg">
-          <ZuliLogo size="lg" theme="dark" />
+        <div className="flex items-center justify-center w-full bg-white rounded-xl p-2 shadow-lg">
+          <ZuliLogo size="sm" theme="dark" />
         </div>
       }
       footerSlot={

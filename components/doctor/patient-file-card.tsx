@@ -77,6 +77,15 @@ type InternRun = {
   completed_at: string | null
 }
 
+type MedicalReport = {
+  id: string
+  title: string | null
+  report_type: string | null
+  compliance_status: string | null
+  created_at: string
+  content: string | null
+}
+
 export function PatientFileCard({
   patientUserId,
   patientName,
@@ -90,6 +99,7 @@ export function PatientFileCard({
   const [responses, setResponses] = useState<SpecialtyResponse[]>([])
   const [labOrder, setLabOrder] = useState<LabOrder | null>(null)
   const [internRun, setInternRun] = useState<InternRun | null>(null)
+  const [reports, setReports] = useState<MedicalReport[]>([])
   const [runningIntern, setRunningIntern] = useState(false)
   const [internStatus, setInternStatus] = useState<string | null>(null)
   const [internError, setInternError] = useState<string | null>(null)
@@ -141,6 +151,26 @@ export function PatientFileCard({
           return true
         }) ?? []
     setResponses(mappedResponses)
+
+    // Cargar reportes médicos del paciente
+    // Primero obtener el patient_id desde la tabla patients
+    const { data: patientRow } = await supabase
+      .from("patients")
+      .select("id")
+      .eq("user_id", patientUserId)
+      .maybeSingle()
+
+    if (patientRow?.id) {
+      const { data: reportsData } = await supabase
+        .from("medical_reports")
+        .select("id, title, report_type, compliance_status, created_at, content")
+        .eq("patient_id", patientRow.id)
+        .order("created_at", { ascending: false })
+
+      setReports(reportsData ?? [])
+    } else {
+      setReports([])
+    }
 
     // Lab order
     const order = labOrderRes.data?.[0]
@@ -355,6 +385,54 @@ export function PatientFileCard({
                 <div key={idx} className="bg-gray-50 rounded-lg p-3 border">
                   <p className="text-sm font-medium text-gray-700">{r.prompt}</p>
                   <p className="text-sm text-gray-900 mt-1">{formatAnswer(r.answer)}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Reportes de Consulta */}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-2">
+            <FileText className="h-5 w-5 text-orange-500" />
+            <CardTitle className="text-base">Reportes de Consulta</CardTitle>
+            {reports.length > 0 ? (
+              <CheckCircle2 className="h-4 w-4 text-green-500 ml-auto" />
+            ) : (
+              <XCircle className="h-4 w-4 text-gray-300 ml-auto" />
+            )}
+          </div>
+        </CardHeader>
+        <CardContent>
+          {reports.length === 0 ? (
+            <p className="text-sm text-gray-500 italic">Sin reportes de consulta guardados.</p>
+          ) : (
+            <div className="space-y-4">
+              {reports.map((report) => (
+                <div key={report.id} className="border rounded-lg p-4 bg-gray-50">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm font-semibold text-gray-900">
+                      {report.title || "Reporte médico"}
+                    </p>
+                    <Badge variant={report.report_type === "FINAL" ? "default" : "secondary"} className="text-xs">
+                      {report.report_type || "BORRADOR"}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    {new Date(report.created_at).toLocaleString("es-MX")}
+                  </p>
+                  {report.compliance_status && (
+                    <p className="text-xs text-gray-500 mb-2">
+                      Cumplimiento: {report.compliance_status}
+                    </p>
+                  )}
+                  {report.content && (
+                    <div className="mt-3 p-4 bg-white rounded-lg border text-sm text-gray-800 whitespace-pre-line">
+                      {report.content}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

@@ -9,6 +9,7 @@ import { Loader2, Stethoscope, FileText, User } from "lucide-react"
 
 type LinkedPatient = {
   id: string
+  patientId?: string | null
   name: string
   email: string
   status: string
@@ -31,6 +32,18 @@ type PatientRecord = {
   patient: LinkedPatient
   baseline?: BaselineData
   specialties: SpecialtySummary[]
+  reports: ReportSummary[]
+}
+
+type ReportSummary = {
+  id: string
+  patient_id: string
+  title: string | null
+  report_type: string | null
+  compliance_status: string | null
+  created_at: string
+  content: string | null
+  appointment_id: string | null
 }
 
 export function PatientRecords({ doctorId }: { doctorId: string }) {
@@ -48,24 +61,38 @@ export function PatientRecords({ doctorId }: { doctorId: string }) {
     setLoading(true)
     const { data: links } = await supabase
       .from("doctor_patient_links")
-      .select("patient_user_id, status")
+      .select("patient_user_id, patient_id, status")
       .eq("doctor_id", doctorId)
       .eq("status", "accepted")
 
-    const patientIds = (links ?? []).map((l) => l.patient_user_id)
+    const patientUserIds = (links ?? []).map((l) => l.patient_user_id).filter(Boolean)
     const { data: profiles } = await supabase
       .from("app_users")
       .select("id, full_name, email")
-      .in("id", patientIds)
+      .in("id", patientUserIds)
 
     const profileMap = new Map<string, any>()
     profiles?.forEach((p: any) => profileMap.set(p.id, p))
+
+    // Mapear patient_user_id -> patient_id desde tabla patients si falta en el link
+    const missingPatientIds = (links ?? []).filter((l) => !l.patient_id).map((l) => l.patient_user_id)
+    let patientIdMap = new Map<string, string>()
+    if (missingPatientIds.length > 0) {
+      const { data: patientRows } = await supabase
+        .from("patients")
+        .select("id, user_id")
+        .in("user_id", missingPatientIds)
+      patientRows?.forEach((p: any) => {
+        if (p.user_id) patientIdMap.set(p.user_id, p.id)
+      })
+    }
 
     const patients: LinkedPatient[] =
       links?.map((l: any) => {
         const profile = profileMap.get(l.patient_user_id)
         return {
           id: l.patient_user_id,
+          patientId: l.patient_id ?? patientIdMap.get(l.patient_user_id) ?? null,
           name: profile?.full_name ?? "Paciente",
           email: profile?.email ?? "",
           status: l.status ?? "pending",
@@ -104,6 +131,23 @@ export function PatientRecords({ doctorId }: { doctorId: string }) {
       grouped[patientId][specId].count += 1
     })
 
+    // Traer reportes por patient_id (tabla patients)
+    const patientIdsForReports = patients.map((p) => p.patientId).filter(Boolean) as string[]
+    let reportMap = new Map<string, ReportSummary[]>()
+    if (patientIdsForReports.length > 0) {
+      const { data: reports } = await supabase
+        .from("medical_reports")
+        .select("id, patient_id, title, report_type, compliance_status, created_at, content, appointment_id")
+        .in("patient_id", patientIdsForReports)
+        .order("created_at", { ascending: false })
+
+      reports?.forEach((r: any) => {
+        const pid = r.patient_id
+        if (!reportMap.has(pid)) reportMap.set(pid, [])
+        reportMap.get(pid)!.push(r)
+      })
+    }
+
     const recs: PatientRecord[] = patients.map((p) => {
       const specEntries = Object.entries(grouped[p.id] || {}).map(([id, data]) => ({
         specialty_id: id,
@@ -114,6 +158,7 @@ export function PatientRecords({ doctorId }: { doctorId: string }) {
         patient: p,
         baseline: baselineMap.get(p.id),
         specialties: specEntries,
+        reports: p.patientId ? (reportMap.get(p.patientId) ?? []) : [],
       }
     })
 
@@ -191,7 +236,8 @@ export function PatientRecords({ doctorId }: { doctorId: string }) {
                   </Badge>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-3">
+              <CardContent className="space-y-4">
+                {/* Cuestionarios de especialidad */}
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
                     <Stethoscope className="h-4 w-4 text-zuli-indigo" />
@@ -206,6 +252,49 @@ export function PatientRecords({ doctorId }: { doctorId: string }) {
                           <FileText className="h-3 w-3" />
                           {spec.specialty_name}: {spec.responses} respuestas
                         </Badge>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Reportes de consulta */}
+                <div className="space-y-2 pt-3 border-t">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-4 w-4 text-zuli-indigo" />
+                    <p className="text-xs text-gray-500">Reportes de consulta</p>
+                  </div>
+                  {!selectedRecord.patient.patientId ? (
+                    <p className="text-xs text-gray-500">
+                      Este paciente aún no tiene un expediente clínico asociado.
+                    </p>
+                  ) : selectedRecord.reports.length === 0 ? (
+                    <p className="text-xs text-gray-500">Sin reportes guardados.</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {selectedRecord.reports.map((report) => (
+                        <div key={report.id} className="border rounded-lg p-4 bg-slate-50">
+                          <div className="flex items-center justify-between mb-2">
+                            <p className="text-sm font-medium text-gray-900">
+                              {report.title || "Reporte médico"}
+                            </p>
+                            <Badge variant="secondary" className="text-[11px]">
+                              {report.report_type || "BORRADOR"}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-gray-500">
+                            {new Date(report.created_at).toLocaleString("es-MX")}
+                          </p>
+                          {report.compliance_status && (
+                            <p className="text-[11px] text-gray-500 mb-2">
+                              Cumplimiento: {report.compliance_status}
+                            </p>
+                          )}
+                          {report.content && (
+                            <div className="mt-3 p-3 bg-white rounded border text-sm text-gray-800 whitespace-pre-line">
+                              {report.content}
+                            </div>
+                          )}
+                        </div>
                       ))}
                     </div>
                   )}
