@@ -244,11 +244,13 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
       chunksRef.current = []
 
       // Build audio constraints with selected device
+      // NOTE: Disable WebRTC processing filters for better recording quality
+      // echoCancellation and noiseSuppression cause "robotic" artifacts
       const audioConstraints: MediaTrackConstraints = {
-        sampleRate: 16000,
         channelCount: 1,
-        echoCancellation: true,
-        noiseSuppression: true,
+        echoCancellation: false,  // Disabled - causes audio artifacts
+        noiseSuppression: false,  // Disabled - degrades audio quality
+        autoGainControl: true,    // Keep for consistent volume levels
       }
 
       // Add deviceId if a specific device is selected
@@ -264,6 +266,7 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
 
       const mediaRecorder = new MediaRecorder(stream, {
         mimeType: "audio/webm;codecs=opus",
+        audioBitsPerSecond: 128000,  // 128 kbps for high quality voice
       })
 
       mediaRecorder.ondataavailable = (event) => {
@@ -273,7 +276,7 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
       }
 
       mediaRecorderRef.current = mediaRecorder
-      mediaRecorder.start(1000) // Collect data every second
+      mediaRecorder.start(100) // Collect data every 100ms for smoother audio
 
       setState((prev) => ({
         ...prev,
