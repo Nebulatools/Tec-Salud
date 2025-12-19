@@ -16,7 +16,7 @@ type Order = {
   doctor_id: string
   specialty_id: string | null
   status: string
-  recommended_tests: any
+  recommended_tests: Record<string, unknown> | unknown[] | null
 }
 
 export default function DebugAuthPage() {

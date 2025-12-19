@@ -10,8 +10,7 @@ import { supabase } from "@/lib/supabase"
 
 interface PatientSummaryProps {
   appointmentId: string
-  consultationData: any
-  onComplete: (data: any) => void
+  onComplete: (data: unknown) => void
 }
 
 interface PatientInfo {
@@ -34,7 +33,7 @@ interface AppointmentDetails {
   notes: string | null
 }
 
-export default function PatientSummary({ appointmentId, consultationData, onComplete }: PatientSummaryProps) {
+export default function PatientSummary({ appointmentId, onComplete }: PatientSummaryProps) {
   const [loading, setLoading] = useState(true)
   const [patientInfo, setPatientInfo] = useState<PatientInfo | null>(null)
   const [appointmentDetails, setAppointmentDetails] = useState<AppointmentDetails | null>(null)
@@ -45,6 +44,7 @@ export default function PatientSummary({ appointmentId, consultationData, onComp
 
   useEffect(() => {
     fetchPatientData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [appointmentId])
 
   const fetchPatientData = async () => {
@@ -102,7 +102,7 @@ export default function PatientSummary({ appointmentId, consultationData, onComp
           setPatientInfo(patient)
           
           // Construir un resumen del expediente (solo lectura) en lugar de pisar las notas de la cita
-          let summaryParts: string[] = []
+          const summaryParts: string[] = []
           summaryParts.push(`Alergias: ${patient.allergies?.trim() || 'Sin alergias conocidas'}`)
           summaryParts.push(`Medicamentos actuales: ${patient.current_medications?.trim() || 'Sin medicamentos actuales'}`)
           if (patient.medical_history && patient.medical_history.trim()) {
@@ -111,8 +111,8 @@ export default function PatientSummary({ appointmentId, consultationData, onComp
           setPatientSummary(summaryParts.join("\n"))
         }
       }
-    } catch (error) {
-      console.error("Error fetching patient data:", error)
+    } catch {
+      // Error fetching patient data
     } finally {
       setLoading(false)
     }

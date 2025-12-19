@@ -26,83 +26,82 @@ export function LabOrdersAdmin({ doctorId }: { doctorId: string }) {
   const [selectedSpecialty, setSelectedSpecialty] = useState<string>("")
   const [loading, setLoading] = useState(true)
 
-  const load = async () => {
-    setLoading(true)
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true)
 
-    // Obtener pacientes vinculados
-    const { data: linked } = await supabase
-      .from("doctor_patient_links")
-      .select("patient_user_id")
-      .eq("doctor_id", doctorId)
-      .eq("status", "accepted")
+      // Obtener pacientes vinculados
+      const { data: linked } = await supabase
+        .from("doctor_patient_links")
+        .select("patient_user_id")
+        .eq("doctor_id", doctorId)
+        .eq("status", "accepted")
 
-    const ids = Array.from(new Set(linked?.map((l) => l.patient_user_id) ?? []))
+      const ids = Array.from(new Set(linked?.map((l) => l.patient_user_id) ?? []))
 
-    if (ids.length > 0) {
-      const { data: users } = await supabase
-        .from("app_users")
-        .select("id, email, full_name")
-        .in("id", ids)
+      if (ids.length > 0) {
+        const { data: users } = await supabase
+          .from("app_users")
+          .select("id, email, full_name")
+          .in("id", ids)
 
-      setPatients(users ?? [])
+        setPatients(users ?? [])
 
-      // Seleccionar primer paciente si no hay ninguno seleccionado
-      if (!selectedPatient && users && users.length > 0) {
-        setSelectedPatient(users[0].id)
+        // Seleccionar primer paciente si no hay ninguno seleccionado
+        if (!selectedPatient && users && users.length > 0) {
+          setSelectedPatient(users[0].id)
+        }
+      } else {
+        setPatients([])
       }
-    } else {
-      setPatients([])
+
+      setLoading(false)
     }
 
-    setLoading(false)
-  }
-
-  // Cargar especialidades del paciente seleccionado
-  const loadPatientSpecialties = async () => {
-    if (!selectedPatient) {
-      setPatientSpecialties([])
-      setSelectedSpecialty("")
-      return
-    }
-
-    // Obtener las especialidades donde el paciente tiene respuestas o lab_orders
-    const { data: orders } = await supabase
-      .from("lab_orders")
-      .select("specialty_id, specialties(id, name)")
-      .eq("patient_user_id", selectedPatient)
-      .eq("doctor_id", doctorId)
-
-    const seen = new Set<string>()
-    const specialties: PatientSpecialty[] = []
-
-    orders?.forEach((o) => {
-      const spec = (o as any).specialties
-      if (spec && !seen.has(spec.id)) {
-        seen.add(spec.id)
-        specialties.push({
-          specialty_id: spec.id,
-          specialty_name: spec.name,
-        })
-      }
-    })
-
-    setPatientSpecialties(specialties)
-
-    // Seleccionar primera especialidad si existe
-    if (specialties.length > 0 && !selectedSpecialty) {
-      setSelectedSpecialty(specialties[0].specialty_id)
-    } else if (specialties.length === 0) {
-      setSelectedSpecialty("")
-    }
-  }
+    if (doctorId) void load()
+  }, [doctorId, selectedPatient])
 
   useEffect(() => {
-    if (doctorId) load()
-  }, [doctorId])
+    const loadPatientSpecialties = async () => {
+      if (!selectedPatient) {
+        setPatientSpecialties([])
+        setSelectedSpecialty("")
+        return
+      }
 
-  useEffect(() => {
-    loadPatientSpecialties()
-  }, [selectedPatient])
+      // Obtener las especialidades donde el paciente tiene respuestas o lab_orders
+      const { data: orders } = await supabase
+        .from("lab_orders")
+        .select("specialty_id, specialties(id, name)")
+        .eq("patient_user_id", selectedPatient)
+        .eq("doctor_id", doctorId)
+
+      const seen = new Set<string>()
+      const specialties: PatientSpecialty[] = []
+
+      orders?.forEach((o) => {
+        const spec = (o as Record<string, unknown>).specialties as { id: string; name: string } | undefined
+        if (spec && !seen.has(spec.id)) {
+          seen.add(spec.id)
+          specialties.push({
+            specialty_id: spec.id,
+            specialty_name: spec.name,
+          })
+        }
+      })
+
+      setPatientSpecialties(specialties)
+
+      // Seleccionar primera especialidad si existe
+      if (specialties.length > 0 && !selectedSpecialty) {
+        setSelectedSpecialty(specialties[0].specialty_id)
+      } else if (specialties.length === 0) {
+        setSelectedSpecialty("")
+      }
+    }
+
+    void loadPatientSpecialties()
+  }, [selectedPatient, doctorId, selectedSpecialty])
 
   const currentPatient = useMemo(
     () => patients.find((p) => p.id === selectedPatient),

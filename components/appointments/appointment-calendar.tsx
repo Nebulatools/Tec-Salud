@@ -42,24 +42,27 @@ export default function AppointmentCalendar() {
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [appointmentToDelete, setAppointmentToDelete] = useState<Appointment | null>(null)
-  const [hideCompletedToday, setHideCompletedToday] = useState<boolean>(true)
+  const [hideCompletedToday, setHideCompletedToday] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('hideCompletedToday')
+      return saved === null ? true : saved === 'true'
+    } catch {
+      return true
+    }
+  })
 
   // Persist toggle in localStorage
   useEffect(() => {
     try {
-      const saved = localStorage.getItem('hideCompletedToday')
-      if (saved !== null) setHideCompletedToday(saved === 'true')
-    } catch {}
-  }, [])
-
-  useEffect(() => {
-    try {
       localStorage.setItem('hideCompletedToday', String(hideCompletedToday))
-    } catch {}
+    } catch {
+      // Ignore storage errors
+    }
   }, [hideCompletedToday])
 
   useEffect(() => {
     fetchAppointments()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, currentDate, selectedFilter])
 
   useEffect(() => {
@@ -141,6 +144,7 @@ export default function AppointmentCalendar() {
           ...apt,
           patient: Array.isArray(apt.patients) ? apt.patients[0] : apt.patients,
         }))
+        // Mostrar TODAS las citas (programadas, en proceso, completadas) para tener trazabilidad
         setAppointments(formattedAppointments)
       }
     } catch (error) {
@@ -218,14 +222,6 @@ export default function AppointmentCalendar() {
     return appointments.filter((apt) => apt.appointment_date === dateString)
   }
 
-  const isToday = (dateStr: string) => {
-    try {
-      const d = new Date(dateStr)
-      const now = new Date()
-      return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate()
-    } catch { return false }
-  }
-
   const formatTime = (timeString: string) => {
     const [hours, minutes] = timeString.split(":")
     const date = new Date()
@@ -253,6 +249,20 @@ export default function AppointmentCalendar() {
         return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300"
       default:
         return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300"
+    }
+  }
+
+  // Styling for week/month blocks by status
+  const getBlockGradient = (status: string) => {
+    switch (status) {
+      case 'Completada':
+        return 'from-green-100 to-green-50 border-green-500'
+      case 'Cancelada':
+        return 'from-red-100 to-red-50 border-red-500 opacity-70'
+      case 'No asistió':
+        return 'from-gray-200 to-gray-100 border-gray-400 opacity-70'
+      default:
+        return 'from-teal-100 to-teal-50 border-teal-500'
     }
   }
 
@@ -716,7 +726,7 @@ export default function AppointmentCalendar() {
                         return (
                           <div
                             key={appointment.id}
-                            className="absolute left-1 right-1 bg-gradient-to-r from-teal-100 to-teal-50 dark:from-teal-900 dark:to-teal-800 border-l-4 border-teal-500 p-2 rounded-md text-xs hover:from-teal-200 hover:to-teal-100 dark:hover:from-teal-800 dark:hover:to-teal-700 cursor-pointer transition-all duration-200 shadow-sm hover:shadow-md z-10"
+                            className={`absolute left-1 right-1 bg-gradient-to-r ${getBlockGradient(appointment.status)} dark:from-teal-900 dark:to-teal-800 border-l-4 p-2 rounded-md text-xs cursor-pointer transition-all duration-200 shadow-sm hover:shadow-md z-10`}
                             style={{ top, height }}
                             title={`${appointment.patient.first_name} ${appointment.patient.last_name} - ${formatTime(appointment.start_time)} a ${formatTime(appointment.end_time)}`}
                             onClick={() => handleStartConsultation(appointment)}

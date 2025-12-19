@@ -2,7 +2,6 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -26,14 +25,14 @@ export default function Header() {
           .select("first_name, last_name, specialty")
           .eq("user_id", user.id)
           .single()
-        
+
         if (data && !error) {
           setDoctorInfo(data)
         }
       }
     }
-    
-    fetchDoctorInfo()
+
+    void fetchDoctorInfo()
   }, [user])
 
   const handleLogout = async () => {

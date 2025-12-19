@@ -1,5 +1,8 @@
 import { describe, it, expect, vi } from 'vitest'
 import { POST as mrPOST } from '@/app/api/medical-reports/route'
+import type { Database } from '@/lib/supabase'
+
+type MedicalReport = Database['public']['Tables']['medical_reports']['Row']
 
 vi.mock('@/lib/supabase', () => {
   return {
@@ -17,7 +20,7 @@ vi.mock('@/lib/supabase', () => {
               // support maybeSingle()
               maybeSingle: async () => ({ data: null, error: null }),
             }),
-            insert: (rows: any[]) => ({ select: () => ({ single: async () => ({ data: { id: 'uuid-fake', ...rows[0] }, error: null }) }) }),
+            insert: (rows: unknown[]) => ({ select: () => ({ single: async () => ({ data: { id: 'uuid-fake', ...rows[0] }, error: null }) }) }),
             update: () => ({ eq: () => ({ select: () => ({ single: async () => ({ data: { id: 'uuid-fake' }, error: null }) }) }) }),
           }
         }
@@ -29,9 +32,9 @@ vi.mock('@/lib/supabase', () => {
 
 describe('/api/medical-reports', () => {
   it('saves with original_transcript and returns id', async () => {
-    const res: any = await mrPOST({ json: async () => ({ patient_id: 'p1', content: 'c', original_transcript: 't' }) } as any)
+    const res = await mrPOST({ json: async () => ({ patient_id: 'p1', content: 'c', original_transcript: 't' }) } as unknown as Request)
     expect(res.status).toBe(200)
-    const data = await res.json()
+    const data = (await res.json()) as unknown as MedicalReport
     expect(data.id).toBeTruthy()
   })
 })

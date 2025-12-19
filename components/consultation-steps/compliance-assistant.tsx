@@ -6,9 +6,8 @@ import { Card } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
-import { Loader2, CheckCircle2, AlertCircle, Sparkles, Stethoscope, FileText, Bot, Check, X, ChevronDown, ChevronUp } from 'lucide-react'
+import { Loader2, CheckCircle2, AlertCircle, Sparkles, FileText, Bot, ChevronDown, ChevronUp } from 'lucide-react'
 import { ConsultationData } from '@/types/consultation'
-import { cn } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/use-auth'
 import dynamic from 'next/dynamic'
@@ -18,11 +17,20 @@ const MDEditor = dynamic(
   { ssr: false }
 )
 
+interface ReportData {
+  reporte: string
+  aiGeneratedReport: string
+  complianceData: ComplianceResponse | null
+  suggestions: string[]
+  isCompliant: boolean
+  fecha: string
+  hora: string
+}
+
 interface ComplianceAssistantProps {
   consultationData: ConsultationData
   onDataUpdate: (data: ConsultationData) => void
-  onComplete: (data: any) => void
-  onNext: () => void
+  onComplete: (data: ReportData) => void
   onBack: () => void
 }
 
@@ -40,7 +48,6 @@ export default function ComplianceAssistant({
   consultationData,
   onDataUpdate,
   onComplete,
-  onNext,
   onBack
 }: ComplianceAssistantProps) {
   const { user } = useAuth()
@@ -54,13 +61,12 @@ export default function ComplianceAssistant({
   const lastSuggestionsForRef = useRef<string>('')
   const [doctorResponses, setDoctorResponses] = useState<Record<string, string>>({})
   const [isCompliant, setIsCompliant] = useState(false)
-  const [lastProcessedTranscript, setLastProcessedTranscript] = useState<string>('')
   const [previousMissingCount, setPreviousMissingCount] = useState<number | null>(null)
   const [completedFields, setCompletedFields] = useState<Set<string>>(new Set())
   const [expandedField, setExpandedField] = useState<string | null>(null)
   const [allQuestions, setAllQuestions] = useState<string[]>([]) // Mantener todas las preguntas vistas
   const [doctorName, setDoctorName] = useState<string>('')
-  const [patientProfile, setPatientProfile] = useState<any | null>(null)
+  const [patientProfile, setPatientProfile] = useState<Record<string, unknown> | null>(null)
   // Guards to avoid repeated analysis/suggestions
   const analysisInFlightRef = useRef(false)
   const lastAnalyzedForRef = useRef<string>('')
@@ -80,8 +86,8 @@ export default function ComplianceAssistant({
   useEffect(() => {
     const loadPatient = async () => {
       try {
-        const pid = (consultationData as any)?.patientInfo?.id
-        const p = (consultationData as any)?.patientInfo
+        const pid = (consultationData as ConsultationData & { patientInfo?: { id?: string } })?.patientInfo?.id
+        const p = (consultationData as ConsultationData & { patientInfo?: Record<string, unknown> })?.patientInfo
         if (!pid) return
         // Si faltan campos clave, intentar traerlos de BD
         if (!p?.first_name || !p?.last_name || !p?.date_of_birth || !p?.gender) {
@@ -94,65 +100,73 @@ export default function ComplianceAssistant({
         } else {
           setPatientProfile(p)
         }
-      } catch {}
+      } catch {
+        // Silently handle error
+      }
     }
     loadPatient()
-  }, [consultationData?.patientInfo?.id])
+  }, [consultationData])
 
   // Ruta de reutilización del reporte IA: normaliza una sola vez
   useEffect(() => {
-    const baseReport = consultationData.reportData?.aiGeneratedReport
-    if (!baseReport) return
-    const p = (patientProfile || (consultationData as any)?.patientInfo) || {}
-    const safeDoctor = (doctorName || '').trim()
-    let fixed = baseReport
-    if (p?.gender) {
-      fixed = fixed.replace(/\*\s*\*\*Sexo:\*\*\s*\[Faltante\]/i, `*  **Sexo:** ${String(p.gender)}`)
-      if (!/\*\s*\*\*Sexo:\*\*/i.test(fixed) && /\*\s*\*\*Edad:\*\*/i.test(fixed)) {
-        fixed = fixed.replace(/(\*\s*\*\*Edad:\*\*.*\n)/i, `$1*  **Sexo:** ${String(p.gender)}\n`)
+    const normalizeReport = () => {
+      const baseReport = consultationData.reportData?.aiGeneratedReport
+      if (!baseReport) return
+      const p = (patientProfile || (consultationData as ConsultationData & { patientInfo?: Record<string, unknown> })?.patientInfo) || {}
+      const safeDoctor = (doctorName || '').trim()
+      let fixed = baseReport
+      if (p?.gender) {
+        fixed = fixed.replace(/\*\s*\*\*Sexo:\*\*\s*\[Faltante\]/i, `*  **Sexo:** ${String(p.gender)}`)
+        if (!/\*\s*\*\*Sexo:\*\*/i.test(fixed) && /\*\s*\*\*Edad:\*\*/i.test(fixed)) {
+          fixed = fixed.replace(/(\*\s*\*\*Edad:\*\*.*\n)/i, `$1*  **Sexo:** ${String(p.gender)}\n`)
+        }
+      }
+      if (safeDoctor) {
+        if (/\*\s*\*\*Nombre del médico tratante:\*\*/i.test(fixed)) {
+          fixed = fixed.replace(/(\*\s*\*\*Nombre del médico tratante:\*\*\s*).*/i, `$1${safeDoctor}`)
+        } else if (/\*\s*\*\*Fecha y hora de consulta:\*\*/i.test(fixed)) {
+          fixed = fixed.replace(/(\*\s*\*\*Fecha y hora de consulta:\*\*.*\n)/i, `$1*  **Nombre del médico tratante:** ${safeDoctor}\n`)
+        }
+      }
+      setReport(fixed)
+      setComplianceData(consultationData.reportData?.complianceData || null)
+      setAllQuestions(consultationData.reportData?.complianceData?.questionsForDoctor || [])
+      setIsCompliant(consultationData.reportData?.isCompliant || false)
+      const currentSuggestions = consultationData.reportData?.suggestions || []
+      setSuggestions(currentSuggestions)
+      if (!currentSuggestions || currentSuggestions.length === 0) void ensureSuggestions(fixed)
+      // Persistir normalización solo si cambió
+      if (fixed !== baseReport) {
+        onDataUpdate({
+          ...consultationData,
+          reportData: { ...consultationData.reportData, aiGeneratedReport: fixed, reporte: fixed }
+        })
       }
     }
-    if (safeDoctor) {
-      if (/\*\s*\*\*Nombre del médico tratante:\*\*/i.test(fixed)) {
-        fixed = fixed.replace(/(\*\s*\*\*Nombre del médico tratante:\*\*\s*).*/i, `$1${safeDoctor}`)
-      } else if (/\*\s*\*\*Fecha y hora de consulta:\*\*/i.test(fixed)) {
-        fixed = fixed.replace(/(\*\s*\*\*Fecha y hora de consulta:\*\*.*\n)/i, `$1*  **Nombre del médico tratante:** ${safeDoctor}\n`)
-      }
-    }
-    setReport(fixed)
-    setComplianceData(consultationData.reportData?.complianceData || null)
-    setAllQuestions(consultationData.reportData?.complianceData?.questionsForDoctor || [])
-    setIsCompliant(consultationData.reportData?.isCompliant || false)
-    const currentSuggestions = consultationData.reportData?.suggestions || []
-    setSuggestions(currentSuggestions)
-    if (!currentSuggestions || currentSuggestions.length === 0) ensureSuggestions(fixed)
-    // Persistir normalización solo si cambió
-    if (fixed !== baseReport) {
-      onDataUpdate({
-        ...consultationData,
-        reportData: { ...consultationData.reportData, aiGeneratedReport: fixed, reporte: fixed }
-      })
-    }
-  }, [consultationData.reportData?.aiGeneratedReport, doctorName, patientProfile])
+    normalizeReport()
+  }, [consultationData.reportData?.aiGeneratedReport, doctorName, patientProfile, consultationData, onDataUpdate, ensureSuggestions])
 
   // Ruta de análisis inicial con gating estricto.
   useEffect(() => {
-    const transcript = consultationData.transcript || consultationData.recordingData?.processedTranscript
-    const profile = (patientProfile || (consultationData as any)?.patientInfo) || {}
-    const genderKnown = Boolean(profile?.gender)
-    const doctorKnown = Boolean(doctorName)
-    if (!transcript || !genderKnown || !doctorKnown) return
-    if (consultationData.reportData?.aiGeneratedReport) return
-    if (analysisInFlightRef.current) return
-    if (lastAnalyzedForRef.current === transcript) return
+    const analyzeIfReady = () => {
+      const transcript = consultationData.transcript || consultationData.recordingData?.processedTranscript
+      const profile = (patientProfile || (consultationData as ConsultationData & { patientInfo?: Record<string, unknown> })?.patientInfo) || {}
+      const genderKnown = Boolean(profile?.gender)
+      const doctorKnown = Boolean(doctorName)
+      if (!transcript || !genderKnown || !doctorKnown) return
+      if (consultationData.reportData?.aiGeneratedReport) return
+      if (analysisInFlightRef.current) return
+      if (lastAnalyzedForRef.current === transcript) return
 
-    analysisInFlightRef.current = true
-    performInitialAnalysis()
-      .finally(() => {
-        analysisInFlightRef.current = false
-        lastAnalyzedForRef.current = transcript
-      })
-  }, [consultationData.transcript, consultationData.recordingData?.processedTranscript, patientProfile?.gender, doctorName])
+      analysisInFlightRef.current = true
+      void performInitialAnalysis()
+        .finally(() => {
+          analysisInFlightRef.current = false
+          lastAnalyzedForRef.current = transcript
+        })
+    }
+    analyzeIfReady()
+  }, [consultationData, patientProfile, doctorName, performInitialAnalysis])
 
   // Single flight suggestions fetcher with de-duplication
   const ensureSuggestions = useCallback(async (reportText: string) => {
@@ -207,9 +221,9 @@ export default function ComplianceAssistant({
     try {
       const ensureIdentification = (
         reportMd: string,
-        patient: any,
-        appt?: any,
-        doctorName?: string
+        patient: Record<string, unknown>,
+        appt?: Record<string, unknown>,
+        doctorNameParam?: string
       ): string => {
         let out = reportMd || ''
         const name = `${patient?.first_name ?? ''} ${patient?.last_name ?? ''}`.trim()
@@ -243,8 +257,8 @@ export default function ComplianceAssistant({
         }
 
         // Normalizar nombre del médico tratante forzando el del usuario autenticado
-        if (doctorName && doctorName.trim()) {
-          const safeDoctor = doctorName.trim()
+        if (doctorNameParam && doctorNameParam.trim()) {
+          const safeDoctor = doctorNameParam.trim()
           if (/\*\s*\*\*Nombre del médico tratante:\*\*/i.test(out)) {
             // Reemplazar cualquier valor existente por el correcto
             out = out.replace(/(\*\s*\*\*Nombre del médico tratante:\*\*\s*).*/i, `$1${safeDoctor}`)
@@ -274,8 +288,8 @@ export default function ComplianceAssistant({
 
       // Prefill known answers from DB/UI for compliance
       const answers: { question: string, answer: string }[] = []
-      const appt = (consultationData as any)?.appointmentDetails
-      const patient = (patientProfile || (consultationData as any)?.patientInfo) || {}
+      const appt = (consultationData as ConsultationData & { appointmentDetails?: Record<string, unknown> })?.appointmentDetails
+      const patient = (patientProfile || (consultationData as ConsultationData & { patientInfo?: Record<string, unknown> })?.patientInfo) || {}
 
       if (appt?.appointment_date && appt?.start_time) {
         answers.push({
@@ -354,7 +368,7 @@ export default function ComplianceAssistant({
         doctorName
       )
       // Filtrar preguntas/missing que ya conocemos por expediente
-      const p = (patientProfile || (consultationData as any)?.patientInfo) || {}
+      const p = (patientProfile || (consultationData as ConsultationData & { patientInfo?: Record<string, unknown> })?.patientInfo) || {}
       const hasName = Boolean((p.first_name || p.last_name))
       const hasAge = Boolean(p.date_of_birth)
       const hasGender = Boolean(p.gender)
@@ -386,7 +400,7 @@ export default function ComplianceAssistant({
       setAllQuestions(newQuestions)
 
       // Generar sugerencias en un solo lugar y una sola vez por texto
-      await ensureSuggestions(fixedReport)
+      void ensureSuggestions(fixedReport)
 
       // Auto-marcar como completado cuando se termine el análisis inicial
       const reportData = {
@@ -408,9 +422,6 @@ export default function ComplianceAssistant({
         reportData: reportData
       })
       
-      // Marcar esta transcripción como procesada
-      setLastProcessedTranscript(transcript || '')
-      
       // NO auto-completar - que el usuario decida cuándo continuar
       // onComplete(reportData)
 
@@ -421,15 +432,15 @@ export default function ComplianceAssistant({
     } finally {
       setLoading(false)
     }
-  }, [consultationData, allQuestions])
+  }, [consultationData, allQuestions, doctorName, patientProfile, onDataUpdate, suggestions, ensureSuggestions])
 
   const handleRevalidate = async () => {
     setValidating(true)
     try {
       // Baseline known answers (patient, appt, doctor) again so the model no los considere faltantes
       const baseline: { question: string, answer: string }[] = []
-      const appt = (consultationData as any)?.appointmentDetails
-      const patient = (patientProfile || (consultationData as any)?.patientInfo) || {}
+      const appt = (consultationData as ConsultationData & { appointmentDetails?: Record<string, unknown> })?.appointmentDetails
+      const patient = (patientProfile || (consultationData as ConsultationData & { patientInfo?: Record<string, unknown> })?.patientInfo) || {}
       const ageFromDob = (dob?: string) => {
         if (!dob) return ''
         const d = new Date(dob)
@@ -456,7 +467,7 @@ export default function ComplianceAssistant({
 
       // Filtrar solo las respuestas con contenido
       const answeredQuestions = Object.entries(doctorResponses)
-        .filter(([_, answer]) => answer?.trim())
+        .filter(([, answer]) => answer?.trim())
         .map(([question, answer]) => ({ question, answer }))
       
       // Si no hay respuestas, salir temprano
@@ -544,7 +555,7 @@ export default function ComplianceAssistant({
       setPreviousMissingCount(finalComplianceResultPatched.missingInformation.length)
 
       // Sugerencias con single-flight
-      await ensureSuggestions(finalComplianceResultPatched.improvedReport)
+      void ensureSuggestions(finalComplianceResultPatched.improvedReport)
 
       // NO borrar las respuestas, mantenerlas visibles
       
@@ -622,9 +633,7 @@ export default function ComplianceAssistant({
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  // Forzar regeneración eliminando el último transcript procesado
-                  setLastProcessedTranscript('')
-                  performInitialAnalysis()
+                  void performInitialAnalysis()
                 }}
                 disabled={loading}
                 className="text-blue-600 border-blue-600 hover:bg-blue-50"
@@ -709,12 +718,11 @@ export default function ComplianceAssistant({
                     return (
                       <div 
                         key={`${question}-${index}`} 
-                        className={cn(
-                          "rounded-lg border transition-all",
-                          isCompleted ? "bg-green-50 border-green-200" : "bg-orange-50 border-orange-200"
-                        )}
+                        className={
+                          isCompleted ? "rounded-lg border transition-all bg-green-50 border-green-200" : "rounded-lg border transition-all bg-orange-50 border-orange-200"
+                        }
                       >
-                        <div 
+                        <div
                           className="p-3 cursor-pointer"
                           onClick={() => setExpandedField(isExpanded ? null : question)}
                         >
@@ -725,10 +733,9 @@ export default function ComplianceAssistant({
                               ) : (
                                 <AlertCircle className="h-4 w-4 text-orange-600 mt-0.5 flex-shrink-0" />
                               )}
-                              <p className={cn(
-                                "text-sm font-medium",
-                                isCompleted ? "text-green-800 line-through" : "text-gray-800"
-                              )}>
+                              <p className={
+                                isCompleted ? "text-sm font-medium text-green-800 line-through" : "text-sm font-medium text-gray-800"
+                              }>
                                 {question}
                               </p>
                             </div>

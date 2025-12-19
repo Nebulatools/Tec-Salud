@@ -1,6 +1,10 @@
 import { describe, it, expect, vi } from 'vitest'
 import { POST as suggPOST } from '@/app/api/get-clinical-suggestions/route'
 
+interface ClinicalSuggestionsResponse {
+  suggestions: string[]
+}
+
 vi.mock('@google/generative-ai', () => ({
   GoogleGenerativeAI: class {
     getGenerativeModel() {
@@ -13,9 +17,9 @@ vi.mock('@google/generative-ai', () => ({
 
 describe('/api/get-clinical-suggestions', () => {
   it('returns suggestions array', async () => {
-    const res: any = await suggPOST({ json: async () => ({ reportText: '...' }) } as any)
+    const res = await suggPOST({ json: async () => ({ reportText: '...' }) } as unknown as Request)
     expect(res.status).toBe(200)
-    const data = await res.json()
+    const data = (await res.json()) as unknown as ClinicalSuggestionsResponse
     expect(Array.isArray(data.suggestions)).toBe(true)
   })
 })

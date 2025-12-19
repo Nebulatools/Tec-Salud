@@ -1,23 +1,34 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { useState, useEffect, useRef, useMemo } from "react"
+import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Mic, Square, Loader2, FileText, Pause, Play } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useRecording } from "@/hooks/use-recording"
 import { AudioDeviceSelector } from "@/components/recording/audio-device-selector"
+import { TranscriptionValidator } from "@/components/transcription-validation"
+import { EnhancedDiarizedTranscript } from "@/types/transcription-validation"
+import { ConsultationData } from "@/types/consultation"
 
 interface ConsultationRecordingProps {
   appointmentId: string
   patientId?: string
   patientName?: string
-  consultationData: any
-  onComplete: (data: any) => void
-  onDataUpdate?: (updater: any) => void
-  onRecordingStateChange: (isRecording: boolean) => void
+  consultationData: ConsultationData
+  onComplete: (data: RecordingData) => void
+  onDataUpdate?: (updater: ConsultationData | ((prev: ConsultationData) => ConsultationData)) => void
+  onRecordingStateChange: (recording: boolean) => void
   onNavigateToStep: (step: number) => void
+}
+
+interface RecordingData {
+  duration: number
+  startedAt: string
+  processedTranscript: string
+  audioBlob: Blob | null
+  isManualTranscript: boolean
 }
 
 export default function ConsultationRecording({
@@ -44,6 +55,7 @@ export default function ConsultationRecording({
     pauseRecording: globalPauseRecording,
     resumeRecording: globalResumeRecording,
     formatTime,
+    setIsOnConsultationPage,
   } = useRecording()
 
   // Local state for manual mode and UI
@@ -53,14 +65,49 @@ export default function ConsultationRecording({
   const [manualTranscriptMode, setManualTranscriptMode] = useState(false)
   const [isParsing, setIsParsing] = useState(false)
   const [parseError, setParseError] = useState<string | null>(null)
-  const [extractionPreview, setExtractionPreview] = useState<{
+  const [validationCompleted, setValidationCompleted] = useState(false)
+  interface ExtractionPreview {
     patient: { id: string; name: string }
     symptoms: string[]
     diagnoses: string[]
     medications: { name: string; dose?: string; route?: string; frequency?: string; duration?: string }[]
-  } | null>(null)
+    speakerRoles: Record<string, string>
+  }
+
+  const [extractionPreview, setExtractionPreview] = useState<ExtractionPreview | null>(null)
+
+  // Function to replace speaker tags with descriptive names
+  const formatTranscriptWithSpeakers = (text: string, roles: Record<string, string>): string => {
+    if (!text || !roles || Object.keys(roles).length === 0) return text
+
+    let formatted = text
+    // Replace various speaker formats: [Speaker 0], [Speaker 1], SPEAKER_0, etc.
+    for (const [speakerId, role] of Object.entries(roles)) {
+      // Handle "SPEAKER_0" format
+      const regex1 = new RegExp(`\\[?${speakerId}\\]?:?`, 'gi')
+      // Handle "[Speaker 0]" format
+      const speakerNum = speakerId.replace(/\D/g, '')
+      const regex2 = new RegExp(`\\[Speaker\\s*${speakerNum}\\]:?`, 'gi')
+
+      formatted = formatted.replace(regex1, `[${role}]:`)
+      formatted = formatted.replace(regex2, `[${role}]:`)
+    }
+    return formatted
+  }
 
   const lastParsedRef = useRef<string>("")
+
+  // Check if word-level data is available for validation UI
+  const hasWordLevelData = useMemo(() => {
+    if (!globalTranscript?.segments) return false
+    return globalTranscript.segments.some(s => s.words && s.words.length > 0)
+  }, [globalTranscript])
+
+  // Cast to enhanced transcript type when word-level data is available
+  const enhancedTranscript = useMemo<EnhancedDiarizedTranscript | null>(() => {
+    if (!hasWordLevelData || !globalTranscript) return null
+    return globalTranscript as unknown as EnhancedDiarizedTranscript
+  }, [hasWordLevelData, globalTranscript])
 
   // Derive recording state from global context
   const isRecording = globalSession?.appointmentId === appointmentId && isRecordingActive
@@ -93,6 +140,12 @@ export default function ConsultationRecording({
   useEffect(() => {
     onRecordingStateChange(isRecording)
   }, [isRecording, onRecordingStateChange])
+
+  // Track when user is on consultation page to skip stop modal
+  useEffect(() => {
+    setIsOnConsultationPage(true)
+    return () => setIsOnConsultationPage(false)
+  }, [setIsOnConsultationPage])
 
   const handleStartRecording = async () => {
     try {
@@ -143,35 +196,57 @@ export default function ConsultationRecording({
       if (!res.ok) {
         throw new Error(`Parse error ${res.status}`)
       }
-      const parsed = await res.json()
+      const parsed = await res.json() as {
+        patient?: { id?: string; name?: string }
+        symptoms?: unknown[]
+        diagnoses?: unknown[]
+        medications?: unknown[]
+        speakerRoles?: Record<string, unknown>
+      }
+
+      // Sanitize speakerRoles
+      const safeSpeakerRoles: Record<string, string> = {}
+      if (parsed?.speakerRoles && typeof parsed.speakerRoles === 'object') {
+        for (const [key, value] of Object.entries(parsed.speakerRoles)) {
+          if (typeof value === 'string') {
+            safeSpeakerRoles[key] = value
+          }
+        }
+      }
 
       // Basic sanitize
-      const safe = {
+      const safe: ExtractionPreview = {
         patient: {
           id: typeof parsed?.patient?.id === 'string' ? parsed.patient.id : (patientId || ''),
           name: typeof parsed?.patient?.name === 'string' ? parsed.patient.name : ''
         },
-        symptoms: Array.isArray(parsed?.symptoms) ? parsed.symptoms.filter((s: any) => typeof s === 'string') : [],
-        diagnoses: Array.isArray(parsed?.diagnoses) ? parsed.diagnoses.filter((s: any) => typeof s === 'string') : [],
+        symptoms: Array.isArray(parsed?.symptoms) ? parsed.symptoms.filter((s): s is string => typeof s === 'string') : [],
+        diagnoses: Array.isArray(parsed?.diagnoses) ? parsed.diagnoses.filter((s): s is string => typeof s === 'string') : [],
         medications: Array.isArray(parsed?.medications)
-          ? parsed.medications.map((m: any) => ({
-              name: typeof m?.name === 'string' ? m.name : '',
-              dose: typeof m?.dose === 'string' ? m.dose : '',
-              route: typeof m?.route === 'string' ? m.route : '',
-              frequency: typeof m?.frequency === 'string' ? m.frequency : '',
-              duration: typeof m?.duration === 'string' ? m.duration : ''
-            }))
-          : []
+          ? parsed.medications.map((m: unknown) => {
+              const med = m as { name?: string; dose?: string; route?: string; frequency?: string; duration?: string }
+              return {
+                name: typeof med?.name === 'string' ? med.name : '',
+                dose: typeof med?.dose === 'string' ? med.dose : '',
+                route: typeof med?.route === 'string' ? med.route : '',
+                frequency: typeof med?.frequency === 'string' ? med.frequency : '',
+                duration: typeof med?.duration === 'string' ? med.duration : ''
+              }
+            })
+          : [],
+        speakerRoles: safeSpeakerRoles
       }
 
       setExtractionPreview(safe)
       lastParsedRef.current = text
 
       // Push into shared state (non-blocking)
-      if (typeof (onDataUpdate as any) === 'function') {
+      if (typeof onDataUpdate === 'function') {
         try {
-          (onDataUpdate as any)((prev: any) => ({ ...prev, extractionPreview: safe }))
-        } catch {}
+          onDataUpdate((prev: ConsultationData) => ({ ...prev, extractionPreview: safe }))
+        } catch {
+          // Ignore update errors
+        }
       }
 
       // Persist silently
@@ -183,8 +258,7 @@ export default function ConsultationRecording({
       if (!saveRes.ok) {
         console.warn('Failed to save clinical extraction')
       }
-    } catch (e: any) {
-      console.error('Auto-parse error:', e)
+    } catch {
       setParseError('No se pudo procesar la transcripción automáticamente.')
     } finally {
       setIsParsing(false)
@@ -200,6 +274,7 @@ export default function ConsultationRecording({
       const t = setTimeout(() => triggerParseAndPersist(transcript), 150)
       return () => clearTimeout(t)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isTranscribing, transcript, manualTranscriptMode])
 
   // Debounced auto-parse for manual transcript
@@ -208,6 +283,7 @@ export default function ConsultationRecording({
       const t = setTimeout(() => triggerParseAndPersist(transcript), 1000)
       return () => clearTimeout(t)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [manualTranscriptMode, transcript])
 
   const handleComplete = () => {
@@ -315,61 +391,109 @@ export default function ConsultationRecording({
             </div>
           )}
 
-          {/* Textarea para grabación/transcripción automática */}
+          {/* Transcription validation UI or simple textarea */}
           {(transcript || isTranscribing) && !manualTranscriptMode && (
             <div className="space-y-4">
-              <Textarea
-                value={transcript}
-                onChange={(e) => setTranscript(e.target.value)}
-                placeholder={isTranscribing ? "Transcribiendo..." : "La transcripción aparecerá aquí o puedes escribir manualmente..."}
-                className="min-h-[150px] sm:min-h-[200px] text-sm border-gray-300 focus:ring-primary-500 focus:border-primary-500"
-                disabled={isTranscribing}
-              />
-
-              {extractionPreview && (
-                <div className="rounded-lg border border-gray-200 p-4 text-left bg-white">
-                  <p className="text-sm font-semibold text-gray-900 mb-2">Extracción clínica (preview)</p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <p className="text-gray-500">Paciente</p>
-                      <p className="text-gray-900">{extractionPreview.patient.name || '—'}</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-500">Síntomas/Signos</p>
-                      <p className="text-gray-900">{extractionPreview.symptoms.length ? extractionPreview.symptoms.join(', ') : '—'}</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-500">Diagnósticos</p>
-                      <p className="text-gray-900">{extractionPreview.diagnoses.length ? extractionPreview.diagnoses.join(', ') : '—'}</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-500">Tratamiento/Medicación</p>
-                      {extractionPreview.medications.length ? (
-                        <ul className="list-disc pl-5 text-gray-900 space-y-1">
-                          {extractionPreview.medications.map((m, idx) => (
-                            <li key={idx}>{m.name}{m.dose?` • ${m.dose}`:''}{m.route?` • ${m.route}`:''}{m.frequency?` • ${m.frequency}`:''}{m.duration?` • ${m.duration}`:''}</li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <p className="text-gray-900">—</p>
-                      )}
-                    </div>
-                  </div>
-                  {(isParsing || parseError) && (
-                    <div className="mt-2 text-xs text-gray-500">
-                      {isParsing ? 'Procesando extracción...' : parseError}
+              {/* Show TranscriptionValidator when word-level data is available and validation not completed */}
+              {enhancedTranscript && !validationCompleted && !isTranscribing ? (
+                <TranscriptionValidator
+                  transcript={enhancedTranscript}
+                  audioBlob={globalAudioBlob}
+                  speakerRoles={extractionPreview?.speakerRoles}
+                  extractionPreview={extractionPreview ?? undefined}
+                  onValidationComplete={(validatedText, corrections) => {
+                    console.log('Validation completed with', corrections.length, 'corrections')
+                    setTranscript(validatedText)
+                    setValidationCompleted(true)
+                    // Trigger re-parsing with corrected transcript
+                    if (corrections.length > 0) {
+                      triggerParseAndPersist(validatedText)
+                    }
+                  }}
+                  onCancel={() => {
+                    // Skip validation and use original transcript
+                    setValidationCompleted(true)
+                  }}
+                />
+              ) : (
+                /* Fallback: simple textarea when no word-level data or validation completed */
+                <>
+                  {/* Speaker roles indicator */}
+                  {extractionPreview?.speakerRoles && Object.keys(extractionPreview.speakerRoles).length > 0 && (
+                    <div className="flex flex-wrap items-center justify-center gap-2 text-sm">
+                      <span className="text-gray-500">Participantes detectados:</span>
+                      {Object.entries(extractionPreview.speakerRoles).map(([speakerId, role]) => (
+                        <span
+                          key={speakerId}
+                          className={cn(
+                            "px-2 py-1 rounded-full text-xs font-medium",
+                            role === "Doctor" ? "bg-blue-100 text-blue-700" :
+                            role === "Paciente" ? "bg-green-100 text-green-700" :
+                            "bg-purple-100 text-purple-700"
+                          )}
+                        >
+                          {role}
+                        </span>
+                      ))}
                     </div>
                   )}
-                </div>
-              )}
 
-              {transcript && !isTranscribing && (
-                <Button 
-                  onClick={handleComplete}
-                  className="w-full bg-orange-500 hover:bg-orange-600"
-                >
-                  Continuar con esta transcripción →
-                </Button>
+                  <Textarea
+                    value={extractionPreview?.speakerRoles
+                      ? formatTranscriptWithSpeakers(transcript, extractionPreview.speakerRoles)
+                      : transcript}
+                    onChange={(e) => setTranscript(e.target.value)}
+                    placeholder={isTranscribing ? "Transcribiendo..." : "La transcripción aparecerá aquí o puedes escribir manualmente..."}
+                    className="min-h-[150px] sm:min-h-[200px] text-sm border-gray-300 focus:ring-primary-500 focus:border-primary-500"
+                    disabled={isTranscribing}
+                  />
+
+                  {extractionPreview && (
+                    <div className="rounded-lg border border-gray-200 p-4 text-left bg-white">
+                      <p className="text-sm font-semibold text-gray-900 mb-2">Extracción clínica (preview)</p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <p className="text-gray-500">Paciente</p>
+                          <p className="text-gray-900">{extractionPreview.patient.name || '—'}</p>
+                        </div>
+                        <div>
+                          <p className="text-gray-500">Síntomas/Signos</p>
+                          <p className="text-gray-900">{extractionPreview.symptoms.length ? extractionPreview.symptoms.join(', ') : '—'}</p>
+                        </div>
+                        <div>
+                          <p className="text-gray-500">Diagnósticos</p>
+                          <p className="text-gray-900">{extractionPreview.diagnoses.length ? extractionPreview.diagnoses.join(', ') : '—'}</p>
+                        </div>
+                        <div>
+                          <p className="text-gray-500">Tratamiento/Medicación</p>
+                          {extractionPreview.medications.length ? (
+                            <ul className="list-disc pl-5 text-gray-900 space-y-1">
+                              {extractionPreview.medications.map((m, idx) => (
+                                <li key={idx}>{m.name}{m.dose?` • ${m.dose}`:''}{m.route?` • ${m.route}`:''}{m.frequency?` • ${m.frequency}`:''}{m.duration?` • ${m.duration}`:''}</li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="text-gray-900">—</p>
+                          )}
+                        </div>
+                      </div>
+                      {(isParsing || parseError) && (
+                        <div className="mt-2 text-xs text-gray-500">
+                          {isParsing ? 'Procesando extracción...' : parseError}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {transcript && !isTranscribing && (
+                    <Button
+                      onClick={handleComplete}
+                      className="w-full bg-orange-500 hover:bg-orange-600"
+                    >
+                      Continuar con esta transcripción →
+                    </Button>
+                  )}
+                </>
               )}
             </div>
           )}

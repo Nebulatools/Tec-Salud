@@ -23,6 +23,17 @@ export interface RecordingSession {
 }
 
 /**
+ * Word-level data from Replicate whisper-diarization
+ * Includes confidence score (probability) for transcription validation
+ */
+export interface TranscriptWord {
+  word: string
+  probability: number // 0-1 confidence score from Whisper
+  start?: number      // Start timestamp in seconds (if available)
+  end?: number        // End timestamp in seconds (if available)
+}
+
+/**
  * A single segment from the diarized transcript
  * Speaker is kept as raw SPEAKER_00, SPEAKER_01, etc.
  */
@@ -31,6 +42,7 @@ export interface TranscriptSegment {
   end: number
   text: string
   speaker: string // SPEAKER_00, SPEAKER_01, etc.
+  words?: TranscriptWord[] // Word-level data with confidence scores
 }
 
 /**
@@ -111,6 +123,9 @@ export interface RecordingContextValue extends RecordingState, RecordingActions 
   togglePillExpanded: () => void
   showStopModal: boolean
   setShowStopModal: (show: boolean) => void
+  // Consultation page tracking - when true, modal is skipped on stop
+  isOnConsultationPage: boolean
+  setIsOnConsultationPage: (isOn: boolean) => void
   // Audio device management
   audioDevices: AudioDeviceState
   deviceActions: AudioDeviceActions

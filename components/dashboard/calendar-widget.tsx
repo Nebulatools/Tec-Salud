@@ -27,13 +27,9 @@ export default function CalendarWidget() {
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [currentDate, setCurrentDate] = useState(new Date())
   const [selectedDate, setSelectedDate] = useState(new Date())
-  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetchAppointments()
-  }, [user, currentDate])
-
-  const fetchAppointments = async () => {
+    const fetchAppointments = async () => {
     if (!user) return
 
     try {
@@ -63,22 +59,22 @@ export default function CalendarWidget() {
         .order("appointment_date", { ascending: true })
 
       if (data) {
-        const formattedAppointments: Appointment[] = data.map((apt: any) => ({
-          id: apt.id,
-          appointment_date: apt.appointment_date,
-          start_time: apt.start_time,
-          end_time: apt.end_time,
-          status: apt.status,
-          patient: Array.isArray(apt.patients) ? apt.patients[0] : apt.patients,
+        const formattedAppointments: Appointment[] = data.map((apt: Record<string, unknown>) => ({
+          id: String(apt.id),
+          appointment_date: String(apt.appointment_date),
+          start_time: String(apt.start_time),
+          end_time: String(apt.end_time),
+          status: String(apt.status),
+          patient: (Array.isArray(apt.patients) ? apt.patients[0] : apt.patients) as { first_name: string; last_name: string },
         }))
         setAppointments(formattedAppointments)
       }
     } catch (error) {
       console.error("Error fetching appointments:", error)
-    } finally {
-      setLoading(false)
     }
-  }
+    }
+    void fetchAppointments()
+  }, [user, currentDate])
 
   const getDaysInMonth = () => {
     const year = currentDate.getFullYear()

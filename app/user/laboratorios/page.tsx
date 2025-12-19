@@ -2,14 +2,12 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/hooks/use-auth"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   Upload,
   FileText,
@@ -24,7 +22,7 @@ import {
 
 type LabOrder = {
   id: string
-  recommended_tests: any
+  recommended_tests: Record<string, unknown> | unknown[] | null
   notes: string | null
   status: "pending_upload" | "awaiting_review" | "reviewed"
   doctor: { first_name: string; last_name: string; email: string } | null
@@ -32,64 +30,67 @@ type LabOrder = {
   lab_results: { id: string; storage_path: string; uploaded_at: string; mime_type: string }[]
 }
 
-const labProviders = [
-  { id: "salud-digna", name: "Salud Digna" },
-  { id: "chopo", name: "Laboratorios Chopo" },
-  { id: "similares", name: "Laboratorios Similares" },
-  { id: "olab", name: "OLAB" },
-]
-
 const specialtyIcons: Record<string, React.ReactNode> = {
   Cardiología: <Heart className="h-4 w-4" />,
   Endocrinología: <Activity className="h-4 w-4" />,
   "Medicina Interna": <Stethoscope className="h-4 w-4" />,
 }
 
+// Generate unique timestamp outside of render
+const generateTimestamp = () => Date.now()
+
 export default function LaboratoriosPage() {
   const { user } = useAuth()
-  const router = useRouter()
   const [orders, setOrders] = useState<LabOrder[]>([])
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState<string | null>(null)
   const [status, setStatus] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  const loadOrders = async () => {
-    if (!user) return
-    setLoading(true)
-    setError(null)
+  useEffect(() => {
+    const loadOrders = async () => {
+      if (!user) return
+      setLoading(true)
+      setError(null)
 
-    const { data, error } = await supabase
-      .from("lab_orders")
-      .select(
-        "id, recommended_tests, notes, status, doctor:doctors!lab_orders_doctor_id_fkey(first_name,last_name,email), specialty:specialties(name), lab_results(id, storage_path, uploaded_at, mime_type)"
-      )
-      .eq("patient_user_id", user.id)
-      .order("recommended_at", { ascending: false })
+      const { data, error } = await supabase
+        .from("lab_orders")
+        .select(
+          "id, recommended_tests, notes, status, doctor:doctors!lab_orders_doctor_id_fkey(first_name,last_name,email), specialty:specialties(name), lab_results(id, storage_path, uploaded_at, mime_type)"
+        )
+        .eq("patient_user_id", user.id)
+        .order("recommended_at", { ascending: false })
 
-    if (error) {
-      setError(error.message)
-      setOrders([])
+      if (error) {
+        setError(error.message)
+        setOrders([])
+        setLoading(false)
+        return
+      }
+
+      const mapped =
+        data?.map((row: {
+          id: string
+          recommended_tests: Record<string, unknown> | unknown[] | null
+          notes: string | null
+          status: "pending_upload" | "awaiting_review" | "reviewed"
+          doctor: { first_name: string; last_name: string; email: string } | null
+          specialty: { name: string } | null
+          lab_results: { id: string; storage_path: string; uploaded_at: string; mime_type: string }[] | null
+        }) => ({
+          id: row.id,
+          recommended_tests: row.recommended_tests,
+          notes: row.notes,
+          status: row.status,
+          doctor: row.doctor,
+          specialty: row.specialty,
+          lab_results: row.lab_results ?? [],
+        })) ?? []
+
+      setOrders(mapped)
       setLoading(false)
-      return
     }
 
-    const mapped =
-      data?.map((row: any) => ({
-        id: row.id,
-        recommended_tests: row.recommended_tests,
-        notes: row.notes,
-        status: row.status,
-        doctor: row.doctor,
-        specialty: row.specialty,
-        lab_results: row.lab_results ?? [],
-      })) ?? []
-
-    setOrders(mapped)
-    setLoading(false)
-  }
-
-  useEffect(() => {
     loadOrders()
   }, [user])
 
@@ -99,7 +100,8 @@ export default function LaboratoriosPage() {
     setStatus(null)
     setError(null)
 
-    const path = `lab-results/${orderId}/${Date.now()}-${file.name}`
+    const timestamp = generateTimestamp()
+    const path = `lab-results/${orderId}/${timestamp}-${file.name}`
     const { error: uploadError } = await supabase.storage.from("lab-results").upload(path, file)
 
     if (uploadError) {
@@ -125,41 +127,52 @@ export default function LaboratoriosPage() {
 
     setStatus("¡Resultados cargados! El médico revisará tu estudio.")
     setUploading(null)
-    loadOrders()
+    // Reload orders after upload
+    if (user) {
+      const { data } = await supabase
+        .from("lab_orders")
+        .select(
+          "id, recommended_tests, notes, status, doctor:doctors!lab_orders_doctor_id_fkey(first_name,last_name,email), specialty:specialties(name), lab_results(id, storage_path, uploaded_at, mime_type)"
+        )
+        .eq("patient_user_id", user.id)
+        .order("recommended_at", { ascending: false })
+
+      if (data) {
+        const mapped = data.map((row: {
+          id: string
+          recommended_tests: Record<string, unknown> | unknown[] | null
+          notes: string | null
+          status: "pending_upload" | "awaiting_review" | "reviewed"
+          doctor: { first_name: string; last_name: string; email: string } | null
+          specialty: { name: string } | null
+          lab_results: { id: string; storage_path: string; uploaded_at: string; mime_type: string }[] | null
+        }) => ({
+          id: row.id,
+          recommended_tests: row.recommended_tests,
+          notes: row.notes,
+          status: row.status,
+          doctor: row.doctor,
+          specialty: row.specialty,
+          lab_results: row.lab_results ?? [],
+        }))
+        setOrders(mapped)
+      }
+    }
   }
 
-  const parseTests = (recommended: any) => {
+  const parseTests = (recommended: Record<string, unknown> | unknown[] | null) => {
     if (!recommended) return { tests: [], lab_provider: null, lab_branch: null, lab_branch_address: null }
     if (Array.isArray(recommended)) return { tests: recommended, lab_provider: null, lab_branch: null, lab_branch_address: null }
     if (typeof recommended === "object" && recommended !== null) {
+      const rec = recommended as Record<string, unknown>
       return {
-        tests: recommended.tests ?? [],
-        lab_provider: recommended.lab_provider ?? null,
-        lab_branch: recommended.lab_branch ?? null,
-        lab_branch_address: recommended.lab_branch_address ?? null,
+        tests: Array.isArray(rec.tests) ? rec.tests : [],
+        lab_provider: typeof rec.lab_provider === 'string' ? rec.lab_provider : null,
+        lab_branch: typeof rec.lab_branch === 'string' ? rec.lab_branch : null,
+        lab_branch_address: typeof rec.lab_branch_address === 'string' ? rec.lab_branch_address : null,
       }
     }
     return { tests: [], lab_provider: null, lab_branch: null, lab_branch_address: null }
-  }
-
-  const handleLabChoice = async (orderId: string, choice: string, current: any) => {
-    if (!user) return
-    setStatus(null)
-    setError(null)
-    const parsed = parseTests(current)
-    const payload = { ...parsed, lab_provider: choice }
-    const { error: updateError } = await supabase
-      .from("lab_orders")
-      .update({ recommended_tests: payload })
-      .eq("id", orderId)
-      .eq("patient_user_id", user.id)
-
-    if (updateError) {
-      setError(updateError.message)
-      return
-    }
-    setStatus("Laboratorio guardado.")
-    loadOrders()
   }
 
   const downloadResult = async (path: string) => {
@@ -244,22 +257,12 @@ export default function LaboratoriosPage() {
             <p className="text-sm text-gray-500 mt-1">
               Cuando un especialista te solicite estudios, aparecerán aquí
             </p>
-            <Button
-              className="mt-4"
-              variant="outline"
-              onClick={() => router.push("/user/especialistas")}
-            >
-              Buscar especialista
-            </Button>
           </CardContent>
         </Card>
       ) : (
         <div className="space-y-4">
           {orders.map((order) => {
             const parsed = parseTests(order.recommended_tests)
-            const labLabel = parsed.lab_provider
-              ? labProviders.find((l) => l.id === parsed.lab_provider)?.name ?? parsed.lab_provider
-              : null
 
             return (
               <Card key={order.id} className="overflow-hidden">

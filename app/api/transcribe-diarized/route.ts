@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
         input: {
           file: dataUri,
           language: "es",
-          num_speakers: 2,
+          // num_speakers omitted for automatic detection (supports mom+child, family members, etc.)
           group_segments: true,
           translate: false,
           prompt: "", // Empty for now, can be customized per doctor later
@@ -124,6 +124,7 @@ export async function POST(request: NextRequest) {
         end: seg.end,
         text: seg.text,
         speaker: seg.speaker,
+        words: seg.words || [], // Preserve word-level confidence data for validation UI
       })),
       fullText,
     }

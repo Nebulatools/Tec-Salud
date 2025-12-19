@@ -644,15 +644,19 @@ const SidebarMenuBadge = React.forwardRef<
 ))
 SidebarMenuBadge.displayName = "SidebarMenuBadge"
 
+// Counter for stable skeleton width generation
+let skeletonWidthCounter = 0
+
 const SidebarMenuSkeleton = React.forwardRef<
   HTMLDivElement,
   React.ComponentProps<"div"> & {
     showIcon?: boolean
   }
 >(({ className, showIcon = false, ...props }, ref) => {
-  // Random width between 50 to 90%.
+  // Stable width between 50 to 90% based on counter
   const width = React.useMemo(() => {
-    return `${Math.floor(Math.random() * 40) + 50}%`
+    const value = (skeletonWidthCounter++ % 40) + 50
+    return `${value}%`
   }, [])
 
   return (

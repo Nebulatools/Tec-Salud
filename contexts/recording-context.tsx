@@ -66,6 +66,7 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<RecordingState>(initialState)
   const [isPillExpanded, setIsPillExpanded] = useState(false)
   const [showStopModal, setShowStopModal] = useState(false)
+  const [isOnConsultationPage, setIsOnConsultationPage] = useState(false)
   const [audioDevices, setAudioDevices] = useState<AudioDeviceState>(initialAudioDeviceState)
 
   // Refs for non-serializable objects (MediaRecorder, Blobs)
@@ -351,8 +352,11 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
           audioBlob,
         }))
 
-        // Show modal immediately
-        setShowStopModal(true)
+        // Show modal only if NOT on consultation page (user navigated away)
+        // When on consultation page, TranscriptionValidator handles the flow directly
+        if (!isOnConsultationPage) {
+          setShowStopModal(true)
+        }
 
         // Trigger transcription in background
         try {
@@ -379,7 +383,7 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
 
       mediaRecorderRef.current.stop()
     })
-  }, [])
+  }, [isOnConsultationPage])
 
   const cancelRecording = useCallback(() => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
@@ -418,6 +422,8 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
     togglePillExpanded,
     showStopModal,
     setShowStopModal,
+    isOnConsultationPage,
+    setIsOnConsultationPage,
     startRecording,
     pauseRecording,
     resumeRecording,

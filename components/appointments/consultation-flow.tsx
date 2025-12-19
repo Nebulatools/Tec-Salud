@@ -2,10 +2,8 @@
 
 import { useState, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, Check, FileText, Mic, Shield, Download, Bot } from "lucide-react"
+import { ArrowLeft, Check, FileText, Mic, Bot, Shield, Download } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/components/ui/use-toast"
 import { supabase } from "@/lib/supabase"
@@ -27,8 +25,19 @@ interface ConsultationFlowProps {
 interface StepConfig {
   id: number
   title: string
-  icon: any
-  component: React.ComponentType<any>
+  icon: React.ComponentType<{ className?: string }>
+  component: React.ComponentType<{
+    appointmentId: string
+    consultationData: ConsultationData
+    onComplete: (data?: unknown) => void
+    onDataUpdate?: (data: ConsultationData | ((prev: ConsultationData) => ConsultationData)) => void
+    onNext?: () => void
+    onBack?: () => void
+    onRecordingStateChange?: (recording: boolean) => void
+    onNavigateToStep?: (step: number) => void
+    patientId?: string
+    patientName?: string
+  }>
 }
 
 const steps: StepConfig[] = [
@@ -114,6 +123,7 @@ export default function ConsultationFlow({ appointmentId, patientName, patientId
         }
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stepParam]) // Only run when stepParam changes
 
   // Cargar datos guardados desde Supabase
@@ -149,7 +159,7 @@ export default function ConsultationFlow({ appointmentId, patientName, patientId
               complianceData: null,
               suggestions: Array.isArray(report.ai_suggestions) ? report.ai_suggestions : [],
               isCompliant: String(report.compliance_status || '').includes('compliant'),
-              fecha: (report as any).report_date || new Date().toISOString().split('T')[0]
+              fecha: (report as unknown as { report_date?: string }).report_date || new Date().toISOString().split('T')[0]
             },
             finalReport: null
           }
@@ -159,10 +169,11 @@ export default function ConsultationFlow({ appointmentId, patientName, patientId
           let completed: number[] = []
 
           // Si se guardó estado explícito dentro de ai_suggestions como objeto (caso legacy)
-          if (report.ai_suggestions && typeof report.ai_suggestions === 'object' && (report.ai_suggestions as any).currentStep) {
-            stepToResume = (report.ai_suggestions as any).currentStep || 1
-            completed = (report.ai_suggestions as any).completedSteps || []
-            setConsultationData((report.ai_suggestions as any).consultationData || restoredData)
+          const suggestions = report.ai_suggestions as Record<string, unknown> | null
+          if (suggestions && typeof suggestions === 'object' && suggestions.currentStep) {
+            stepToResume = (suggestions.currentStep as number) || 1
+            completed = (suggestions.completedSteps as number[]) || []
+            setConsultationData((suggestions.consultationData as ConsultationData) || restoredData)
           } else {
             // Inferencia por contenido/estatus
             const hasTranscript = !!report.original_transcript
@@ -207,13 +218,14 @@ export default function ConsultationFlow({ appointmentId, patientName, patientId
         } else {
           console.log('No se encontró reporte, empezando desde el inicio')
         }
-      } catch (error) {
-        console.error('Error cargando datos guardados:', error)
+      } catch {
+        // Error loading saved data
       }
     }
 
     loadSavedData()
-  }, [appointmentId, toast])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appointmentId])
 
   // Guardar progreso automáticamente en Supabase
   useEffect(() => {
@@ -238,7 +250,7 @@ export default function ConsultationFlow({ appointmentId, patientName, patientId
         console.log('¿Tiene reporte IA?:', consultationData?.reportData?.aiGeneratedReport ? 'SÍ' : 'NO')
 
         const isFinalStep = currentStep >= 5
-        let reportType: 'BORRADOR' | 'FINAL' = isFinalStep ? 'FINAL' : 'BORRADOR'
+        const reportType: 'BORRADOR' | 'FINAL' = isFinalStep ? 'FINAL' : 'BORRADOR'
 
         const dataToSave = {
           appointment_id: appointmentId,
@@ -264,7 +276,7 @@ export default function ConsultationFlow({ appointmentId, patientName, patientId
               .eq('id', draftId)
               .single()
             if (existing?.report_type === 'FINAL') {
-              (dataToSave as any).report_type = 'FINAL'
+              (dataToSave as Record<string, unknown>).report_type = 'FINAL'
             }
           } catch {}
           result = await supabase
@@ -284,7 +296,7 @@ export default function ConsultationFlow({ appointmentId, patientName, patientId
             console.log('Reporte encontrado, actualizando:', existingReport.id)
             setDraftId(existingReport.id)
             if (existingReport.report_type === 'FINAL') {
-              (dataToSave as any).report_type = 'FINAL'
+              (dataToSave as Record<string, unknown>).report_type = 'FINAL'
             }
             result = await supabase
               .from('medical_reports')
@@ -304,9 +316,9 @@ export default function ConsultationFlow({ appointmentId, patientName, patientId
             }
           }
         }
-        
+
         // Silenciosamente manejar el resultado sin mostrar logs
-      } catch (error) {
+      } catch {
         // Silenciosamente manejar errores
       }
     }
@@ -314,36 +326,38 @@ export default function ConsultationFlow({ appointmentId, patientName, patientId
     // Guardar después de 2 segundos de cambios
     const timeoutId = setTimeout(saveProgress, 2000)
     return () => clearTimeout(timeoutId)
-  }, [appointmentId, patientId, patientName, currentStep, completedSteps, consultationData])
+  }, [appointmentId, patientId, patientName, currentStep, completedSteps, consultationData, draftId])
 
-  const handleStepComplete = (stepId: number, data?: any) => {
+  const handleStepComplete = (stepId: number, data?: unknown) => {
     console.log('Step completed:', stepId, 'with data:', data)
-    
+
     // Solo añadir a completedSteps si no está ya ahí
     setCompletedSteps(prev => prev.includes(stepId) ? prev : [...prev, stepId])
-    
+
     // Update consultation data - preservar datos existentes
     if (stepId === 1) {
-      setConsultationData(prev => ({ 
-        ...prev, 
-        patientInfo: { 
-          ...prev.patientInfo, 
-          ...data.patientInfo,
+      const stepData = data as { patientInfo: unknown; appointmentDetails: unknown }
+      setConsultationData(prev => ({
+        ...prev,
+        patientInfo: {
+          ...prev.patientInfo,
+          ...(stepData.patientInfo as object),
           id: prev.patientInfo?.id || patientId // Preservar el ID original
         },
-        appointmentDetails: data.appointmentDetails
+        appointmentDetails: stepData.appointmentDetails
       }))
     } else if (stepId === 2) {
-      setConsultationData(prev => ({ ...prev, recordingData: data, transcript: data?.transcript }))
+      const stepData = data as { transcript?: string }
+      setConsultationData(prev => ({ ...prev, recordingData: data, transcript: stepData?.transcript }))
     } else if (stepId === 3) {
       // Paso 3: Compliance Assistant - preservar datos de IA
       console.log('Updating step 3 data:', data)
       setConsultationData(prev => {
-        const updated = { 
-          ...prev, 
+        const updated = {
+          ...prev,
           reportData: {
             ...prev.reportData,
-            ...data
+            ...(data as object)
           }
         }
         console.log('Updated consultation data after step 3:', updated)
@@ -351,11 +365,11 @@ export default function ConsultationFlow({ appointmentId, patientName, patientId
       })
     } else if (stepId === 4) {
       // Paso 4: Verificación - hacer merge para preservar datos de IA del paso 3
-      setConsultationData(prev => ({ 
-        ...prev, 
+      setConsultationData(prev => ({
+        ...prev,
         reportData: {
           ...prev.reportData,
-          ...data
+          ...(data as object)
         }
       }))
     } else if (stepId === 5) {
@@ -385,11 +399,11 @@ export default function ConsultationFlow({ appointmentId, patientName, patientId
       <Component
         appointmentId={appointmentId}
         consultationData={consultationData}
-        onComplete={(data?: any) => handleStepComplete(currentStep, data)}
+        onComplete={(data?: unknown) => handleStepComplete(currentStep, data)}
         onDataUpdate={setConsultationData}
         onNext={() => setCurrentStep(currentStep + 1)}
         onBack={() => setCurrentStep(currentStep - 1)}
-        onRecordingStateChange={setIsRecording}
+        onRecordingStateChange={() => {}}
         onNavigateToStep={handleStepNavigation}
       />
     )

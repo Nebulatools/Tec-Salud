@@ -10,14 +10,12 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
-import { useAuth } from "@/hooks/use-auth"
 import { useAppUser } from "@/hooks/use-app-user"
 import { supabase } from "@/lib/supabase"
 import { Bell, LogOut, User, Settings, Heart } from "lucide-react"
 import { useRouter } from "next/navigation"
 
 export default function UserHeader() {
-  const { user } = useAuth()
   const { appUser } = useAppUser()
   const router = useRouter()
 

@@ -1,17 +1,18 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Printer, Download, Save } from "lucide-react"
 import { useRouter } from "next/navigation"
 import SuccessModal from "@/components/ui/success-modal"
 import { supabase } from "@/lib/supabase"
+import { ConsultationData } from "@/types/consultation"
 
 interface FinalReportProps {
   appointmentId: string
-  consultationData: any
-  onComplete: (data: any) => void
+  consultationData: ConsultationData
+  onComplete: (data: unknown) => void
   onBack?: () => void
 }
 
@@ -20,7 +21,6 @@ export default function FinalReport({ appointmentId, consultationData, onComplet
   const [isSaving, setIsSaving] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [hasChanges, setHasChanges] = useState(false)
-  const [isExistingReport, setIsExistingReport] = useState(false)
   
   // Debug: Log the consultation data received (development only)
   if (process.env.NODE_ENV === 'development') {
@@ -352,7 +352,7 @@ ${originalTranscript}
                       <div className="bg-amber-50 border border-amber-200 rounded-lg p-6 text-center">
                         <p className="text-amber-800 font-medium">No hay reporte generado por IA disponible</p>
                         <p className="text-amber-600 text-sm mt-2">
-                          Por favor, complete el paso de "Asistente de Cumplimiento IA" para generar el reporte médico.
+                          Por favor, complete el paso de &ldquo;Asistente de Cumplimiento IA&rdquo; para generar el reporte médico.
                         </p>
                       </div>
                     )}

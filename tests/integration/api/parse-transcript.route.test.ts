@@ -1,6 +1,24 @@
 import { describe, it, expect, vi } from 'vitest'
 import { POST as parsePOST } from '@/app/api/parse-transcript/route'
 
+interface Medication {
+  name: string
+  dose: string
+  route: string
+  frequency: string
+  duration: string
+}
+
+interface ParseTranscriptResponse {
+  patient: {
+    id: string
+    name: string
+  }
+  symptoms: string[]
+  diagnoses: string[]
+  medications: Medication[]
+}
+
 vi.mock('@google/generative-ai', () => ({
   GoogleGenerativeAI: class {
     getGenerativeModel() {
@@ -25,12 +43,12 @@ vi.mock('@/lib/supabase', () => ({
 describe('/api/parse-transcript', () => {
   it('returns structured JSON and 400 on missing transcript', async () => {
     // Missing transcript
-    const badRes: any = await parsePOST({ json: async () => ({}), url: 'http://test.local/api/parse-transcript' } as any)
+    const badRes = await parsePOST({ json: async () => ({}), url: 'http://test.local/api/parse-transcript' } as unknown as Request)
     expect(badRes.status).toBe(400)
 
-    const okRes: any = await parsePOST({ json: async () => ({ transcript: 'texto', patientId: 'p1' }), url: 'http://test.local/api/parse-transcript' } as any)
+    const okRes = await parsePOST({ json: async () => ({ transcript: 'texto', patientId: 'p1' }), url: 'http://test.local/api/parse-transcript' } as unknown as Request)
     expect(okRes.status).toBe(200)
-    const data = await okRes.json()
+    const data = (await okRes.json()) as unknown as ParseTranscriptResponse
     expect(data.patient).toBeTruthy()
     expect(Array.isArray(data.symptoms)).toBe(true)
   })

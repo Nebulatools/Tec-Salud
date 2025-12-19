@@ -5,21 +5,16 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Textarea } from '@/components/ui/textarea'
-import { Label } from '@/components/ui/label'
 import { Progress } from '@/components/ui/progress'
-import { 
-  AlertCircle, 
-  CheckCircle, 
-  Sparkles, 
+import {
+  AlertCircle,
+  CheckCircle,
+  Sparkles,
   ClipboardList,
   ChevronDown,
   ChevronUp,
-  Send,
-  Loader2,
-  X,
-  Plus
+  Loader2
 } from 'lucide-react'
-import { cn } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/use-auth'
 
@@ -36,9 +31,36 @@ interface MissingField {
   status: 'pending' | 'answered' | 'validated'
 }
 
+interface ConsultationData {
+  transcript?: string
+  recordingData?: {
+    processedTranscript?: string
+  }
+  appointmentDetails?: {
+    appointment_date?: string
+    start_time?: string
+  }
+  reportData?: {
+    reporte?: string
+    aiGeneratedReport?: string
+    complianceData?: ComplianceResponse
+    suggestions?: string[]
+    isCompliant?: boolean
+  }
+}
+
+interface ReportData {
+  reporte: string
+  aiGeneratedReport: string
+  complianceData: ComplianceResponse
+  suggestions: string[]
+  isCompliant: boolean
+  fecha: string
+}
+
 interface ComplianceAssistantProps {
-  consultationData: any
-  onComplete: (data: any) => void
+  consultationData: ConsultationData
+  onComplete: (data: ReportData) => void
   onSkip: () => void
 }
 
@@ -113,15 +135,15 @@ export default function ComplianceAssistantV2({ consultationData, onComplete, on
         
         if (suggestionsResponse.ok) {
           const suggestionsData = await suggestionsResponse.json()
-          setSuggestions(suggestionsData.suggestions?.filter((s: any) => typeof s === 'string') || [])
+          setSuggestions(suggestionsData.suggestions?.filter((s: unknown) => typeof s === 'string') || [])
         }
       }
-    } catch (error) {
+    } catch {
       // Silently handle error
     } finally {
       setIsLoading(false)
     }
-  }, [consultationData])
+  }, [consultationData, doctorName])
 
   useEffect(() => {
     analyzeCompliance()
@@ -191,7 +213,7 @@ export default function ComplianceAssistantV2({ consultationData, onComplete, on
       const completedFields = totalFields - pendingFields
       setCompliancePercentage((completedFields / totalFields) * 100)
 
-    } catch (error) {
+    } catch {
       // Silently handle error
     } finally {
       setIsRevalidating(false)

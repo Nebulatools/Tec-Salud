@@ -45,6 +45,7 @@ export default function AddAppointmentForm({ onSuccess, onCancel }: AddAppointme
 
   useEffect(() => {
     fetchPatients()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user])
 
   const fetchPatients = async () => {
@@ -123,8 +124,8 @@ export default function AddAppointmentForm({ onSuccess, onCancel }: AddAppointme
         })
         setPatients(filtered)
       }
-    } catch (error) {
-      console.error("Error fetching patients:", error)
+    } catch {
+      // Error fetching patients
     }
   }
 
@@ -161,7 +162,7 @@ export default function AddAppointmentForm({ onSuccess, onCancel }: AddAppointme
       } else {
         onSuccess()
       }
-    } catch (error) {
+    } catch {
       setError("Error al crear la cita")
     } finally {
       setLoading(false)

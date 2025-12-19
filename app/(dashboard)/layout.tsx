@@ -3,7 +3,7 @@
 
 import type React from "react"
 
-import { useEffect, useState } from "react"
+import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/hooks/use-auth"
 import { useAppUser } from "@/hooks/use-app-user"
@@ -21,7 +21,6 @@ export default function DashboardLayout({
   const { user, loading } = useAuth()
   const { role, loading: profileLoading } = useAppUser()
   const router = useRouter()
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
   useEffect(() => {
     if (!loading && !user) {
@@ -34,14 +33,6 @@ export default function DashboardLayout({
       router.push("/user")
     }
   }, [profileLoading, role, router])
-
-  // Load sidebar state from localStorage
-  useEffect(() => {
-    const saved = localStorage.getItem("sidebar-collapsed")
-    if (saved) {
-      setSidebarCollapsed(JSON.parse(saved))
-    }
-  }, [])
 
   if (loading || profileLoading) {
     return (
@@ -58,7 +49,7 @@ export default function DashboardLayout({
   return (
     <RecordingProvider>
       <div className="min-h-screen bg-zuli-mesh flex">
-        <Sidebar onCollapseChange={setSidebarCollapsed} />
+        <Sidebar onCollapseChange={() => {}} />
 
         {/* Main content area that takes remaining space */}
         <div className="flex-1 transition-all duration-300 ease-in-out">
