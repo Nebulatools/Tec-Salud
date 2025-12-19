@@ -343,7 +343,17 @@ export default function ComplianceAssistant({
       })
 
       if (!complianceResponse.ok) {
-        throw new Error('Failed to analyze compliance')
+        let details = ''
+        try {
+          const err = await complianceResponse.json()
+          details = err?.error ? String(err.error) : ''
+          if (err?.details) {
+            details = details ? `${details} - ${String(err.details)}` : String(err.details)
+          }
+        } catch {
+          // Ignore error parsing
+        }
+        throw new Error(details ? `Failed to analyze compliance: ${details}` : 'Failed to analyze compliance')
       }
 
       const complianceResult: ComplianceResponse = await complianceResponse.json()

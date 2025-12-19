@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
         },
       ],
       temperature: 0.1,
-      max_tokens: 8192,
+      max_tokens: 4096,
       response_format: { type: 'json_object' },
     })
 
@@ -97,7 +97,35 @@ export async function POST(request: NextRequest) {
     console.log('AI Response preview:', text.substring(0, 200))
 
     try {
-      const parsedResponse = JSON.parse(text)
+      const trySafeParse = (t: string) => {
+        try {
+          return JSON.parse(t)
+        } catch {
+          const start = t.indexOf('{')
+          if (start === -1) return null
+          let candidate = t.slice(start)
+          const lastBrace = candidate.lastIndexOf('}')
+          if (lastBrace > 0 && lastBrace < candidate.length - 1) {
+            candidate = candidate.slice(0, lastBrace + 1)
+          }
+          let openCurly = 0
+          for (const ch of candidate) {
+            if (ch === '{') openCurly++
+            else if (ch === '}') openCurly = Math.max(0, openCurly - 1)
+          }
+          candidate += '}'.repeat(openCurly)
+          try {
+            return JSON.parse(candidate)
+          } catch {
+            return null
+          }
+        }
+      }
+
+      const parsedResponse = trySafeParse(text)
+      if (!parsedResponse) {
+        throw new Error('Invalid JSON payload')
+      }
       console.log('Successfully parsed AI response')
       return NextResponse.json(parsedResponse)
     } catch (parseError) {

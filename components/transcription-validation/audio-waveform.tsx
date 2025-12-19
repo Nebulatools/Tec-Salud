@@ -100,9 +100,6 @@ export function AudioWaveform({
     let isMounted = true
     let ws: WaveSurfer | null = null
 
-    // Create URL from blob
-    const url = URL.createObjectURL(audioBlob)
-
     // Initialize WaveSurfer
     ws = WaveSurfer.create({
       container: containerRef.current,
@@ -120,8 +117,13 @@ export function AudioWaveform({
 
     wavesurferRef.current = ws
 
-    // Load audio
-    ws.load(url)
+    // Load audio from blob to avoid fetch aborts during unmount
+    ws.loadBlob(audioBlob).catch((error) => {
+      if (error?.name === 'AbortError' || String(error).includes('aborted')) {
+        return
+      }
+      console.error('WaveSurfer load error:', error)
+    })
 
     // Event handlers - check isMounted before updating state
     ws.on('ready', () => {
@@ -177,7 +179,6 @@ export function AudioWaveform({
         }
       }, 0)
 
-      URL.revokeObjectURL(url)
       setIsReady(false)
     }
   }, [audioBlob]) // eslint-disable-line react-hooks/exhaustive-deps
