@@ -525,11 +525,19 @@ export default function ConsultationRecording({
                             diagnoses={extractionPreview.structuredDiagnoses || []}
                             legacyDiagnoses={extractionPreview.diagnoses}
                             onUpdate={(updated) => {
-                              setExtractionPreview(prev => prev ? {
-                                ...prev,
+                              const newPreview = {
+                                ...extractionPreview,
                                 structuredDiagnoses: updated,
                                 diagnoses: updated.map(d => d.original_text)
-                              } : null)
+                              }
+                              setExtractionPreview(newPreview)
+                              // Propagate to consultationData so changes flow to next steps
+                              if (typeof onDataUpdate === 'function') {
+                                onDataUpdate((prev: ConsultationData) => ({
+                                  ...prev,
+                                  extractionPreview: newPreview
+                                }))
+                              }
                             }}
                             editable={true}
                             showVerifyAll={true}
@@ -662,11 +670,19 @@ export default function ConsultationRecording({
                         diagnoses={extractionPreview.structuredDiagnoses || []}
                         legacyDiagnoses={extractionPreview.diagnoses}
                         onUpdate={(updated) => {
-                          setExtractionPreview(prev => prev ? {
-                            ...prev,
+                          const newPreview = {
+                            ...extractionPreview,
                             structuredDiagnoses: updated,
                             diagnoses: updated.map(d => d.original_text)
-                          } : null)
+                          }
+                          setExtractionPreview(newPreview)
+                          // Propagate to consultationData so changes flow to next steps
+                          if (typeof onDataUpdate === 'function') {
+                            onDataUpdate((prev: ConsultationData) => ({
+                              ...prev,
+                              extractionPreview: newPreview
+                            }))
+                          }
                         }}
                         editable={true}
                         showVerifyAll={true}
