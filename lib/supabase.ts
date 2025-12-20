@@ -1,5 +1,6 @@
 // Supabase configuration and client setup with corrected types
 import { createClient } from "@supabase/supabase-js"
+import type { StructuredDiagnosis } from "@/types/icd"
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -252,6 +253,7 @@ export type Database = {
           patient_snapshot: unknown | null
           symptoms: string[]
           diagnoses: string[]
+          structured_diagnoses: StructuredDiagnosis[]
           medications: {
             name: string
             dose?: string | null
@@ -270,6 +272,7 @@ export type Database = {
           patient_snapshot?: unknown | null
           symptoms?: string[]
           diagnoses?: string[]
+          structured_diagnoses?: StructuredDiagnosis[]
           medications?: {
             name: string
             dose?: string | null
@@ -288,6 +291,7 @@ export type Database = {
           patient_snapshot?: unknown | null
           symptoms?: string[]
           diagnoses?: string[]
+          structured_diagnoses?: StructuredDiagnosis[]
           medications?: {
             name: string
             dose?: string | null
@@ -609,6 +613,41 @@ export type Database = {
           error?: string | null
           requested_at?: string
           completed_at?: string | null
+        }
+      }
+      icd_codes_cache: {
+        Row: {
+          id: string
+          icd_version: "10" | "11"
+          code: string
+          title: string
+          title_es: string | null
+          uri: string | null
+          parent_code: string | null
+          search_keywords: string[] | null
+          cached_at: string
+        }
+        Insert: {
+          id?: string
+          icd_version: "10" | "11"
+          code: string
+          title: string
+          title_es?: string | null
+          uri?: string | null
+          parent_code?: string | null
+          search_keywords?: string[] | null
+          cached_at?: string
+        }
+        Update: {
+          id?: string
+          icd_version?: "10" | "11"
+          code?: string
+          title?: string
+          title_es?: string | null
+          uri?: string | null
+          parent_code?: string | null
+          search_keywords?: string[] | null
+          cached_at?: string
         }
       }
     }

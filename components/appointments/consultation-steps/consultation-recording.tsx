@@ -10,6 +10,8 @@ import { useRecording } from "@/hooks/use-recording"
 import { AudioDeviceSelector } from "@/components/recording/audio-device-selector"
 import { TranscriptionValidator } from "@/components/transcription-validation"
 import { EnhancedDiarizedTranscript } from "@/types/transcription-validation"
+import { DiagnosisEditor } from "@/components/diagnoses"
+import type { StructuredDiagnosis } from "@/types/icd"
 
 import { ConsultationData } from "@/types/consultation"
 import { AIProgressIndicator, TRANSCRIPTION_STEPS, AIProgressStatus } from "@/components/ui/ai-progress-indicator"
@@ -72,6 +74,7 @@ export default function ConsultationRecording({
     patient: { id: string; name: string }
     symptoms: string[]
     diagnoses: string[]
+    structuredDiagnoses?: StructuredDiagnosis[]
     medications: { name: string; dose?: string; route?: string; frequency?: string; duration?: string }[]
     speakerRoles: Record<string, string>
   }
@@ -244,6 +247,7 @@ export default function ConsultationRecording({
         patient?: { id?: string; name?: string }
         symptoms?: unknown[]
         diagnoses?: unknown[]
+        structuredDiagnoses?: StructuredDiagnosis[]
         medications?: unknown[]
         speakerRoles?: Record<string, unknown>
       }
@@ -266,6 +270,7 @@ export default function ConsultationRecording({
         },
         symptoms: Array.isArray(parsed?.symptoms) ? parsed.symptoms.filter((s): s is string => typeof s === 'string') : [],
         diagnoses: Array.isArray(parsed?.diagnoses) ? parsed.diagnoses.filter((s): s is string => typeof s === 'string') : [],
+        structuredDiagnoses: Array.isArray(parsed?.structuredDiagnoses) ? parsed.structuredDiagnoses : [],
         medications: Array.isArray(parsed?.medications)
           ? parsed.medications.map((m: unknown) => {
               const med = m as { name?: string; dose?: string; route?: string; frequency?: string; duration?: string }
@@ -514,9 +519,21 @@ export default function ConsultationRecording({
                           <p className="text-gray-500">Síntomas/Signos</p>
                           <p className="text-gray-900">{extractionPreview.symptoms.length ? extractionPreview.symptoms.join(', ') : '—'}</p>
                         </div>
-                        <div>
-                          <p className="text-gray-500">Diagnósticos</p>
-                          <p className="text-gray-900">{extractionPreview.diagnoses.length ? extractionPreview.diagnoses.join(', ') : '—'}</p>
+                        <div className="md:col-span-2">
+                          <p className="text-gray-500 mb-2">Diagnósticos (CIE-11)</p>
+                          <DiagnosisEditor
+                            diagnoses={extractionPreview.structuredDiagnoses || []}
+                            legacyDiagnoses={extractionPreview.diagnoses}
+                            onUpdate={(updated) => {
+                              setExtractionPreview(prev => prev ? {
+                                ...prev,
+                                structuredDiagnoses: updated,
+                                diagnoses: updated.map(d => d.original_text)
+                              } : null)
+                            }}
+                            editable={true}
+                            showVerifyAll={true}
+                          />
                         </div>
                         <div>
                           <p className="text-gray-500">Tratamiento/Medicación</p>
@@ -639,11 +656,23 @@ export default function ConsultationRecording({
                       <p className="text-gray-500">Síntomas/Signos</p>
                       <p className="text-gray-900">{extractionPreview.symptoms.length ? extractionPreview.symptoms.join(', ') : '—'}</p>
                     </div>
-                    <div>
-                      <p className="text-gray-500">Diagnósticos</p>
-                      <p className="text-gray-900">{extractionPreview.diagnoses.length ? extractionPreview.diagnoses.join(', ') : '—'}</p>
+                    <div className="md:col-span-2">
+                      <p className="text-gray-500 mb-2">Diagnósticos (CIE-11)</p>
+                      <DiagnosisEditor
+                        diagnoses={extractionPreview.structuredDiagnoses || []}
+                        legacyDiagnoses={extractionPreview.diagnoses}
+                        onUpdate={(updated) => {
+                          setExtractionPreview(prev => prev ? {
+                            ...prev,
+                            structuredDiagnoses: updated,
+                            diagnoses: updated.map(d => d.original_text)
+                          } : null)
+                        }}
+                        editable={true}
+                        showVerifyAll={true}
+                      />
                     </div>
-                    <div>
+                    <div className="md:col-span-2">
                       <p className="text-gray-500">Tratamiento/Medicación</p>
                       {extractionPreview.medications.length ? (
                         <ul className="list-disc pl-5 text-gray-900 space-y-1">
@@ -663,7 +692,7 @@ export default function ConsultationRecording({
                   )}
                 </div>
               )}
-              
+
               <div className="flex gap-3">
                 <Button 
                   onClick={() => {

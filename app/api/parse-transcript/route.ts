@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ai, MODEL } from '@/lib/ai/openrouter'
 import { supabase } from '@/lib/supabase'
+import { autocodeDiagnoses } from '@/lib/icd-api-client'
+import type { StructuredDiagnosis } from '@/types/icd'
 
 const EXTRACTION_PROMPT = `
 ROL Y MISIÓN
@@ -188,7 +190,32 @@ export async function POST(request: NextRequest) {
       speakerRoles: safeSpeakerRoles(rawObj?.speakerRoles),
     }
 
-    return NextResponse.json(sanitized)
+    // Autocode diagnoses to ICD-11 (parallel, non-blocking on failure)
+    let structuredDiagnoses: StructuredDiagnosis[] = []
+    if (sanitized.diagnoses.length > 0) {
+      try {
+        console.log('Autocoding diagnoses to ICD-11...')
+        structuredDiagnoses = await autocodeDiagnoses(sanitized.diagnoses)
+        console.log('ICD autocode results:', structuredDiagnoses.map(d => `${d.original_text} → ${d.icd11_code || 'N/A'}`))
+      } catch (error) {
+        console.warn('ICD autocode failed, continuing without codes:', error)
+        // Fallback: create structured diagnoses without codes
+        structuredDiagnoses = sanitized.diagnoses.map(text => ({
+          original_text: text,
+          icd11_code: null,
+          icd11_title: null,
+          icd11_uri: null,
+          confidence: 0,
+          verified_by_doctor: false,
+          coded_at: null,
+        }))
+      }
+    }
+
+    return NextResponse.json({
+      ...sanitized,
+      structuredDiagnoses,
+    })
   } catch (error) {
     console.error('Error in parse-transcript API:', error)
     return NextResponse.json(
