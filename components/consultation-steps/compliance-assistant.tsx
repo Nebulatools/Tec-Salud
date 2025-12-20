@@ -337,6 +337,8 @@ export default function ComplianceAssistant({
       // Call compliance API
       setComplianceProgressStep(1) // Generating report
       const transcript = consultationData.transcript || consultationData.recordingData?.processedTranscript
+      // Include structured diagnoses with ICD codes if available
+      const structuredDiagnoses = (consultationData as any).extractionPreview?.structuredDiagnoses || []
       const complianceResponse = await fetch('/api/enrich-report', {
         method: 'POST',
         headers: {
@@ -344,7 +346,8 @@ export default function ComplianceAssistant({
         },
         body: JSON.stringify({
           transcript: transcript,
-          additionalInfo: answers
+          additionalInfo: answers,
+          structuredDiagnoses: structuredDiagnoses
         }),
       })
 
@@ -484,6 +487,8 @@ export default function ComplianceAssistant({
       }
 
       // Llamar a la API con las respuestas adicionales usando el nuevo formato
+      // Include structured diagnoses with ICD codes
+      const structuredDiagnoses = (consultationData as any).extractionPreview?.structuredDiagnoses || []
       const complianceResponse = await fetch('/api/enrich-report', {
         method: 'POST',
         headers: {
@@ -491,7 +496,8 @@ export default function ComplianceAssistant({
         },
         body: JSON.stringify({
           transcript: consultationData.transcript || consultationData.recordingData?.processedTranscript || '',
-          additionalInfo: [...baseline, ...answeredQuestions]
+          additionalInfo: [...baseline, ...answeredQuestions],
+          structuredDiagnoses: structuredDiagnoses
         }),
       })
 

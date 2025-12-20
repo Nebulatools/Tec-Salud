@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ai, MODEL } from '@/lib/ai/openrouter'
+import type { StructuredDiagnosis } from '@/types/icd'
 
 const COMPLIANCE_PROMPT = `ROL Y MISIÓN
 Eres un Asistente de Documentación Médica especializado en Cumplimiento Normativo. Tu misión es tomar la transcripción de una consulta médica y transformarla en un reporte profesional que cumpla rigurosamente con los estándares de documentación requeridos. Eres un experto en estructurar información clínica y en identificar lagunas de información de acuerdo a un marco regulatorio estricto.
@@ -61,9 +62,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { transcript, additionalInfo } = await request.json()
+    const { transcript, additionalInfo, structuredDiagnoses } = await request.json()
     console.log('Received transcript length:', transcript?.length || 0)
     console.log('Additional info provided:', additionalInfo?.length || 0)
+    console.log('Structured diagnoses provided:', structuredDiagnoses?.length || 0)
 
     if (!transcript) {
       return NextResponse.json({ error: 'Transcript is required' }, { status: 400 })
@@ -75,6 +77,18 @@ export async function POST(request: NextRequest) {
       fullTranscript += '\n\n=== INFORMACIÓN ADICIONAL PROPORCIONADA POR EL MÉDICO ===\n'
       additionalInfo.forEach((info: { question: string; answer: string }) => {
         fullTranscript += `\nPregunta: ${info.question}\nRespuesta: ${info.answer}\n`
+      })
+    }
+
+    // Si hay diagnósticos estructurados con códigos ICD, agrégalos al contexto
+    if (structuredDiagnoses && structuredDiagnoses.length > 0) {
+      fullTranscript += '\n\n=== DIAGNÓSTICOS CON CÓDIGOS CIE-11 (YA CODIFICADOS) ===\n'
+      fullTranscript += 'IMPORTANTE: Incluye estos diagnósticos con sus códigos CIE-11 en la sección de Diagnóstico del reporte.\n\n'
+      structuredDiagnoses.forEach((diag: StructuredDiagnosis, index: number) => {
+        const code = diag.icd11_code || 'Sin código'
+        const title = diag.icd11_title || diag.original_text
+        const verified = diag.verified_by_doctor ? '✓ Verificado' : 'Pendiente verificación'
+        fullTranscript += `${index + 1}. [${code}] ${title} (${verified})\n`
       })
     }
 

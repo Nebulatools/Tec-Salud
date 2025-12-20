@@ -8,6 +8,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Edit, Send, Mic, Plus, CheckCircle2 } from "lucide-react"
 import { supabase } from "@/lib/supabase"
+import { DiagnosisPreview } from "@/components/diagnoses"
+import type { StructuredDiagnosis } from "@/types/icd"
 
 interface ReportVerificationProps {
   appointmentId: string
@@ -281,9 +283,21 @@ export default function ReportVerification({ appointmentId, consultationData, on
           )}
         </div>
 
+        {/* Diagnósticos con códigos CIE-11 */}
+        {consultationData?.extractionPreview?.structuredDiagnoses &&
+         consultationData.extractionPreview.structuredDiagnoses.length > 0 && (
+          <div className="border-t pt-6">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Diagnósticos Codificados (CIE-11)</h3>
+            <DiagnosisPreview
+              diagnoses={consultationData.extractionPreview.structuredDiagnoses as StructuredDiagnosis[]}
+              format="table"
+            />
+          </div>
+        )}
+
         {/* Action Buttons */}
         <div className="flex justify-between items-center pt-4">
-          <Button 
+          <Button
             variant="outline"
             onClick={handleSave}
             className="text-gray-600"
