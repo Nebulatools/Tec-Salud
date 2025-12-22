@@ -10,8 +10,11 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 type BaselineState = {
+  date_of_birth: string
+  gender: string
   blood_type: string
   height_cm: string
   weight_kg: string
@@ -29,6 +32,8 @@ export function BaselineForm() {
   const [status, setStatus] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [form, setForm] = useState<BaselineState>({
+    date_of_birth: "",
+    gender: "",
     blood_type: "",
     height_cm: "",
     weight_kg: "",
@@ -50,6 +55,8 @@ export function BaselineForm() {
 
       if (data) {
         setForm({
+          date_of_birth: (data.general_info as any)?.date_of_birth ?? "",
+          gender: (data.general_info as any)?.gender ?? "",
           blood_type: (data.general_info as any)?.blood_type ?? "",
           height_cm: (data.vitals as any)?.height_cm ?? "",
           weight_kg: (data.vitals as any)?.weight_kg ?? "",
@@ -73,6 +80,8 @@ export function BaselineForm() {
     setError(null)
 
     const general_info = {
+      date_of_birth: form.date_of_birth || null,
+      gender: form.gender || null,
       blood_type: form.blood_type,
       allergies: form.allergies,
     }
@@ -103,6 +112,18 @@ export function BaselineForm() {
       return
     }
 
+    // Sincronizar date_of_birth y gender a la tabla patients
+    if (form.date_of_birth || form.gender) {
+      const updateData: { date_of_birth?: string; gender?: string } = {}
+      if (form.date_of_birth) updateData.date_of_birth = form.date_of_birth
+      if (form.gender) updateData.gender = form.gender
+
+      await supabase
+        .from("patients")
+        .update(updateData)
+        .eq("user_id", user.id)
+    }
+
     await supabase.from("patient_profiles").upsert({
       id: user.id,
       baseline_completed: true,
@@ -128,6 +149,38 @@ export function BaselineForm() {
       </CardHeader>
       <CardContent>
         <form className="space-y-4" onSubmit={handleSubmit}>
+          {/* Datos demográficos */}
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Fecha de nacimiento <span className="text-red-500">*</span></Label>
+              <Input
+                value={form.date_of_birth}
+                onChange={(e) => setForm((prev) => ({ ...prev, date_of_birth: e.target.value }))}
+                type="date"
+                max={new Date().toISOString().split("T")[0]}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Sexo <span className="text-red-500">*</span></Label>
+              <Select
+                value={form.gender}
+                onValueChange={(value) => setForm((prev) => ({ ...prev, gender: value }))}
+                required
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Masculino">Masculino</SelectItem>
+                  <SelectItem value="Femenino">Femenino</SelectItem>
+                  <SelectItem value="Otro">Otro</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Datos médicos básicos */}
           <div className="grid md:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label>Tipo de sangre</Label>

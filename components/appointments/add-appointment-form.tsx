@@ -98,8 +98,8 @@ export default function AddAppointmentForm({ onSuccess, onCancel }: AddAppointme
               user_id: p.id,
               first_name: first,
               last_name: last,
-              date_of_birth: "1900-01-01",
-              gender: "Otro",
+              date_of_birth: null, // No usar fecha placeholder - debe completarse después
+              gender: null, // No asumir género - debe completarse después
               email: p.email ?? null,
             }
           }) ?? []
