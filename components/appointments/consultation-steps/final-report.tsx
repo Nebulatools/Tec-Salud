@@ -330,6 +330,20 @@ ${originalTranscript}
               </div>
             </div>
 
+            {/* Diagnósticos con códigos CIE-11 */}
+            {consultationData?.extractionPreview?.structuredDiagnoses &&
+             consultationData.extractionPreview.structuredDiagnoses.length > 0 && (
+              <div className="border-t pt-6">
+                <h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
+                  🏥 Diagnósticos Codificados (CIE-11)
+                </h3>
+                <DiagnosisPreview
+                  diagnoses={consultationData.extractionPreview.structuredDiagnoses as StructuredDiagnosis[]}
+                  format="table"
+                />
+              </div>
+            )}
+
             {/* Consultation Report Section */}
             <div>
               <h2 className="text-xl font-semibold text-gray-900 mb-4 border-b border-gray-200 pb-2">
@@ -391,20 +405,6 @@ ${originalTranscript}
                         ))}
                       </ul>
                     </div>
-                  </div>
-                )}
-
-                {/* Diagnósticos con códigos CIE-11 */}
-                {consultationData?.extractionPreview?.structuredDiagnoses &&
-                 consultationData.extractionPreview.structuredDiagnoses.length > 0 && (
-                  <div className="border-t pt-6">
-                    <h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
-                      🏥 Diagnósticos Codificados (CIE-11)
-                    </h3>
-                    <DiagnosisPreview
-                      diagnoses={consultationData.extractionPreview.structuredDiagnoses as StructuredDiagnosis[]}
-                      format="table"
-                    />
                   </div>
                 )}
               </div>

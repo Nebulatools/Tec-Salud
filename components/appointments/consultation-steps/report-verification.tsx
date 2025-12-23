@@ -248,6 +248,18 @@ export default function ReportVerification({ appointmentId, consultationData, on
           </div>
         </div>
 
+        {/* Diagnósticos con códigos CIE-11 */}
+        {consultationData?.extractionPreview?.structuredDiagnoses &&
+         consultationData.extractionPreview.structuredDiagnoses.length > 0 && (
+          <div className="border-t pt-6">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Diagnósticos Codificados (CIE-11)</h3>
+            <DiagnosisPreview
+              diagnoses={consultationData.extractionPreview.structuredDiagnoses as StructuredDiagnosis[]}
+              format="table"
+            />
+          </div>
+        )}
+
         {/* Notes Section - Reporte con formato bonito */}
         <div>
           <label className="text-sm font-medium text-gray-600 block mb-4">Reporte de Consulta:</label>
@@ -282,18 +294,6 @@ export default function ReportVerification({ appointmentId, consultationData, on
             </div>
           )}
         </div>
-
-        {/* Diagnósticos con códigos CIE-11 */}
-        {consultationData?.extractionPreview?.structuredDiagnoses &&
-         consultationData.extractionPreview.structuredDiagnoses.length > 0 && (
-          <div className="border-t pt-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Diagnósticos Codificados (CIE-11)</h3>
-            <DiagnosisPreview
-              diagnoses={consultationData.extractionPreview.structuredDiagnoses as StructuredDiagnosis[]}
-              format="table"
-            />
-          </div>
-        )}
 
         {/* Action Buttons */}
         <div className="flex justify-between items-center pt-4">
