@@ -21,6 +21,7 @@ import {
   AlertTriangle,
   Download,
 } from "lucide-react"
+import { ReportDetailModal } from "./report-detail-modal"
 
 type PatientFileCardProps = {
   patientUserId: string
@@ -84,6 +85,9 @@ type MedicalReport = {
   compliance_status: string | null
   created_at: string
   content: string | null
+  ai_suggestions: string[] | null
+  original_transcript: string | null
+  appointment_id: string | null
 }
 
 export function PatientFileCard({
@@ -100,6 +104,7 @@ export function PatientFileCard({
   const [labOrder, setLabOrder] = useState<LabOrder | null>(null)
   const [internRun, setInternRun] = useState<InternRun | null>(null)
   const [reports, setReports] = useState<MedicalReport[]>([])
+  const [selectedReport, setSelectedReport] = useState<MedicalReport | null>(null)
   const [runningIntern, setRunningIntern] = useState(false)
   const [internStatus, setInternStatus] = useState<string | null>(null)
   const [internError, setInternError] = useState<string | null>(null)
@@ -163,7 +168,7 @@ export function PatientFileCard({
     if (patientRow?.id) {
       const { data: reportsData } = await supabase
         .from("medical_reports")
-        .select("id, title, report_type, compliance_status, created_at, content")
+        .select("id, title, report_type, compliance_status, created_at, content, ai_suggestions, original_transcript, appointment_id")
         .eq("patient_id", patientRow.id)
         .order("created_at", { ascending: false })
 
@@ -409,36 +414,32 @@ export function PatientFileCard({
           {reports.length === 0 ? (
             <p className="text-sm text-gray-500 italic">Sin reportes de consulta guardados.</p>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-2">
               {reports.map((report) => (
-                <div key={report.id} className="border rounded-lg p-4 bg-gray-50">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-sm font-semibold text-gray-900">
-                      {report.title || "Reporte médico"}
-                    </p>
-                    <Badge variant={report.report_type === "FINAL" ? "default" : "secondary"} className="text-xs">
-                      {report.report_type || "BORRADOR"}
-                    </Badge>
-                  </div>
-                  <p className="text-xs text-gray-500">
-                    {new Date(report.created_at).toLocaleString("es-MX")}
-                  </p>
-                  {report.compliance_status && (
-                    <p className="text-xs text-gray-500 mb-2">
-                      Cumplimiento: {report.compliance_status}
-                    </p>
-                  )}
-                  {report.content && (
-                    <div className="mt-3 p-4 bg-white rounded-lg border text-sm text-gray-800 whitespace-pre-line">
-                      {report.content}
-                    </div>
-                  )}
+                <div
+                  key={report.id}
+                  onClick={() => setSelectedReport(report)}
+                  className="flex items-center justify-between p-3 rounded-lg border hover:bg-gray-50 cursor-pointer transition-colors"
+                >
+                  <span className="text-sm font-medium text-gray-700">
+                    Consulta - {new Date(report.created_at).toLocaleDateString("es-MX")}
+                  </span>
+                  <Badge variant={report.report_type === "FINAL" ? "default" : "secondary"} className="text-xs">
+                    {report.report_type || "BORRADOR"}
+                  </Badge>
                 </div>
               ))}
             </div>
           )}
         </CardContent>
       </Card>
+
+      {/* Modal de detalle de reporte */}
+      <ReportDetailModal
+        report={selectedReport}
+        open={!!selectedReport}
+        onClose={() => setSelectedReport(null)}
+      />
 
       {/* Pruebas y Resultados */}
       <Card>
