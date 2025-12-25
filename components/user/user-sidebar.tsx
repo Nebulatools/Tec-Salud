@@ -6,7 +6,7 @@ import { BaseSidebar } from "@/components/layout/base-sidebar"
 import { ZuliLogo } from "@/components/ui/zuli-logo"
 
 const navigation = [
-  { name: "Mi Portal", href: "/user", icon: Home, matchPrefix: true },
+  { name: "Mi Portal", href: "/user", icon: Home, matchPrefix: false },
   { name: "Mi Perfil", href: "/user/perfil", icon: User, matchPrefix: true },
   { name: "Especialistas", href: "/user/especialistas", icon: Stethoscope, matchPrefix: true },
   { name: "Laboratorios", href: "/user/laboratorios", icon: Upload, matchPrefix: true },

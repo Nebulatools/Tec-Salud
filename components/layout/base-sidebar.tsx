@@ -50,10 +50,15 @@ export function BaseSidebar({ navItems, storageKey, logoSlot, footerSlot, onColl
   }
 
   const isActive = (item: NavItem) => {
-    if (item.matchPrefix) {
-      return pathname.startsWith(item.href)
+    // Exact match for root paths (e.g., /user, /admin) - prevents parent from staying highlighted on child routes
+    if (item.href === pathname) {
+      return true
     }
-    return pathname === item.href
+    // Prefix matching only for non-exact matches and non-root paths
+    if (item.matchPrefix && pathname.startsWith(item.href + '/')) {
+      return true
+    }
+    return false
   }
 
   const renderNav = (mobile = false) => (

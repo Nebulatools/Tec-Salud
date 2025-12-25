@@ -28,7 +28,9 @@ import {
   MapPin,
   Building2,
   ChevronRight,
+  CreditCard,
 } from "lucide-react"
+import { MockPaymentModal } from "@/components/user/mock-payment-modal"
 
 type Question = {
   id: string
@@ -199,6 +201,9 @@ function CuestionarioContent() {
   const [recommendedTests, setRecommendedTests] = useState<string[]>([])
   const [selectedProvider, setSelectedProvider] = useState<string | null>(null)
   const [selectedBranch, setSelectedBranch] = useState<string | null>(null)
+
+  // Estado para el modal de pago
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
 
   useEffect(() => {
     if (!doctorId || !specialtyId) {
@@ -420,30 +425,49 @@ function CuestionarioContent() {
       }
     }
 
+    // Si no está vinculado, mostrar modal de pago para solicitar cita
     if (linkStatus === "none") {
-      const payload = {
-        doctor_id: doctorId,
-        patient_user_id: user.id,
-        status: "pending",
-        requested_by: "patient",
-        requested_at: new Date().toISOString(),
-        responded_at: null,
-      }
-      const { error: linkErr } = await supabase
-        .from("doctor_patient_links")
-        .upsert(payload, { onConflict: "doctor_id,patient_user_id" })
-      if (!linkErr) {
-        setLinkStatus("pending")
-      }
+      setStatus("¡Cuestionario guardado! Ahora puedes solicitar tu cita.")
+      setSaving(false)
+      setShowPaymentModal(true)
+      return
     }
 
-    const linkNote =
-      linkStatus === "none"
-        ? " y enviamos la solicitud de vinculación al especialista"
-        : ""
-    setStatus(`¡Cuestionario guardado${linkNote}! Ahora selecciona tu laboratorio para continuar.`)
+    // Si ya está vinculado, ir directamente a selección de laboratorio
+    setStatus("¡Cuestionario guardado! Ahora selecciona tu laboratorio para continuar.")
     setStep("labs")
     setSaving(false)
+  }
+
+  // Manejar el éxito del pago - crear vinculación y cita
+  const handlePaymentSuccess = async () => {
+    if (!user || !doctorId) return
+
+    try {
+      const response = await fetch("/api/appointments/book", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          patientUserId: user.id,
+          doctorId,
+          specialistResponses: answers,
+        }),
+      })
+
+      if (response.ok) {
+        setLinkStatus("pending")
+        setShowPaymentModal(false)
+        setStatus("¡Cita reservada exitosamente! El especialista confirmará la fecha. Ahora selecciona tu laboratorio.")
+        setStep("labs")
+      } else {
+        const data = await response.json()
+        setError(data.error || "Error al reservar la cita")
+        setShowPaymentModal(false)
+      }
+    } catch (err) {
+      setError("Error de conexión. Intenta nuevamente.")
+      setShowPaymentModal(false)
+    }
   }
 
   const handleSubmitLabSelection = async () => {
@@ -804,10 +828,11 @@ function CuestionarioContent() {
 
       {linkStatus !== "accepted" && (
         <Alert className="bg-amber-50 border-amber-200 text-amber-700">
-          <AlertDescription>
+          <AlertDescription className="flex items-center gap-2">
+            <CreditCard className="h-4 w-4 flex-shrink-0" />
             {linkStatus === "pending"
-              ? "Tu solicitud de vinculación está pendiente. Puedes completar el cuestionario y la mantendremos en espera."
-              : "Completa el cuestionario y enviaremos automáticamente la solicitud de vinculación al especialista."}
+              ? "Tu solicitud de vinculación está pendiente. El especialista la revisará pronto."
+              : "Completa el cuestionario y después podrás solicitar tu cita con el especialista."}
           </AlertDescription>
         </Alert>
       )}
@@ -857,6 +882,20 @@ function CuestionarioContent() {
         <Alert variant="destructive">
           <AlertDescription>{error}</AlertDescription>
         </Alert>
+      )}
+
+      {/* Modal de pago para solicitar cita */}
+      {doctor && (
+        <MockPaymentModal
+          open={showPaymentModal}
+          onOpenChange={setShowPaymentModal}
+          doctor={{
+            id: doctor.id,
+            full_name: `${doctor.first_name} ${doctor.last_name}`,
+            specialty: specialty ? { name: specialty.name } : null,
+          }}
+          onPaymentSuccess={handlePaymentSuccess}
+        />
       )}
     </div>
   )
