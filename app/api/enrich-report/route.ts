@@ -1,154 +1,348 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 import { ai, MODEL } from '@/lib/ai/openrouter'
+import { evaluateCompliance, formatComplianceForUI, type ComplianceContext } from '@/lib/compliance/fields-schema'
 
-const COMPLIANCE_PROMPT = `ROL Y MISIÓN
-Eres un Asistente de Documentación Médica especializado en Cumplimiento Normativo. Tu misión es tomar la transcripción de una consulta médica y transformarla en un reporte profesional que cumpla rigurosamente con los estándares de documentación requeridos. Eres un experto en estructurar información clínica y en identificar lagunas de información de acuerdo a un marco regulatorio estricto.
+// =============================================================================
+// TYPES & VALIDATION
+// =============================================================================
 
-IMPORTANTE: CONTEXTO Y CONSISTENCIA
-- Debes ser CONSISTENTE en tu evaluación. Si la transcripción ya incluye respuestas a preguntas previamente identificadas, debes reconocerlas y NO volver a pedirlas.
-- Si encuentras información adicional proporcionada por el médico (marcada como "INFORMACIÓN ADICIONAL PROPORCIONADA POR EL MÉDICO"), debes incorporarla al reporte y actualizar tu evaluación.
-- El número de campos faltantes debe DISMINUIR o mantenerse igual, NUNCA aumentar cuando se proporciona información adicional.
-- Cuando la información adicional incluya identificadores del paciente (Nombre, Edad, Sexo/Género) o del médico tratante, debes reflejarlos explícitamente en la sección "Información de Identificación" del reporte con líneas tipo: "Nombre del paciente:", "Edad:", "Sexo:", "Nombre del médico tratante:". Si están presentes, NO deben aparecer como faltantes.
+const RequestSchema = z.object({
+  transcript: z.string().min(1, 'Transcript is required'),
+  additionalInfo: z.array(z.object({
+    question: z.string(),
+    answer: z.string(),
+  })).optional(),
+  context: z.object({
+    specialty: z.string().optional(),
+    hasLabOrders: z.boolean().optional(),
+    isFollowUp: z.boolean().optional(),
+    patientAge: z.number().optional(),
+    reportType: z.string().optional(),
+    baselineFormCompleted: z.boolean().optional(),
+    specialtyQuestionsAnswered: z.boolean().optional(),
+  }).optional(),
+})
 
-CONTEXTO REGULATORIO Y FUENTE DE VERDAD
-Tu única y exclusiva fuente de verdad para el contenido y la estructura del reporte médico es la siguiente lista de requerimientos obligatorios, extraída del Apéndice A ("Documentation Contents of the Medical Record"). Solo solicita campos que sean relevantes y aplicables al tipo de consulta.
-
-LISTA DE CAMPOS OBLIGATORIOS DEL REPORTE MÉDICO:
-
-  * Información de Identificación: Nombre del paciente, Edad, Sexo, Fecha y hora de consulta, Nombre del médico tratante.
-  * Información Clínica Principal: Motivo de consulta, Historia de la enfermedad actual, Antecedentes médicos relevantes, Registro de alergias, Medicamentos actuales, Examen Físico, Diagnóstico/Impresión diagnóstica, Plan de tratamiento, Indicaciones para el paciente.
-  * Resultados y Procedimientos (solo si aplican): Resultados de laboratorio, Resultados de estudios, Interconsultas solicitadas.
-  * Seguimiento: Próxima cita o instrucciones de seguimiento.
-
-METODOLOGÍA: PROCESO OBLIGATORIO DE DOS PASOS
-Debes procesar el input del usuario siguiendo rigurosamente estas dos fases en orden.
-
-  * Fase 1: Estructuración del Reporte Médico: Analiza la transcripción completa, extrae la información clínica relevante y re-escríbela en un formato de reporte profesional, usando encabezados claros basados en la lista de arriba.
-  * Fase 2: Auditoría de Cumplimiento y Generación de Preguntas: Compara el reporte estructurado con la LISTA DE CAMPOS OBLIGATORIOS. Identifica todos los campos mandatorios que faltan. Para cada uno, genera una pregunta clara y específica para el médico.
-
-INPUT DEL USUARIO
-El input será la transcripción en texto plano de una consulta médica.
-
-FORMATO DE SALIDA
-Tu respuesta final DEBE ser un único objeto JSON, sin ningún texto o explicación adicional. La estructura del JSON debe ser rigurosamente la siguiente:
-
-{
-  "improvedReport": "El reporte completo basado en la información disponible en la transcripción, estructurado profesionalmente con formato Markdown.",
-  "missingInformation": [
-    "Nombre del campo faltante 1",
-    "Nombre del campo faltante 2"
-  ],
-  "questionsForDoctor": [
-    "Pregunta específica para obtener el campo 1",
-    "Pregunta específica para obtener el campo 2"
-  ]
+interface ComplianceData {
+  score: number
+  status: string
+  summary: {
+    critical: { missing: number; total: number }
+    important: { missing: number; total: number }
+    conditional: { missing: number; total: number }
+  }
+  missingFields: Array<{
+    field: { id: string; name: string; priority: string }
+    status: 'present' | 'missing' | 'incomplete'
+    value?: string
+    suggestions?: string[]
+    priorityLabel: string
+    priorityColor: string
+  }>
 }
 
-  * improvedReport: Un string que contiene el reporte médico completo y formateado.
-  * missingInformation: Un array de strings, donde cada string es el nombre exacto del campo faltante según la lista de requerimientos.
-  * questionsForDoctor: Un array de strings, donde cada string es la pregunta correspondiente para el médico.
-  * Si el reporte está completo, los arrays missingInformation y questionsForDoctor deben estar vacíos [].`
+interface EnrichReportResponse {
+  improvedReport: string
+  missingInformation: string[]
+  questionsForDoctor: string[]
+  compliance: ComplianceData
+}
+
+// =============================================================================
+// CONSTANTS
+// =============================================================================
+
+const QUESTION_TEMPLATES: Record<string, string> = {
+  motivo_consulta: '¿Cuál es el motivo principal de la consulta?',
+  diagnostico: '¿Cuál es el diagnóstico o impresión diagnóstica?',
+  signos_vitales: '¿Cuáles son los signos vitales del paciente (TA, FC, Temp)?',
+  exploracion_fisica: '¿Cuáles fueron los hallazgos de la exploración física?',
+  plan_tratamiento: '¿Cuál es el plan de tratamiento indicado?',
+  seguimiento: '¿Cuándo debe regresar el paciente a consulta?',
+  alergias: '¿El paciente tiene alergias conocidas?',
+  antecedentes: '¿Cuáles son los antecedentes médicos relevantes?',
+  medicamentos_actuales: '¿Qué medicamentos toma actualmente el paciente?',
+  resultados_laboratorio: '¿Cuál es la interpretación de los resultados de laboratorio?',
+  evolucion: '¿Cómo ha evolucionado el paciente desde la última consulta?',
+  cuestionario_especialidad: '¿Hay información relevante del cuestionario de especialidad?',
+  codigo_icd: '¿Cuál es el código ICD-11 del diagnóstico?',
+} as const
+
+// Prompt determinístico de estructura (alineado al plan):
+// La IA solo estructura el reporte; la detección de faltantes se hace con el schema en backend.
+const REPORT_STRUCTURE_PROMPT = `ROL: Eres un asistente de documentación médica.
+
+TAREA: Toma la transcripción de una consulta médica y estructúrala en un reporte profesional con formato Markdown.
+
+IMPORTANTE:
+- Si existe una sección "=== INFORMACIÓN ADICIONAL ===" con preguntas y respuestas, úsala para completar el reporte.
+- Extrae SOLO información explícitamente mencionada en la transcripción o en la información adicional.
+- NO inventes información.
+
+ESTRUCTURA DEL REPORTE (usa exactamente estos encabezados y bullets):
+
+## Información de Identificación
+*  **Nombre del paciente:** [extraer o marcar [Faltante]]
+*  **Edad:** [extraer o marcar [Faltante]]
+*  **Sexo:** [extraer o marcar [Faltante]]
+*  **Fecha y hora de consulta:** [extraer o marcar [Faltante]]
+*  **Nombre del médico tratante:** [extraer o marcar [Faltante]]
+
+## Información Clínica Principal
+*  **Motivo de consulta:** [extraer]
+*  **Historia de la enfermedad actual:** [extraer]
+*  **Antecedentes médicos relevantes:** [extraer o "No referidos"]
+*  **Registro de alergias:** [extraer o "No referidas"]
+*  **Medicamentos actuales:** [extraer o "No referidos"]
+*  **Examen físico:** [extraer hallazgos]
+*  **Diagnóstico/Impresión diagnóstica:** [extraer]
+*  **Plan de tratamiento:** [extraer]
+*  **Indicaciones para el paciente:** [extraer]
+
+## Resultados y Procedimientos (si aplican)
+*  **Resultados de laboratorio:** [extraer si se mencionan]
+*  **Resultados de estudios:** [extraer si se mencionan]
+*  **Interconsultas solicitadas:** [extraer si se mencionan]
+
+## Seguimiento
+*  **Próxima cita o instrucciones de seguimiento:** [extraer]
+
+REGLAS:
+1. Marca como [Faltante] los campos sin información (excepto antecedentes/alergias/medicamentos: usar "No referido/a" si no se mencionan).
+2. Si NO hay mención de labs/estudios/interconsultas, incluye la sección "Resultados y Procedimientos (si aplican)" pero llena con "No aplica".
+3. Mantén el formato Markdown exacto (encabezados y bullets).
+
+FORMATO DE SALIDA: JSON con estructura:
+{
+  "improvedReport": "El reporte en Markdown"
+}`
+
+function inferContextFromTranscript(transcript: string, provided?: ComplianceContext): ComplianceContext {
+  const base: ComplianceContext = { ...(provided ?? {}) }
+  const t = transcript.toLowerCase()
+
+  if (base.hasLabOrders === undefined) {
+    base.hasLabOrders =
+      /\b(laboratorio|laboratorios|an[aá]lisis|perfil|hemograma|qu[ií]mica|glucosa|colesterol|tsh|pcr)\b/i.test(t)
+  }
+  if (base.isFollowUp === undefined) {
+    base.isFollowUp =
+      /\b(control|seguimiento|revisi[oó]n|segunda\s+consulta|desde\s+la\s+[úu]ltima\s+consulta)\b/i.test(t)
+  }
+
+  return base
+}
+
+// =============================================================================
+// UTILITY FUNCTIONS (defined once, not per-request)
+// =============================================================================
+
+/**
+ * Robust JSON parser for AI responses
+ * Handles: BOM, markdown blocks, unescaped newlines, malformed JSON
+ */
+function parseAIJson<T = Record<string, unknown>>(raw: string): T | null {
+  const cleaned = raw
+    .trim()
+    .replace(/^\uFEFF/, '')
+    .replace(/^```json?\s*/i, '')
+    .replace(/```\s*$/, '')
+
+  // Fast path: direct parse
+  try {
+    return JSON.parse(cleaned)
+  } catch {
+    // Continue
+  }
+
+  // Fix unescaped newlines in strings
+  try {
+    const fixed = cleaned.replace(
+      /"((?:[^"\\]|\\.)*)"/g,
+      (m) => m.replace(/[\r\n]+/g, '\\n').replace(/\t/g, '\\t')
+    )
+    return JSON.parse(fixed)
+  } catch {
+    // Continue
+  }
+
+  // Extract JSON by balanced braces (handles prefix text)
+  const start = cleaned.indexOf('{')
+  if (start === -1) return null
+
+  let depth = 0, end = -1, inStr = false, esc = false
+
+  for (let i = start; i < cleaned.length; i++) {
+    const c = cleaned[i]
+    if (esc) { esc = false; continue }
+    if (c === '\\' && inStr) { esc = true; continue }
+    if (c === '"') { inStr = !inStr; continue }
+    if (!inStr) {
+      if (c === '{') depth++
+      else if (c === '}' && --depth === 0) { end = i; break }
+    }
+  }
+
+  if (end !== -1) {
+    try {
+      return JSON.parse(cleaned.slice(start, end + 1))
+    } catch {
+      // Failed
+    }
+  }
+
+  return null
+}
+
+/**
+ * Extracts improvedReport from text via regex (last resort)
+ */
+function extractReportByRegex(text: string): string | undefined {
+  const match = text.match(/"improvedReport"\s*:\s*"((?:[^"\\]|\\[\s\S])*)"/)
+  if (!match?.[1]) return undefined
+
+  return match[1]
+    .replace(/\\n/g, '\n')
+    .replace(/\\"/g, '"')
+    .replace(/\\\\/g, '\\')
+}
+
+/**
+ * Builds full transcript with additional info
+ */
+function buildFullTranscript(
+  transcript: string,
+  additionalInfo?: Array<{ question: string; answer: string }>
+): string {
+  if (!additionalInfo?.length) return transcript
+
+  const additions = additionalInfo
+    .map(({ question, answer }) => `P: ${question}\nR: ${answer}`)
+    .join('\n\n')
+
+  return `${transcript}\n\n=== INFORMACIÓN ADICIONAL ===\n${additions}`
+}
+
+// =============================================================================
+// API HANDLER
+// =============================================================================
 
 export async function POST(request: NextRequest) {
-  console.log('=== ENRICH REPORT API CALLED ===')
+  const startTime = performance.now()
 
   try {
+    // Validate API key at runtime (allows for hot-reload of env vars)
     if (!process.env.OPENROUTER_API_KEY) {
-      console.error('OPENROUTER_API_KEY not found in environment variables')
       return NextResponse.json(
-        { error: 'Server configuration error: Missing API key' },
+        { error: 'Server configuration error' },
         { status: 500 }
       )
     }
 
-    const { transcript, additionalInfo } = await request.json()
-    console.log('Received transcript length:', transcript?.length || 0)
-    console.log('Additional info provided:', additionalInfo?.length || 0)
+    // Parse and validate request
+    const body = await request.json()
+    const validation = RequestSchema.safeParse(body)
 
-    if (!transcript) {
-      return NextResponse.json({ error: 'Transcript is required' }, { status: 400 })
+    if (!validation.success) {
+      return NextResponse.json(
+        { error: 'Invalid request', details: validation.error.flatten() },
+        { status: 400 }
+      )
     }
 
-    // Si hay información adicional, agrégala a la transcripción
-    let fullTranscript = transcript
-    if (additionalInfo && additionalInfo.length > 0) {
-      fullTranscript += '\n\n=== INFORMACIÓN ADICIONAL PROPORCIONADA POR EL MÉDICO ===\n'
-      additionalInfo.forEach((info: { question: string; answer: string }) => {
-        fullTranscript += `\nPregunta: ${info.question}\nRespuesta: ${info.answer}\n`
-      })
-    }
+    const { transcript, additionalInfo } = validation.data
+    const fullTranscript = buildFullTranscript(transcript, additionalInfo)
 
-    console.log('Calling OpenRouter API...')
-    const response = await ai.chat.completions.create({
+    // STEP 1: AI report structuring + field extraction (single call)
+    const aiResponse = await ai.chat.completions.create({
       model: MODEL,
       messages: [
-        {
-          role: 'user',
-          content: COMPLIANCE_PROMPT + '\n\nTRANSCRIPCIÓN:\n' + fullTranscript,
-        },
+        { role: 'system', content: REPORT_STRUCTURE_PROMPT },
+        { role: 'user', content: fullTranscript },
       ],
       temperature: 0.1,
       max_tokens: 4096,
       response_format: { type: 'json_object' },
     })
 
-    const text = response.choices[0]?.message?.content || ''
-    console.log('AI Response length:', text.length)
-    console.log('AI Response preview:', text.substring(0, 200))
+    const responseText = aiResponse.choices[0]?.message?.content ?? ''
 
-    try {
-      const trySafeParse = (t: string) => {
-        try {
-          return JSON.parse(t)
-        } catch {
-          const start = t.indexOf('{')
-          if (start === -1) return null
-          let candidate = t.slice(start)
-          const lastBrace = candidate.lastIndexOf('}')
-          if (lastBrace > 0 && lastBrace < candidate.length - 1) {
-            candidate = candidate.slice(0, lastBrace + 1)
-          }
-          let openCurly = 0
-          for (const ch of candidate) {
-            if (ch === '{') openCurly++
-            else if (ch === '}') openCurly = Math.max(0, openCurly - 1)
-          }
-          candidate += '}'.repeat(openCurly)
-          try {
-            return JSON.parse(candidate)
-          } catch {
-            return null
-          }
-        }
-      }
+    // STEP 2: Parse AI response - get report only
+    interface AIResponse {
+      improvedReport?: string
+    }
 
-      const parsedResponse = trySafeParse(text)
-      if (!parsedResponse) {
-        throw new Error('Invalid JSON payload')
-      }
-      console.log('Successfully parsed AI response')
-      return NextResponse.json(parsedResponse)
-    } catch (parseError) {
-      console.error('Error parsing AI response:', parseError)
-      console.error('Raw AI response:', text)
+    const parsed = parseAIJson<AIResponse>(responseText)
+    let improvedReport = parsed?.improvedReport
+
+    if (!improvedReport) {
+      // Regex fallback for report only
+      improvedReport = extractReportByRegex(responseText)
+    }
+
+    if (!improvedReport) {
+      console.error('Failed to parse AI response:', responseText.slice(0, 500))
       return NextResponse.json(
-        { error: 'Invalid response format from AI', details: text.substring(0, 500) },
+        { error: 'Failed to generate report' },
         { status: 500 }
       )
     }
+
+    // STEP 3: Deterministic compliance evaluation (schema-based)
+    const context = inferContextFromTranscript(fullTranscript, validation.data.context)
+    const report = evaluateCompliance('ad-hoc', improvedReport, context)
+    const ui = formatComplianceForUI(report)
+
+    // Solo bloquear el flujo por CRITICAL + IMPORTANT; CONDITIONAL es recomendado
+    const blockingMissing = [
+      ...report.criticalMissing,
+      ...report.importantMissing,
+    ]
+
+    // Orden estable: críticos primero, luego importantes
+    const missingInformation = blockingMissing.map(r => r.field.name)
+    const questionsForDoctor = blockingMissing.map(r =>
+      QUESTION_TEMPLATES[r.field.id] ?? `Por favor proporcione: ${r.field.name}`
+    )
+
+    const compliance: ComplianceData = {
+      score: ui.score,
+      status: ui.status,
+      summary: ui.summary,
+      missingFields: ui.missingFields.map((r: any) => ({
+        field: {
+          id: r.field.id,
+          name: r.field.name,
+          priority: r.field.priority,
+        },
+        status: r.status,
+        value: r.value,
+        suggestions: r.suggestions,
+        priorityLabel: r.priorityLabel,
+        priorityColor: r.priorityColor,
+      })),
+    }
+
+    const response: EnrichReportResponse = {
+      improvedReport,
+      missingInformation,
+      questionsForDoctor,
+      compliance,
+    }
+
+    // Log performance
+    const duration = Math.round(performance.now() - startTime)
+    console.log(`[enrich-report] ${duration}ms | status=${compliance.status} | score=${compliance.score} | len=${improvedReport.length}`)
+
+    return NextResponse.json(response)
+
   } catch (error) {
-    console.error('Error in enrich-report API:', error)
-    console.error('Error details:', {
-      message: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
-      name: error instanceof Error ? error.name : undefined,
-    })
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    console.error('[enrich-report] Error:', message)
 
     return NextResponse.json(
-      {
-        error: 'Internal server error',
-        details: error instanceof Error ? error.message : 'Unknown error',
-      },
+      { error: 'Internal server error', details: message },
       { status: 500 }
     )
   }

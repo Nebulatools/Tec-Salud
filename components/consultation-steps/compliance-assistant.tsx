@@ -26,10 +26,39 @@ interface ComplianceAssistantProps {
   onBack: () => void
 }
 
+interface ComplianceSummary {
+  missing: number
+  total: number
+}
+
+interface ComplianceMissingField {
+  field: {
+    id: string
+    name: string
+    priority: 'CRITICAL' | 'IMPORTANT' | 'CONDITIONAL'
+  }
+  status: 'present' | 'missing' | 'incomplete'
+  suggestions?: string[]
+  priorityLabel: string
+  priorityColor: string
+}
+
+interface ComplianceData {
+  score: number
+  status: 'compliant' | 'needs_attention' | 'critical_missing'
+  summary: {
+    critical: ComplianceSummary
+    important: ComplianceSummary
+    conditional: ComplianceSummary
+  }
+  missingFields: ComplianceMissingField[]
+}
+
 interface ComplianceResponse {
   improvedReport: string
   missingInformation: string[]
   questionsForDoctor: string[]
+  compliance?: ComplianceData
 }
 
 interface SuggestionsResponse {
@@ -675,6 +704,131 @@ export default function ComplianceAssistant({
           {complianceData && complianceData.missingInformation && complianceData.missingInformation.length > 0 ? (
             <div className="space-y-4">
               <div className="space-y-3">
+                {/* Score de cumplimiento */}
+                {complianceData.compliance && (
+                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border">
+                    <span className="text-sm font-medium text-gray-700">Score de Cumplimiento</span>
+                    <div className="flex items-center gap-2">
+                      <div className="w-24 bg-gray-200 rounded-full h-2">
+                        <div
+                          className={cn(
+                            "h-2 rounded-full transition-all duration-300",
+                            complianceData.compliance.score >= 80 ? "bg-green-500" :
+                            complianceData.compliance.score >= 60 ? "bg-yellow-500" : "bg-red-500"
+                          )}
+                          style={{ width: `${complianceData.compliance.score}%` }}
+                        />
+                      </div>
+                      <span className={cn(
+                        "text-sm font-bold",
+                        complianceData.compliance.score >= 80 ? "text-green-600" :
+                        complianceData.compliance.score >= 60 ? "text-yellow-600" : "text-red-600"
+                      )}>
+                        {complianceData.compliance.score}%
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Resumen por prioridad */}
+                {complianceData.compliance?.summary && (
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div className={cn(
+                      "p-2 rounded-lg border",
+                      complianceData.compliance.summary.critical.missing > 0
+                        ? "bg-red-50 border-red-200"
+                        : "bg-green-50 border-green-200"
+                    )}>
+                      <p className="text-xs text-gray-600">Críticos</p>
+                      <p className={cn(
+                        "text-lg font-bold",
+                        complianceData.compliance.summary.critical.missing > 0 ? "text-red-600" : "text-green-600"
+                      )}>
+                        {complianceData.compliance.summary.critical.total - complianceData.compliance.summary.critical.missing}/{complianceData.compliance.summary.critical.total}
+                      </p>
+                    </div>
+                    <div className={cn(
+                      "p-2 rounded-lg border",
+                      complianceData.compliance.summary.important.missing > 0
+                        ? "bg-yellow-50 border-yellow-200"
+                        : "bg-green-50 border-green-200"
+                    )}>
+                      <p className="text-xs text-gray-600">Importantes</p>
+                      <p className={cn(
+                        "text-lg font-bold",
+                        complianceData.compliance.summary.important.missing > 0 ? "text-yellow-600" : "text-green-600"
+                      )}>
+                        {complianceData.compliance.summary.important.total - complianceData.compliance.summary.important.missing}/{complianceData.compliance.summary.important.total}
+                      </p>
+                    </div>
+                    <div className={cn(
+                      "p-2 rounded-lg border",
+                      complianceData.compliance.summary.conditional.missing > 0
+                        ? "bg-blue-50 border-blue-200"
+                        : "bg-green-50 border-green-200"
+                    )}>
+                      <p className="text-xs text-gray-600">Opcionales</p>
+                      <p className={cn(
+                        "text-lg font-bold",
+                        complianceData.compliance.summary.conditional.missing > 0 ? "text-blue-600" : "text-green-600"
+                      )}>
+                        {complianceData.compliance.summary.conditional.total - complianceData.compliance.summary.conditional.missing}/{complianceData.compliance.summary.conditional.total}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Análisis de campos faltantes (alineado al esquema determinístico) */}
+                {Array.isArray(complianceData.compliance?.missingFields) && complianceData.compliance.missingFields.length > 0 && (
+                  <div className="space-y-3 p-3 bg-white rounded-lg border">
+                    <div>
+                      <p className="text-sm font-semibold text-gray-800">Campos faltantes</p>
+                      <p className="text-xs text-gray-600">Obligatorios (críticos/importantes) y recomendados</p>
+                    </div>
+
+                    {(() => {
+                      const missing = complianceData.compliance!.missingFields.filter(f => f.status === 'missing')
+                      const required = missing.filter(f => f.field.priority === 'CRITICAL' || f.field.priority === 'IMPORTANT')
+                      const recommended = missing.filter(f => f.field.priority === 'CONDITIONAL')
+
+                      const renderRow = (f: any) => (
+                        <div key={f.field.id} className="flex items-start justify-between gap-2">
+                          <span className="text-sm text-gray-800">{f.field.name}</span>
+                          <Badge
+                            variant="secondary"
+                            className={cn(
+                              "shrink-0",
+                              f.priorityColor === 'red' ? "bg-red-100 text-red-700 border border-red-200" :
+                              f.priorityColor === 'yellow' ? "bg-yellow-100 text-yellow-800 border border-yellow-200" :
+                              "bg-blue-100 text-blue-700 border border-blue-200"
+                            )}
+                          >
+                            {f.priorityLabel}
+                          </Badge>
+                        </div>
+                      )
+
+                      return (
+                        <div className="space-y-3">
+                          {required.length > 0 && (
+                            <div className="space-y-2">
+                              <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Obligatorios</p>
+                              <div className="space-y-1">{required.map(renderRow)}</div>
+                            </div>
+                          )}
+
+                          {recommended.length > 0 && (
+                            <div className="space-y-2">
+                              <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Recomendados</p>
+                              <div className="space-y-1">{recommended.map(renderRow)}</div>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })()}
+                  </div>
+                )}
+
                 <div className="flex items-start gap-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
                   <AlertCircle className="h-6 w-6 text-amber-500 mt-0.5" />
                   <div className="flex-1">
@@ -686,7 +840,7 @@ export default function ComplianceAssistant({
                     </p>
                   </div>
                 </div>
-                
+
                 {/* Progress indicator */}
                 <div className="flex items-center justify-between text-sm text-gray-600">
                   <span>Campos completados:</span>
@@ -695,10 +849,10 @@ export default function ComplianceAssistant({
                   </span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div 
+                  <div
                     className="bg-green-500 h-2 rounded-full transition-all duration-300"
-                    style={{ 
-                      width: `${(completedFields.size / ((complianceData.missingInformation?.length || 0) + completedFields.size || 1)) * 100}%` 
+                    style={{
+                      width: `${(completedFields.size / ((complianceData.missingInformation?.length || 0) + completedFields.size || 1)) * 100}%`
                     }}
                   />
                 </div>

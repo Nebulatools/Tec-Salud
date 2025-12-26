@@ -200,7 +200,7 @@ export function DoctorSpecialtySetup({ doctorId }: { doctorId: string }) {
             )}
           </div>
           <div>
-            <Button type="submit" className="bg-orange-500 hover:bg-orange-600 w-full md:w-auto" disabled={saving || loading}>
+            <Button type="submit" className="btn-zuli-gradient text-white w-full md:w-auto rounded-xl font-medium" disabled={saving || loading}>
               {saving ? "Guardando..." : "Guardar especialidad"}
             </Button>
           </div>

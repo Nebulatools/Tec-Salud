@@ -440,6 +440,13 @@ export default function ConsultationRecording({
                     // Skip validation and use original transcript
                     setValidationCompleted(true)
                   }}
+                  onRestart={() => {
+                    // Go back to recording options
+                    setTranscript("")
+                    setExtractionPreview(null)
+                    setValidationCompleted(false)
+                    lastParsedRef.current = ""
+                  }}
                 />
               ) : (
                 /* Fallback: simple textarea when no word-level data or validation completed */
@@ -512,13 +519,28 @@ export default function ConsultationRecording({
                   )}
 
                   {transcript && !isTranscribing && (
-                    <Button
-                      onClick={handleComplete}
-                      className="w-full btn-zuli-gradient rounded-xl font-medium group"
-                    >
-                      Continuar con esta transcripción
-                      <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
-                    </Button>
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setTranscript("")
+                          setExtractionPreview(null)
+                          setValidationCompleted(false)
+                          lastParsedRef.current = ""
+                        }}
+                        className="flex-1 text-gray-600 dark:text-gray-400 rounded-xl group"
+                      >
+                        <ArrowLeft className="mr-2 h-4 w-4 group-hover:-translate-x-0.5 transition-transform" />
+                        Volver a grabar
+                      </Button>
+                      <Button
+                        onClick={handleComplete}
+                        className="flex-1 btn-zuli-gradient rounded-xl font-medium group"
+                      >
+                        Continuar con esta transcripción
+                        <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
+                      </Button>
+                    </div>
                   )}
                 </>
               )}

@@ -72,12 +72,48 @@ type LabOrder = {
   lab_results: LabResult[]
 }
 
+type Finding = {
+  source: string
+  type: 'observation' | 'concern' | 'improvement' | 'pattern'
+  description: string
+  relevance: 'high' | 'medium' | 'low'
+}
+
+type InternAlert = {
+  type: 'critical' | 'warning' | 'info'
+  source: string
+  message: string
+  recommendation?: string
+}
+
+type DataSourcesAnalyzed = {
+  baseline_form: boolean
+  specialty_responses: boolean
+  lab_results: boolean
+  medical_reports: boolean
+  clinical_extractions: boolean
+  patient_info: boolean
+}
+
 type InternRun = {
   id: string
   status: string
   summary: string | null
   suggestions: string[] | null
+  findings?: Finding[] | null
+  alerts?: InternAlert[] | null
+  data_sources_analyzed?: DataSourcesAnalyzed | null
   completed_at: string | null
+}
+
+type InternResponse = {
+  ok: boolean
+  run: InternRun
+  findings?: Finding[]
+  alerts?: InternAlert[]
+  dataSourcesAnalyzed?: DataSourcesAnalyzed
+  patterns?: string[]
+  gaps?: string[]
 }
 
 type MedicalReport = {
@@ -188,7 +224,7 @@ export function PatientFileCard({
       // cargar último virtual_intern_runs para esta orden/paciente
       const { data: runs } = await supabase
         .from("virtual_intern_runs")
-        .select("id, status, summary, suggestions, completed_at")
+        .select("id, status, summary, suggestions, findings, alerts, data_sources_analyzed, completed_at")
         .eq("lab_order_id", order.id)
         .eq("patient_user_id", patientUserId)
         .order("completed_at", { ascending: false })
@@ -607,21 +643,109 @@ export function PatientFileCard({
         )}
 
         {internRun && (
-          <div className="mt-4 space-y-2">
+          <div className="mt-4 space-y-3">
             <p className="text-sm font-semibold text-gray-800">Última ejecución</p>
-            <div className="bg-white rounded-lg border p-3 space-y-2">
+            <div className="bg-white rounded-lg border p-4 space-y-4">
               <p className="text-xs text-gray-500">
                 Estado: {internRun.status} • {internRun.completed_at ? new Date(internRun.completed_at).toLocaleString() : "N/D"}
               </p>
-              {internRun.summary && (
-                <p className="text-sm text-gray-800 whitespace-pre-wrap">{internRun.summary}</p>
+
+              {/* Fuentes de datos analizadas */}
+              {internRun.data_sources_analyzed && (
+                <div className="space-y-2">
+                  <p className="text-xs font-medium text-gray-600">Fuentes de datos analizadas:</p>
+                  <div className="flex flex-wrap gap-2">
+                    <DataSourceBadge label="Info Paciente" active={internRun.data_sources_analyzed.patient_info} />
+                    <DataSourceBadge label="Cuestionario Base" active={internRun.data_sources_analyzed.baseline_form} />
+                    <DataSourceBadge label="Especialidad" active={internRun.data_sources_analyzed.specialty_responses} />
+                    <DataSourceBadge label="Laboratorio" active={internRun.data_sources_analyzed.lab_results} />
+                    <DataSourceBadge label="Reportes" active={internRun.data_sources_analyzed.medical_reports} />
+                    <DataSourceBadge label="Diagnósticos ICD" active={internRun.data_sources_analyzed.clinical_extractions} />
+                  </div>
+                </div>
               )}
+
+              {/* Alertas del pasante */}
+              {internRun.alerts && internRun.alerts.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-medium text-gray-600">Alertas:</p>
+                  <div className="space-y-2">
+                    {internRun.alerts.map((alert, idx) => (
+                      <div
+                        key={idx}
+                        className={`p-3 rounded-lg border text-sm ${
+                          alert.type === 'critical'
+                            ? 'bg-red-50 border-red-200 text-red-800'
+                            : alert.type === 'warning'
+                            ? 'bg-amber-50 border-amber-200 text-amber-800'
+                            : 'bg-blue-50 border-blue-200 text-blue-800'
+                        }`}
+                      >
+                        <div className="flex items-start gap-2">
+                          <AlertTriangle className={`h-4 w-4 mt-0.5 shrink-0 ${
+                            alert.type === 'critical' ? 'text-red-500' :
+                            alert.type === 'warning' ? 'text-amber-500' : 'text-blue-500'
+                          }`} />
+                          <div>
+                            <p className="font-medium">{alert.message}</p>
+                            {alert.recommendation && (
+                              <p className="text-xs mt-1 opacity-80">Recomendación: {alert.recommendation}</p>
+                            )}
+                            <p className="text-xs mt-1 opacity-60">Fuente: {alert.source}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Resumen */}
+              {internRun.summary && (
+                <div className="space-y-2">
+                  <p className="text-xs font-medium text-gray-600">Resumen:</p>
+                  <p className="text-sm text-gray-800 whitespace-pre-wrap bg-gray-50 p-3 rounded-lg">{internRun.summary}</p>
+                </div>
+              )}
+
+              {/* Hallazgos */}
+              {internRun.findings && internRun.findings.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-medium text-gray-600">Hallazgos:</p>
+                  <div className="space-y-2">
+                    {internRun.findings.map((finding, idx) => (
+                      <div key={idx} className="flex items-start gap-2 p-2 bg-gray-50 rounded-lg">
+                        <span className={`inline-block w-2 h-2 rounded-full mt-1.5 shrink-0 ${
+                          finding.relevance === 'high' ? 'bg-red-500' :
+                          finding.relevance === 'medium' ? 'bg-amber-500' : 'bg-green-500'
+                        }`} />
+                        <div className="flex-1">
+                          <p className="text-sm text-gray-800">{finding.description}</p>
+                          <div className="flex gap-2 mt-1">
+                            <Badge variant="outline" className="text-xs">
+                              {finding.type === 'observation' ? '👁 Observación' :
+                               finding.type === 'concern' ? '⚠️ Preocupación' :
+                               finding.type === 'improvement' ? '✨ Mejora' : '📊 Patrón'}
+                            </Badge>
+                            <span className="text-xs text-gray-400">{finding.source}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Sugerencias */}
               {internRun.suggestions && internRun.suggestions.length > 0 && (
-                <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
-                  {internRun.suggestions.map((s, idx) => (
-                    <li key={idx}>{s}</li>
-                  ))}
-                </ul>
+                <div className="space-y-2">
+                  <p className="text-xs font-medium text-gray-600">Sugerencias:</p>
+                  <ul className="list-disc list-inside text-sm text-gray-700 space-y-1 bg-gray-50 p-3 rounded-lg">
+                    {internRun.suggestions.map((s, idx) => (
+                      <li key={idx}>{s}</li>
+                    ))}
+                  </ul>
+                </div>
               )}
             </div>
           </div>
@@ -699,6 +823,26 @@ function InfoSection({
           )
         })}
       </div>
+    </div>
+  )
+}
+
+// Componente auxiliar para badges de fuentes de datos
+function DataSourceBadge({ label, active }: { label: string; active: boolean }) {
+  return (
+    <div
+      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
+        active
+          ? "bg-green-100 text-green-700 border border-green-200"
+          : "bg-gray-100 text-gray-400 border border-gray-200"
+      }`}
+    >
+      {active ? (
+        <CheckCircle2 className="h-3 w-3" />
+      ) : (
+        <XCircle className="h-3 w-3" />
+      )}
+      {label}
     </div>
   )
 }

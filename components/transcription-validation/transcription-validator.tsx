@@ -24,6 +24,7 @@ import {
   CheckCircle2,
   ListTodo,
   ArrowRight,
+  ArrowLeft,
   Info,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -41,6 +42,7 @@ export function TranscriptionValidator({
   extractionPreview,
   onValidationComplete,
   onCancel,
+  onRestart,
 }: TranscriptionValidatorProps) {
   // Start with panel closed - user can open it manually if needed
   const [isPanelOpen, setIsPanelOpen] = useState(false)
@@ -158,11 +160,21 @@ export function TranscriptionValidator({
           <p className="whitespace-pre-wrap">{transcript.fullText}</p>
         </div>
 
-        {/* Continue button */}
-        <div className="flex justify-end">
-          <Button onClick={handleComplete}>
+        {/* Action buttons */}
+        <div className="flex flex-col sm:flex-row gap-3 justify-end">
+          {onRestart && (
+            <Button
+              variant="outline"
+              onClick={onRestart}
+              className="text-gray-600 rounded-xl group"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2 group-hover:-translate-x-0.5 transition-transform" />
+              Volver a grabar
+            </Button>
+          )}
+          <Button onClick={handleComplete} className="btn-zuli-gradient rounded-xl font-medium group">
             Continuar
-            <ArrowRight className="h-4 w-4 ml-2" />
+            <ArrowRight className="h-4 w-4 ml-2 group-hover:translate-x-0.5 transition-transform" />
           </Button>
         </div>
       </div>
@@ -344,8 +356,18 @@ export function TranscriptionValidator({
 
         {/* Action buttons */}
         <div className="flex gap-2">
+          {onRestart && (
+            <Button
+              variant="outline"
+              onClick={onRestart}
+              className="text-gray-600 rounded-xl group"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2 group-hover:-translate-x-0.5 transition-transform" />
+              Volver a grabar
+            </Button>
+          )}
           {onCancel && (
-            <Button variant="outline" onClick={onCancel}>
+            <Button variant="outline" onClick={onCancel} className="rounded-xl">
               Cancelar
             </Button>
           )}
@@ -353,11 +375,12 @@ export function TranscriptionValidator({
             onClick={handleComplete}
             disabled={!validationStatus.canProceed}
             className={cn(
+              "btn-zuli-gradient rounded-xl font-medium group",
               !validationStatus.canProceed && 'opacity-50 cursor-not-allowed'
             )}
           >
             Continuar con transcripción
-            <ArrowRight className="h-4 w-4 ml-2" />
+            <ArrowRight className="h-4 w-4 ml-2 group-hover:translate-x-0.5 transition-transform" />
           </Button>
         </div>
       </div>

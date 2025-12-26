@@ -131,6 +131,7 @@ export interface TranscriptionValidatorProps {
   extractionPreview?: ExtractionPreview  // Clinical extraction data to display during validation
   onValidationComplete: (validatedTranscript: string, corrections: WordCorrection[]) => void
   onCancel?: () => void
+  onRestart?: () => void  // Go back to recording options
 }
 
 /**
