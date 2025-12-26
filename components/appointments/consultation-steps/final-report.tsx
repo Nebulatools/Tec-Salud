@@ -257,18 +257,18 @@ ${originalTranscript}
     <div className="space-y-6">
       {/* Action Buttons */}
       <div className="flex justify-end gap-3">
-        <Button variant="outline" onClick={handlePrint} className="text-gray-600">
+        <Button variant="outline" onClick={handlePrint} className="text-gray-600 dark:text-gray-400 rounded-xl">
           <Printer className="w-4 h-4 mr-2" />
           Imprimir
         </Button>
-        <Button variant="outline" onClick={handleDownloadPDF} className="text-gray-600">
+        <Button variant="outline" onClick={handleDownloadPDF} className="text-gray-600 dark:text-gray-400 rounded-xl">
           <Download className="w-4 h-4 mr-2" />
           Descargar PDF
         </Button>
-        <Button 
+        <Button
           onClick={handleSave}
           disabled={isSaving || !hasChanges}
-          className={`${hasChanges ? 'bg-orange-500 hover:bg-orange-600' : 'bg-gray-400'} text-white`}
+          className={`${hasChanges ? 'btn-zuli-gradient' : 'bg-gray-400'} text-white rounded-xl font-medium`}
         >
           <Save className="w-4 h-4 mr-2" />
           {isSaving ? "Guardando..." : hasChanges ? "Guardar" : "Guardado"}
@@ -416,10 +416,10 @@ ${originalTranscript}
       
       {/* Navigation */}
       <div className="flex justify-start">
-        <Button 
+        <Button
           variant="ghost"
           onClick={onBack}
-          className="text-gray-600"
+          className="text-gray-600 dark:text-gray-400 rounded-xl"
         >
           ← Regresar a Verificación
         </Button>

@@ -191,11 +191,11 @@ export default function ReportVerification({ appointmentId, consultationData, on
               Cambios guardados
             </div>
           )}
-          <Button 
+          <Button
             variant="outline"
-            size="sm" 
+            size="sm"
             onClick={handleToggleEdit}
-            className="text-primary-600 hover:text-primary-700 border-primary-200"
+            className="text-zuli-veronica hover:text-zuli-veronica/80 border-zuli-veronica/20 hover:bg-zuli-veronica/5 rounded-xl"
           >
             <Edit className="w-4 h-4 mr-1" />
             {isEditing ? "Aplicar Cambios" : "Editar"}
@@ -291,9 +291,9 @@ export default function ReportVerification({ appointmentId, consultationData, on
             Guardar
           </Button>
           
-          <Button 
+          <Button
             onClick={handleGenerateFinalReport}
-                          className="bg-orange-500 hover:bg-orange-600 text-white px-8"
+            className="btn-zuli-gradient text-white px-8 rounded-xl font-medium"
           >
             Continuar a Reporte Final
           </Button>
@@ -335,10 +335,10 @@ export default function ReportVerification({ appointmentId, consultationData, on
               >
                 <Send className="h-4 w-4" />
               </Button>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 size="icon"
-                className="text-primary-600"
+                className="text-zuli-veronica hover:bg-zuli-veronica/5"
               >
                 <Mic className="h-4 w-4" />
               </Button>
@@ -355,10 +355,10 @@ export default function ReportVerification({ appointmentId, consultationData, on
           >
             ← Anterior
           </Button>
-          <Button 
+          <Button
             variant="outline"
             onClick={onNext}
-            className="text-primary-600"
+            className="text-zuli-veronica hover:text-zuli-veronica/80 hover:bg-zuli-veronica/5 rounded-xl"
           >
             Siguiente →
           </Button>

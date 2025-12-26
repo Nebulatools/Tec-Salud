@@ -395,64 +395,91 @@ export default function ConsultationFlow({ appointmentId, patientName, patientId
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 relative">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 relative animate-fadeIn">
       <div className="max-w-6xl mx-auto p-6">
-        {/* Header */}
-        <div className="flex items-center gap-4 mb-6">
-          <Button variant="ghost" size="icon" onClick={onClose}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">{patientName}</h1>
-            <p className="text-gray-600">Consulta médica</p>
+        {/* Header with gradient */}
+        <div className="bg-gradient-to-r from-zuli-veronica to-zuli-indigo rounded-2xl p-6 mb-8 text-white relative overflow-hidden">
+          {/* Decorative pattern */}
+          <div className="absolute inset-0 opacity-10">
+            <div className="absolute top-0 right-0 w-64 h-64 rounded-full bg-white/20 -translate-y-1/2 translate-x-1/2" />
+            <div className="absolute bottom-0 left-0 w-32 h-32 rounded-full bg-white/20 translate-y-1/2 -translate-x-1/2" />
+          </div>
+          <div className="relative flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onClose}
+              className="text-white hover:bg-white/20 rounded-xl"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div>
+              <h1 className="text-2xl font-bold">{patientName}</h1>
+              <p className="text-white/80">Consulta médica en curso</p>
+            </div>
           </div>
         </div>
 
-        {/* Progress Steps */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
+        {/* Progress Steps - Modern horizontal stepper */}
+        <div className="mb-8 bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
+          <div className="flex items-center justify-between overflow-x-auto scrollbar-hide">
             {steps.map((step, index) => {
               const isCompleted = completedSteps.includes(step.id)
               const isCurrent = currentStep === step.id
               const isClickable = step.id <= Math.max(...completedSteps, currentStep)
+              const StepIcon = step.icon
 
               return (
-                <div key={step.id} className="flex items-center">
-                  {/* Step Circle */}
+                <div key={step.id} className="flex items-center flex-1 min-w-0">
+                  {/* Step Circle + Label */}
                   <div
                     className={cn(
-                      "flex items-center justify-center w-10 h-10 rounded-full border-2 transition-all duration-200",
-                      isCompleted
-                        ? "bg-orange-500 border-orange-500 text-white"
-                        : isCurrent
-                        ? "bg-orange-500 border-orange-500 text-white"
-                        : "bg-white border-gray-300 text-gray-500",
-                      isClickable && "cursor-pointer hover:border-orange-300"
+                      "flex items-center gap-3 px-3 py-2 rounded-xl transition-all duration-200",
+                      isClickable && "cursor-pointer",
+                      isCurrent && "bg-zuli-veronica/10"
                     )}
                     onClick={() => isClickable && handleStepNavigation(step.id)}
                   >
-                    {isCompleted ? (
-                      <Check className="h-5 w-5" />
-                    ) : (
-                      <span className="text-sm font-semibold">{step.id}</span>
-                    )}
-                  </div>
-
-                  {/* Step Label */}
-                  <div className="ml-3 min-w-0">
-                    <p
+                    <div
                       className={cn(
-                        "text-sm font-medium",
-                        isCurrent ? "text-orange-600" : "text-gray-500"
+                        "flex items-center justify-center w-10 h-10 rounded-xl transition-all duration-200 shrink-0",
+                        isCompleted
+                          ? "bg-gradient-to-br from-green-500 to-emerald-600 text-white shadow-lg shadow-green-500/20"
+                          : isCurrent
+                          ? "bg-gradient-to-br from-zuli-veronica to-zuli-indigo text-white shadow-lg shadow-zuli-veronica/30"
+                          : "bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500",
+                        isClickable && !isCompleted && !isCurrent && "hover:bg-gray-200 dark:hover:bg-gray-600"
                       )}
                     >
-                      {step.title}
-                    </p>
+                      {isCompleted ? (
+                        <Check className="h-5 w-5" />
+                      ) : (
+                        <StepIcon className="h-5 w-5" />
+                      )}
+                    </div>
+
+                    {/* Step Label - hide on mobile for space */}
+                    <div className="min-w-0 hidden md:block">
+                      <p
+                        className={cn(
+                          "text-sm font-medium truncate",
+                          isCurrent ? "text-zuli-veronica" : isCompleted ? "text-green-600" : "text-gray-500 dark:text-gray-400"
+                        )}
+                      >
+                        {step.title}
+                      </p>
+                      <p className="text-xs text-gray-400 dark:text-gray-500">
+                        Paso {step.id}
+                      </p>
+                    </div>
                   </div>
 
                   {/* Connector Line */}
                   {index < steps.length - 1 && (
-                    <div className="flex-1 h-px bg-gray-300 mx-6" />
+                    <div className={cn(
+                      "flex-1 h-0.5 mx-2 rounded-full transition-colors hidden sm:block",
+                      isCompleted ? "bg-green-500" : "bg-gray-200 dark:bg-gray-700"
+                    )} />
                   )}
                 </div>
               )
@@ -461,7 +488,7 @@ export default function ConsultationFlow({ appointmentId, patientName, patientId
         </div>
 
         {/* Current Step Content */}
-        <div className="mb-6">
+        <div className="mb-6 animate-fadeInUp">
           {getCurrentStepComponent()}
         </div>
       </div>

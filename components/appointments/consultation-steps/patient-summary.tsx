@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
-import { Upload, FileText, Edit, AlertTriangle } from "lucide-react"
+import { Upload, FileText, Edit, AlertTriangle, User, Calendar, Clock, Phone, Mail, ArrowRight } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 
 interface PatientSummaryProps {
@@ -153,12 +153,12 @@ export default function PatientSummary({ appointmentId, consultationData, onComp
 
   if (loading) {
     return (
-      <Card>
+      <Card className="border-0 shadow-sm bg-white dark:bg-gray-800 rounded-2xl overflow-hidden">
         <CardContent className="p-8">
-          <div className="animate-pulse space-y-4">
-            <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-            <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-            <div className="h-4 bg-gray-200 rounded w-2/3"></div>
+          <div className="space-y-4">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="h-4 rounded-lg animate-shimmer" style={{ width: `${75 - i * 15}%`, animationDelay: `${i * 0.1}s` }} />
+            ))}
           </div>
         </CardContent>
       </Card>
@@ -166,55 +166,90 @@ export default function PatientSummary({ appointmentId, consultationData, onComp
   }
 
   return (
-    <Card>
-      <CardHeader className="border-b border-gray-200">
+    <Card className="border-0 shadow-sm bg-white dark:bg-gray-800 rounded-2xl overflow-hidden">
+      <CardHeader className="border-b border-gray-100 dark:border-gray-700 bg-gradient-to-r from-zuli-veronica/5 to-zuli-indigo/5 dark:from-zuli-veronica/10 dark:to-zuli-indigo/10">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-lg font-semibold text-gray-900">
-            Consulta carga en proceso
-          </CardTitle>
-          <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
-            <AlertTriangle className="w-4 h-4 mr-1" />
-            Cargando
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-zuli-veronica to-zuli-indigo flex items-center justify-center shadow-lg shadow-zuli-veronica/20">
+              <User className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <CardTitle className="text-lg font-semibold text-gray-900 dark:text-white">
+                Resumen del Paciente
+              </CardTitle>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Paso 1 de 5</p>
+            </div>
+          </div>
+          <Badge className="bg-zuli-veronica/10 text-zuli-veronica border-zuli-veronica/20">
+            En progreso
           </Badge>
         </div>
       </CardHeader>
-      
+
       <CardContent className="p-6 space-y-6">
-        {/* Patient Information */}
-        <div>
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Información del Paciente</h3>
-          
-          <div className="grid grid-cols-2 gap-6">
-            <div>
-              <div className="space-y-3">
-                <div>
-                  <span className="text-sm font-medium text-gray-600">Nombre:</span>
-                  <p className="text-gray-900">{patientInfo?.first_name} {patientInfo?.last_name}</p>
+        {/* Patient Information Card */}
+        <div className="bg-gradient-to-r from-gray-50 to-gray-100/50 dark:from-gray-800 dark:to-gray-900/50 rounded-xl p-5 border border-gray-100 dark:border-gray-700">
+          <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-4">
+            Información del Paciente
+          </h3>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-zuli-veronica/10 flex items-center justify-center">
+                  <User className="h-4 w-4 text-zuli-veronica" />
                 </div>
                 <div>
-                  <span className="text-sm font-medium text-gray-600">Fecha de Nacimiento:</span>
-                  <p className="text-gray-900">{patientInfo?.date_of_birth ? new Date(patientInfo.date_of_birth).toLocaleDateString("es-ES") : "No especificada"}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Nombre</p>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">{patientInfo?.first_name} {patientInfo?.last_name}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-zuli-indigo/10 flex items-center justify-center">
+                  <Calendar className="h-4 w-4 text-zuli-indigo" />
                 </div>
                 <div>
-                  <span className="text-sm font-medium text-gray-600">Teléfono:</span>
-                  <p className="text-gray-900">{patientInfo?.phone || "No especificado"}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Fecha de Nacimiento</p>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">{patientInfo?.date_of_birth ? new Date(patientInfo.date_of_birth).toLocaleDateString("es-ES") : "No especificada"}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-zuli-cyan/10 flex items-center justify-center">
+                  <Phone className="h-4 w-4 text-zuli-cyan" />
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Teléfono</p>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">{patientInfo?.phone || "No especificado"}</p>
                 </div>
               </div>
             </div>
-            
-            <div>
-              <div className="space-y-3">
-                <div>
-                  <span className="text-sm font-medium text-gray-600">Email:</span>
-                  <p className="text-gray-900">{patientInfo?.email || "No especificado"}</p>
+
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+                  <Mail className="h-4 w-4 text-purple-600 dark:text-purple-400" />
                 </div>
                 <div>
-                  <span className="text-sm font-medium text-gray-600">Fecha de Consulta:</span>
-                  <p className="text-gray-900">{appointmentDetails?.appointment_date ? new Date(appointmentDetails.appointment_date).toLocaleDateString("es-ES") : "No especificada"}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Email</p>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{patientInfo?.email || "No especificado"}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                  <Calendar className="h-4 w-4 text-green-600 dark:text-green-400" />
                 </div>
                 <div>
-                  <span className="text-sm font-medium text-gray-600">Hora:</span>
-                  <p className="text-gray-900">{appointmentDetails?.start_time} - {appointmentDetails?.end_time}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Fecha de Consulta</p>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">{appointmentDetails?.appointment_date ? new Date(appointmentDetails.appointment_date).toLocaleDateString("es-ES") : "No especificada"}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+                  <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Hora</p>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">{appointmentDetails?.start_time} - {appointmentDetails?.end_time}</p>
                 </div>
               </div>
             </div>
@@ -223,10 +258,12 @@ export default function PatientSummary({ appointmentId, consultationData, onComp
 
         {/* Resumen del Expediente (solo lectura) */}
         <div>
-          <h3 className="text-lg font-medium text-gray-900 mb-3">Resumen del Expediente:</h3>
-          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-            <pre className="text-gray-700 text-sm leading-relaxed whitespace-pre-wrap">
-{patientSummary || '—'}
+          <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">
+            Resumen del Expediente
+          </h3>
+          <div className="bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl p-4">
+            <pre className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed whitespace-pre-wrap font-sans">
+{patientSummary || 'Sin información de expediente'}
             </pre>
           </div>
         </div>
@@ -234,29 +271,31 @@ export default function PatientSummary({ appointmentId, consultationData, onComp
         {/* Previous Notes (de la cita) */}
         <div>
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-lg font-medium text-gray-900">Notas Previas:</h3>
-            <Button 
-              variant="ghost" 
-              size="sm" 
+            <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+              Notas de la Cita
+            </h3>
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => setIsEditing(!isEditing)}
-              className="text-primary-600 hover:text-primary-700"
+              className="text-zuli-veronica hover:text-zuli-veronica/80 hover:bg-zuli-veronica/10"
             >
               <Edit className="w-4 h-4 mr-1" />
-              Editar
+              {isEditing ? 'Guardar' : 'Editar'}
             </Button>
           </div>
-          
+
           {isEditing ? (
             <Textarea
               value={previousNotes}
               onChange={(e) => setPreviousNotes(e.target.value)}
-              className="min-h-[100px]"
+              className="min-h-[100px] rounded-xl border-gray-200 dark:border-gray-700 focus:border-zuli-veronica focus:ring-zuli-veronica/20"
               placeholder="Agregar notas previas del paciente..."
             />
           ) : (
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-              <p className="text-gray-700 text-sm leading-relaxed">
-                {previousNotes}
+            <div className="bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl p-4">
+              <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed">
+                {previousNotes || 'Sin notas previas'}
               </p>
             </div>
           )}
@@ -264,13 +303,17 @@ export default function PatientSummary({ appointmentId, consultationData, onComp
 
         {/* Context Files */}
         <div>
-          <h3 className="text-lg font-medium text-gray-900 mb-3">Archivos de Contexto:</h3>
-          
-          <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-gray-400 transition-colors">
-            <Upload className="mx-auto h-8 w-8 text-gray-400 mb-3" />
+          <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">
+            Archivos de Contexto
+          </h3>
+
+          <div className="border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl p-8 text-center hover:border-zuli-veronica/50 hover:bg-zuli-veronica/5 transition-all cursor-pointer group">
+            <div className="w-12 h-12 mx-auto mb-3 rounded-xl bg-gray-100 dark:bg-gray-800 group-hover:bg-zuli-veronica/10 flex items-center justify-center transition-colors">
+              <Upload className="h-6 w-6 text-gray-400 group-hover:text-zuli-veronica transition-colors" />
+            </div>
             <div>
               <label htmlFor="file-upload" className="cursor-pointer">
-                <span className="text-primary-600 hover:text-primary-700 font-medium">Subir archivos de contexto</span>
+                <span className="text-zuli-veronica hover:text-zuli-veronica/80 font-medium">Subir archivos de contexto</span>
                 <input
                   id="file-upload"
                   type="file"
@@ -281,7 +324,7 @@ export default function PatientSummary({ appointmentId, consultationData, onComp
                 />
               </label>
             </div>
-            <p className="text-sm text-gray-500 mt-2">
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
               PDF, DOC, JPG, PNG (máx. 10MB)
             </p>
           </div>
@@ -289,10 +332,12 @@ export default function PatientSummary({ appointmentId, consultationData, onComp
           {contextFiles.length > 0 && (
             <div className="mt-4 space-y-2">
               {contextFiles.map((file, index) => (
-                <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 rounded border">
-                  <FileText className="h-4 w-4 text-gray-500" />
-                  <span className="text-sm text-gray-700">{file.name}</span>
-                  <span className="text-xs text-gray-500">({(file.size / 1024 / 1024).toFixed(1)} MB)</span>
+                <div key={index} className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-gray-200 dark:border-gray-700">
+                  <div className="w-8 h-8 rounded-lg bg-zuli-veronica/10 flex items-center justify-center">
+                    <FileText className="h-4 w-4 text-zuli-veronica" />
+                  </div>
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300 flex-1 truncate">{file.name}</span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">({(file.size / 1024 / 1024).toFixed(1)} MB)</span>
                 </div>
               ))}
             </div>
@@ -300,12 +345,13 @@ export default function PatientSummary({ appointmentId, consultationData, onComp
         </div>
 
         {/* Continue Button */}
-        <div className="flex justify-end pt-4">
-          <Button 
+        <div className="flex justify-end pt-4 border-t border-gray-100 dark:border-gray-700">
+          <Button
             onClick={handleContinue}
-            className="bg-orange-500 hover:bg-orange-600 text-white px-8"
+            className="btn-zuli-gradient px-8 py-2.5 rounded-xl font-medium group"
           >
             Continuar a Grabación
+            <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
           </Button>
         </div>
       </CardContent>

@@ -1,10 +1,11 @@
 "use client"
 
 import { useState, useEffect, useRef, useMemo } from "react"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { Mic, Square, Loader2, FileText, Pause, Play } from "lucide-react"
+import { Mic, Square, Loader2, FileText, Pause, Play, ArrowRight, ArrowLeft } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useRecording } from "@/hooks/use-recording"
 import { AudioDeviceSelector } from "@/components/recording/audio-device-selector"
@@ -311,16 +312,40 @@ export default function ConsultationRecording({
   // Note: formatTime is now provided by the useRecording hook
 
   return (
-    <Card>
-      <CardContent className="p-6 sm:p-8 space-y-6">
+    <Card className="border-0 shadow-sm bg-white dark:bg-gray-800 rounded-2xl overflow-hidden">
+      <CardHeader className="border-b border-gray-100 dark:border-gray-700 bg-gradient-to-r from-zuli-veronica/5 to-zuli-indigo/5 dark:from-zuli-veronica/10 dark:to-zuli-indigo/10">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-zuli-veronica to-zuli-indigo flex items-center justify-center shadow-lg shadow-zuli-veronica/20">
+              <Mic className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <CardTitle className="text-lg font-semibold text-gray-900 dark:text-white">
+                {isRecording ? "Grabación en Progreso" :
+                 isTranscribing ? "Transcribiendo Audio..." :
+                 "Grabación de Consulta"}
+              </CardTitle>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Paso 2 de 5</p>
+            </div>
+          </div>
+          <Badge className={cn(
+            isRecording ? "bg-red-100 text-red-700 border-red-200" :
+            isTranscribing ? "bg-blue-100 text-blue-700 border-blue-200" :
+            transcript ? "bg-green-100 text-green-700 border-green-200" :
+            "bg-zuli-veronica/10 text-zuli-veronica border-zuli-veronica/20"
+          )}>
+            {isRecording ? "Grabando" :
+             isTranscribing ? "Procesando" :
+             transcript ? "Completado" :
+             "En progreso"}
+          </Badge>
+        </div>
+      </CardHeader>
+
+      <CardContent className="p-6 space-y-6">
         <div className="text-center space-y-6">
           <div>
-            <h2 className="text-xl sm:text-2xl font-semibold text-gray-900 mb-2">
-              {isRecording ? "Grabación en Progreso" : 
-               isTranscribing ? "Transcribiendo Audio..." : 
-               "Iniciar Grabación de Consulta"}
-            </h2>
-            <p className="text-gray-600 text-sm sm:text-base">
+            <p className="text-gray-600 dark:text-gray-400 text-sm sm:text-base">
               {isRecording ? "Presione el botón para detener. Puede navegar a otras páginas sin perder la grabación." :
                isTranscribing ? "Transcribiendo con IA..." :
                "La grabación se transcribirá automáticamente con IA."}
@@ -340,10 +365,10 @@ export default function ConsultationRecording({
               className={cn(
                 "w-24 h-24 sm:w-32 sm:h-32 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg",
                 isRecording
-                  ? "bg-red-500 hover:bg-red-600 animate-pulse"
+                  ? "bg-red-500 hover:bg-red-600 animate-pulse shadow-red-500/30"
                   : isTranscribing
-                  ? "bg-blue-500 cursor-not-allowed"
-                  : "bg-orange-500 hover:bg-orange-600"
+                  ? "bg-zuli-indigo cursor-not-allowed"
+                  : "bg-gradient-to-br from-zuli-veronica to-zuli-indigo hover:from-zuli-veronica/90 hover:to-zuli-indigo/90 shadow-zuli-veronica/30"
               )}
             >
               {isTranscribing ? (
@@ -375,7 +400,7 @@ export default function ConsultationRecording({
               <Button
                 variant="outline"
                 onClick={isPaused ? globalResumeRecording : globalPauseRecording}
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 rounded-xl border-gray-200 dark:border-gray-700"
               >
                 {isPaused ? (
                   <>
@@ -445,41 +470,41 @@ export default function ConsultationRecording({
                       : transcript}
                     onChange={(e) => setTranscript(e.target.value)}
                     placeholder={isTranscribing ? "Transcribiendo..." : "La transcripción aparecerá aquí o puedes escribir manualmente..."}
-                    className="min-h-[150px] sm:min-h-[200px] text-sm border-gray-300 focus:ring-primary-500 focus:border-primary-500"
+                    className="min-h-[150px] sm:min-h-[200px] text-sm border-gray-200 dark:border-gray-700 focus:ring-zuli-veronica/20 focus:border-zuli-veronica rounded-xl"
                     disabled={isTranscribing}
                   />
 
                   {extractionPreview && (
-                    <div className="rounded-lg border border-gray-200 p-4 text-left bg-white">
-                      <p className="text-sm font-semibold text-gray-900 mb-2">Extracción clínica (preview)</p>
+                    <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-4 text-left bg-gray-50 dark:bg-gray-900/50">
+                      <p className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Extracción clínica (preview)</p>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                         <div>
-                          <p className="text-gray-500">Paciente</p>
-                          <p className="text-gray-900">{extractionPreview.patient.name || '—'}</p>
+                          <p className="text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide mb-1">Paciente</p>
+                          <p className="text-gray-900 dark:text-white">{extractionPreview.patient.name || '—'}</p>
                         </div>
                         <div>
-                          <p className="text-gray-500">Síntomas/Signos</p>
-                          <p className="text-gray-900">{extractionPreview.symptoms.length ? extractionPreview.symptoms.join(', ') : '—'}</p>
+                          <p className="text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide mb-1">Síntomas/Signos</p>
+                          <p className="text-gray-900 dark:text-white">{extractionPreview.symptoms.length ? extractionPreview.symptoms.join(', ') : '—'}</p>
                         </div>
                         <div>
-                          <p className="text-gray-500">Diagnósticos</p>
-                          <p className="text-gray-900">{extractionPreview.diagnoses.length ? extractionPreview.diagnoses.join(', ') : '—'}</p>
+                          <p className="text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide mb-1">Diagnósticos</p>
+                          <p className="text-gray-900 dark:text-white">{extractionPreview.diagnoses.length ? extractionPreview.diagnoses.join(', ') : '—'}</p>
                         </div>
                         <div>
-                          <p className="text-gray-500">Tratamiento/Medicación</p>
+                          <p className="text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide mb-1">Tratamiento/Medicación</p>
                           {extractionPreview.medications.length ? (
-                            <ul className="list-disc pl-5 text-gray-900 space-y-1">
+                            <ul className="list-disc pl-5 text-gray-900 dark:text-white space-y-1">
                               {extractionPreview.medications.map((m, idx) => (
                                 <li key={idx}>{m.name}{m.dose?` • ${m.dose}`:''}{m.route?` • ${m.route}`:''}{m.frequency?` • ${m.frequency}`:''}{m.duration?` • ${m.duration}`:''}</li>
                               ))}
                             </ul>
                           ) : (
-                            <p className="text-gray-900">—</p>
+                            <p className="text-gray-900 dark:text-white">—</p>
                           )}
                         </div>
                       </div>
                       {(isParsing || parseError) && (
-                        <div className="mt-2 text-xs text-gray-500">
+                        <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
                           {isParsing ? 'Procesando extracción...' : parseError}
                         </div>
                       )}
@@ -489,9 +514,10 @@ export default function ConsultationRecording({
                   {transcript && !isTranscribing && (
                     <Button
                       onClick={handleComplete}
-                      className="w-full bg-orange-500 hover:bg-orange-600"
+                      className="w-full btn-zuli-gradient rounded-xl font-medium group"
                     >
-                      Continuar con esta transcripción →
+                      Continuar con esta transcripción
+                      <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
                     </Button>
                   )}
                 </>
@@ -511,45 +537,51 @@ export default function ConsultationRecording({
 
               {/* Opciones de transcripción */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                <Button 
+                <Button
                   variant="outline"
                   onClick={handleStartRecording}
-                  className="h-32 flex flex-col gap-3 border-2 border-primary-200 hover:border-primary-400"
+                  className="h-32 flex flex-col gap-3 border-2 border-zuli-veronica/20 hover:border-zuli-veronica/50 hover:bg-zuli-veronica/5 rounded-xl transition-all"
                 >
-                  <Mic className="h-8 w-8 text-primary-500" />
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-zuli-veronica to-zuli-indigo flex items-center justify-center shadow-lg shadow-zuli-veronica/20">
+                    <Mic className="h-6 w-6 text-white" />
+                  </div>
                   <div className="text-center">
-                    <span className="text-base font-medium block">Grabar Audio</span>
-                    <span className="text-xs text-gray-500">Transcripción automática con IA</span>
+                    <span className="text-base font-medium block text-gray-900 dark:text-white">Grabar Audio</span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">Transcripción automática con IA</span>
                   </div>
                 </Button>
-                
-                <Button 
+
+                <Button
                   variant="outline"
                   onClick={handleManualTranscript}
-                  className="h-32 flex flex-col gap-3 border-2 border-green-200 hover:border-green-400"
+                  className="h-32 flex flex-col gap-3 border-2 border-zuli-cyan/20 hover:border-zuli-cyan/50 hover:bg-zuli-cyan/5 rounded-xl transition-all"
                 >
-                  <FileText className="h-8 w-8 text-green-500" />
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-zuli-cyan to-zuli-indigo flex items-center justify-center shadow-lg shadow-zuli-cyan/20">
+                    <FileText className="h-6 w-6 text-white" />
+                  </div>
                   <div className="text-center">
-                    <span className="text-base font-medium block">Escribir Manual</span>
-                    <span className="text-xs text-gray-500">Copiar/pegar transcript existente</span>
+                    <span className="text-base font-medium block text-gray-900 dark:text-white">Escribir Manual</span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">Copiar/pegar transcript existente</span>
                   </div>
                 </Button>
               </div>
               
-              <div className="flex flex-col sm:flex-row justify-center gap-3">
-                <Button 
-                  variant="outline" 
+              <div className="flex flex-col sm:flex-row justify-center gap-3 pt-2">
+                <Button
+                  variant="outline"
                   onClick={() => onNavigateToStep(1)}
-                  className="text-gray-600 w-full sm:w-auto"
+                  className="text-gray-600 dark:text-gray-400 w-full sm:w-auto rounded-xl group"
                 >
-                  ← Resumen Paciente
+                  <ArrowLeft className="mr-2 h-4 w-4 group-hover:-translate-x-0.5 transition-transform" />
+                  Resumen Paciente
                 </Button>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={() => onNavigateToStep(3)}
-                  className="text-gray-600 w-full sm:w-auto"
+                  className="text-gray-600 dark:text-gray-400 w-full sm:w-auto rounded-xl group"
                 >
-                  Saltar Grabación →
+                  Saltar Grabación
+                  <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
                 </Button>
               </div>
             </div>
@@ -559,52 +591,52 @@ export default function ConsultationRecording({
           {manualTranscriptMode && (
             <div className="space-y-4">
               <div className="text-center">
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
                   Transcripción Manual
                 </h3>
-                <p className="text-gray-600 text-sm">
+                <p className="text-gray-600 dark:text-gray-400 text-sm">
                   Escriba o pegue la transcripción de la consulta médica
                 </p>
               </div>
-              
+
               <Textarea
                 value={transcript}
                 onChange={(e) => setTranscript(e.target.value)}
                 placeholder="Escriba aquí la transcripción de la consulta médica..."
-                className="min-h-[200px] text-sm border-gray-300 focus:ring-primary-500 focus:border-primary-500"
+                className="min-h-[200px] text-sm border-gray-200 dark:border-gray-700 focus:ring-zuli-veronica/20 focus:border-zuli-veronica rounded-xl"
               />
 
               {extractionPreview && (
-                <div className="rounded-lg border border-gray-200 p-4 text-left bg-white">
-                  <p className="text-sm font-semibold text-gray-900 mb-2">Extracción clínica (preview)</p>
+                <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-4 text-left bg-gray-50 dark:bg-gray-900/50">
+                  <p className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Extracción clínica (preview)</p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                     <div>
-                      <p className="text-gray-500">Paciente</p>
-                      <p className="text-gray-900">{extractionPreview.patient.name || '—'} <span className="text-gray-400">({extractionPreview.patient.id || '—'})</span></p>
+                      <p className="text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide mb-1">Paciente</p>
+                      <p className="text-gray-900 dark:text-white">{extractionPreview.patient.name || '—'} <span className="text-gray-400 dark:text-gray-500">({extractionPreview.patient.id || '—'})</span></p>
                     </div>
                     <div>
-                      <p className="text-gray-500">Síntomas/Signos</p>
-                      <p className="text-gray-900">{extractionPreview.symptoms.length ? extractionPreview.symptoms.join(', ') : '—'}</p>
+                      <p className="text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide mb-1">Síntomas/Signos</p>
+                      <p className="text-gray-900 dark:text-white">{extractionPreview.symptoms.length ? extractionPreview.symptoms.join(', ') : '—'}</p>
                     </div>
                     <div>
-                      <p className="text-gray-500">Diagnósticos</p>
-                      <p className="text-gray-900">{extractionPreview.diagnoses.length ? extractionPreview.diagnoses.join(', ') : '—'}</p>
+                      <p className="text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide mb-1">Diagnósticos</p>
+                      <p className="text-gray-900 dark:text-white">{extractionPreview.diagnoses.length ? extractionPreview.diagnoses.join(', ') : '—'}</p>
                     </div>
                     <div>
-                      <p className="text-gray-500">Tratamiento/Medicación</p>
+                      <p className="text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide mb-1">Tratamiento/Medicación</p>
                       {extractionPreview.medications.length ? (
-                        <ul className="list-disc pl-5 text-gray-900 space-y-1">
+                        <ul className="list-disc pl-5 text-gray-900 dark:text-white space-y-1">
                           {extractionPreview.medications.map((m, idx) => (
                             <li key={idx}>{m.name}{m.dose?` • ${m.dose}`:''}{m.route?` • ${m.route}`:''}{m.frequency?` • ${m.frequency}`:''}{m.duration?` • ${m.duration}`:''}</li>
                           ))}
                         </ul>
                       ) : (
-                        <p className="text-gray-900">—</p>
+                        <p className="text-gray-900 dark:text-white">—</p>
                       )}
                     </div>
                   </div>
                   {(isParsing || parseError) && (
-                    <div className="mt-2 text-xs text-gray-500">
+                    <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
                       {isParsing ? 'Procesando extracción...' : parseError}
                     </div>
                   )}
@@ -612,22 +644,23 @@ export default function ConsultationRecording({
               )}
               
               <div className="flex gap-3">
-                <Button 
+                <Button
                   onClick={() => {
                     setManualTranscriptMode(false)
                     setTranscript("")
                   }}
                   variant="outline"
-                  className="flex-1"
+                  className="flex-1 rounded-xl"
                 >
                   Cancelar
                 </Button>
-                <Button 
+                <Button
                   onClick={handleComplete}
                   disabled={!transcript.trim()}
-                  className="flex-1 bg-orange-500 hover:bg-orange-600"
+                  className="flex-1 btn-zuli-gradient rounded-xl font-medium group"
                 >
-                  Continuar con esta transcripción →
+                  Continuar con esta transcripción
+                  <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
                 </Button>
               </div>
             </div>
