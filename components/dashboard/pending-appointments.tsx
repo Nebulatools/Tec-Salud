@@ -146,14 +146,24 @@ export default function PendingAppointments() {
     return (
       <Card className="card-shadow">
         <CardHeader>
-          <CardTitle className="text-gray-700">Consultas Pendientes</CardTitle>
+          <CardTitle className="text-gray-700 dark:text-gray-200">Consultas Pendientes</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {[...Array(3)].map((_, i) => (
-              <div key={i} className="animate-pulse">
-                <div className="h-20 bg-gray-200 rounded-lg"></div>
-              </div>
+              <Card key={i} className="border border-gray-200 dark:border-gray-700">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="h-5 w-32 rounded animate-shimmer" />
+                    <div className="h-8 w-8 rounded animate-shimmer" />
+                  </div>
+                  <div className="space-y-2">
+                    <div className="h-4 w-24 rounded animate-shimmer" style={{ animationDelay: '0.1s' }} />
+                    <div className="h-4 w-28 rounded animate-shimmer" style={{ animationDelay: '0.15s' }} />
+                  </div>
+                  <div className="mt-3 h-9 w-full rounded animate-shimmer" style={{ animationDelay: '0.2s' }} />
+                </CardContent>
+              </Card>
             ))}
           </div>
         </CardContent>
@@ -164,61 +174,77 @@ export default function PendingAppointments() {
   return (
     <Card className="card-shadow">
       <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle className="text-gray-700">Consultas Pendientes</CardTitle>
+        <CardTitle className="text-gray-700 dark:text-gray-200">Consultas Pendientes</CardTitle>
         <Link href="/consultas">
-          <Button variant="ghost" size="sm" className="text-zuli-veronica hover:text-zuli-veronica-600">
+          <Button variant="ghost" size="sm" className="text-zuli-veronica hover:text-zuli-veronica-600 group">
             Ver todas
-            <ArrowRight className="ml-1 h-4 w-4" />
+            <ArrowRight className="ml-1 h-4 w-4 group-hover:translate-x-1 transition-transform" />
           </Button>
         </Link>
       </CardHeader>
       <CardContent>
         {appointments.length === 0 ? (
-          <div className="text-center py-8">
-            <Calendar className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-            <p className="text-gray-500 mb-4">No hay consultas programadas</p>
+          <div className="text-center py-12 animate-fadeIn">
+            <div className="empty-state-icon-colored">
+              <Calendar className="h-12 w-12 text-zuli-veronica/60" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+              Sin consultas programadas
+            </h3>
+            <p className="text-gray-500 dark:text-gray-400 max-w-sm mx-auto mb-6">
+              No tienes consultas pendientes. ¡Es un buen momento para organizar tu agenda!
+            </p>
             <Link href="/consultas">
-              <Button className="btn-zuli-gradient">
+              <Button className="btn-zuli-gradient animate-pulse-subtle">
                 <Plus className="mr-2 h-4 w-4" />
-                Nueva Consulta
+                Programar consulta
               </Button>
             </Link>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {appointments.map((appointment) => (
-              <Card key={appointment.id} className="hover:shadow-md transition-shadow border border-gray-200">
+            {appointments.map((appointment, index) => (
+              <Card
+                key={appointment.id}
+                className="group hover:shadow-lg hover:-translate-y-1 transition-all duration-300 border-2 border-gray-100 dark:border-gray-700 hover:border-zuli-veronica/30 overflow-hidden animate-fadeInUp"
+                style={{ animationDelay: `${index * 50}ms` }}
+              >
+                {/* Top accent bar on hover */}
+                <div className="h-1 bg-gradient-to-r from-zuli-veronica to-zuli-indigo opacity-0 group-hover:opacity-100 transition-opacity" />
+
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between mb-3">
-                    <h4 className="font-medium text-gray-700">
+                    <h4 className="font-semibold text-gray-800 dark:text-gray-100 truncate pr-2">
                       {appointment.patient.first_name} {appointment.patient.last_name}
                     </h4>
-                    <div className="flex items-center gap-1">
-                      <Button size="sm" variant="ghost" className="text-red-600 hover:text-red-700"
-                        onClick={() => { setAppointmentToDelete(appointment); setShowDeleteModal(true) }}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors shrink-0"
+                      onClick={() => { setAppointmentToDelete(appointment); setShowDeleteModal(true) }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
 
                   <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-sm text-gray-500">
-                      <Calendar className="h-4 w-4" />
-                      {formatDate(appointment.appointment_date)}
+                    <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                      <Calendar className="h-4 w-4 text-zuli-indigo" />
+                      <span>{formatDate(appointment.appointment_date)}</span>
                     </div>
-                    <div className="flex items-center gap-2 text-sm text-gray-500">
-                      <Clock className="h-4 w-4" />
-                      {formatTime(appointment.start_time)} : {formatTime(appointment.end_time)}
+                    <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                      <Clock className="h-4 w-4 text-zuli-cyan-600" />
+                      <span>{formatTime(appointment.start_time)} - {formatTime(appointment.end_time)}</span>
                     </div>
                   </div>
 
-                  <div className="mt-3">
+                  <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-700">
                     <Button
-                      className="w-full btn-zuli-gradient text-sm"
+                      className="w-full btn-zuli-gradient text-sm group/btn"
                       onClick={() => handleStartConsultation(appointment)}
                     >
-                      Iniciar Consulta →
+                      Iniciar Consulta
+                      <ArrowRight className="ml-2 h-4 w-4 group-hover/btn:translate-x-1 transition-transform" />
                     </Button>
                   </div>
                 </CardContent>

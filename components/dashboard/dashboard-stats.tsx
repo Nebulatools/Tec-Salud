@@ -118,9 +118,15 @@ export default function DashboardStats() {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {[...Array(4)].map((_, i) => (
-          <Card key={i} className="animate-pulse">
+          <Card key={i} className="overflow-hidden">
             <CardContent className="p-6">
-              <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded"></div>
+              <div className="flex items-center justify-between">
+                <div className="space-y-3 flex-1">
+                  <div className="h-4 w-24 rounded animate-shimmer" />
+                  <div className="h-8 w-16 rounded animate-shimmer" style={{ animationDelay: '0.1s' }} />
+                </div>
+                <div className="h-14 w-14 rounded-2xl animate-shimmer" style={{ animationDelay: '0.2s' }} />
+              </div>
             </CardContent>
           </Card>
         ))}
@@ -131,15 +137,27 @@ export default function DashboardStats() {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
       {statCards.map((stat, index) => (
-        <Card key={index} className="hover:shadow-lg transition-shadow duration-200">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">{stat.title}</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">{stat.value}</p>
+        <Card
+          key={index}
+          className="group hover:shadow-xl hover:scale-[1.02] transition-all duration-300 border-transparent hover:border-zuli-veronica/20 overflow-hidden animate-fadeInUp"
+          style={{ animationDelay: `${index * 50}ms` }}
+        >
+          <CardContent className="p-6 relative">
+            {/* Gradient accent on hover */}
+            <div className="absolute inset-0 bg-gradient-to-br from-transparent via-transparent to-zuli-veronica/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+
+            {/* Content with improved spacing */}
+            <div className="relative flex items-center justify-between">
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-gray-500 dark:text-gray-400 tracking-wide uppercase">
+                  {stat.title}
+                </p>
+                <p className="text-3xl font-bold text-gray-900 dark:text-white tabular-nums">
+                  {stat.value}
+                </p>
               </div>
-              <div className={`p-3 rounded-xl ${stat.bgColor} ${stat.color}`}>
-                <stat.icon className="h-6 w-6" />
+              <div className={`p-4 rounded-2xl ${stat.bgColor} ${stat.color} group-hover:scale-110 transition-transform duration-300`}>
+                <stat.icon className="h-7 w-7" />
               </div>
             </div>
           </CardContent>

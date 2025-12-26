@@ -528,16 +528,24 @@ function CuestionarioContent() {
             <Button
               type="button"
               variant={value === true ? "default" : "outline"}
-              className={`flex-1 ${value === true ? "bg-zuli-indigo hover:bg-zuli-indigo-600" : ""}`}
+              className={`flex-1 h-12 touch-target transition-all duration-200 ${
+                value === true
+                  ? "bg-gradient-to-r from-zuli-veronica to-zuli-indigo hover:opacity-90 shadow-md shadow-zuli-veronica/25 border-0"
+                  : "hover:border-zuli-veronica/50 hover:bg-zuli-veronica/5"
+              }`}
               onClick={() => setAnswers((prev) => ({ ...prev, [q.id]: true }))}
             >
-              <CheckCircle2 className="h-4 w-4 mr-2" />
+              <CheckCircle2 className={`h-4 w-4 mr-2 transition-transform ${value === true ? "scale-110" : ""}`} />
               Sí
             </Button>
             <Button
               type="button"
               variant={value === false ? "default" : "outline"}
-              className={`flex-1 ${value === false ? "bg-slate-600 hover:bg-slate-700" : ""}`}
+              className={`flex-1 h-12 touch-target transition-all duration-200 ${
+                value === false
+                  ? "bg-slate-600 hover:bg-slate-700 shadow-md border-0"
+                  : "hover:border-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
+              }`}
               onClick={() => setAnswers((prev) => ({ ...prev, [q.id]: false }))}
             >
               No
@@ -571,8 +579,10 @@ function CuestionarioContent() {
                 <Badge
                   key={opt}
                   variant={isSelected ? "default" : "outline"}
-                  className={`cursor-pointer transition-all ${
-                    isSelected ? "bg-zuli-veronica hover:bg-zuli-veronica-600" : "hover:bg-gray-100"
+                  className={`cursor-pointer transition-all duration-200 py-1.5 px-3 touch-target ${
+                    isSelected
+                      ? "bg-gradient-to-r from-zuli-veronica to-zuli-indigo hover:opacity-90 shadow-sm border-0 text-white"
+                      : "hover:bg-zuli-veronica/5 hover:border-zuli-veronica/50 border-gray-200 dark:border-gray-700"
                   }`}
                   onClick={() => {
                     const newValues = isSelected
@@ -581,7 +591,7 @@ function CuestionarioContent() {
                     setAnswers((prev) => ({ ...prev, [q.id]: newValues }))
                   }}
                 >
-                  {isSelected && <CheckCircle2 className="h-3 w-3 mr-1" />}
+                  {isSelected && <CheckCircle2 className="h-3 w-3 mr-1.5 animate-scale-in" />}
                   {opt}
                 </Badge>
               )
@@ -595,7 +605,7 @@ function CuestionarioContent() {
             value={value ?? ""}
             onChange={(e) => setAnswers((prev) => ({ ...prev, [q.id]: e.target.value }))}
             placeholder="Escribe tu respuesta..."
-            className="min-h-[80px]"
+            className="min-h-[80px] focus:ring-2 focus:ring-zuli-veronica/30 focus:border-zuli-veronica transition-all"
           />
         )
 
@@ -606,6 +616,7 @@ function CuestionarioContent() {
             value={value ?? ""}
             onChange={(e) => setAnswers((prev) => ({ ...prev, [q.id]: e.target.value }))}
             placeholder="Ingresa un número"
+            className="focus:ring-2 focus:ring-zuli-veronica/30 focus:border-zuli-veronica transition-all"
           />
         )
 
@@ -615,6 +626,7 @@ function CuestionarioContent() {
             value={value ?? ""}
             onChange={(e) => setAnswers((prev) => ({ ...prev, [q.id]: e.target.value }))}
             placeholder="Tu respuesta"
+            className="focus:ring-2 focus:ring-zuli-veronica/30 focus:border-zuli-veronica transition-all"
           />
         )
     }
@@ -628,21 +640,52 @@ function CuestionarioContent() {
 
   if (authLoading || dataLoading) {
     return (
-      <div className="min-h-[50vh] flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-4 border-zuli-veronica/20 border-t-zuli-veronica mx-auto" />
-          <p className="text-gray-500 mt-3">Cargando cuestionario...</p>
+      <div className="max-w-2xl mx-auto space-y-6 animate-fadeIn">
+        {/* Header skeleton */}
+        <div className="h-32 rounded-2xl animate-shimmer" />
+
+        {/* Alert skeleton */}
+        <div className="h-14 rounded-lg animate-shimmer" style={{ animationDelay: '0.1s' }} />
+
+        {/* Question cards skeleton */}
+        <div className="space-y-4">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="p-5 rounded-xl border border-gray-100 dark:border-gray-800" style={{ animationDelay: `${i * 0.05}s` }}>
+              <div className="flex items-start gap-3">
+                <div className="h-8 w-8 rounded-full animate-shimmer" />
+                <div className="flex-1 space-y-3">
+                  <div className="h-5 w-3/4 rounded animate-shimmer" />
+                  <div className="flex gap-3">
+                    <div className="h-10 flex-1 rounded-lg animate-shimmer" />
+                    <div className="h-10 flex-1 rounded-lg animate-shimmer" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
+
+        {/* Button skeleton */}
+        <div className="h-12 rounded-xl animate-shimmer" style={{ animationDelay: '0.3s' }} />
       </div>
     )
   }
 
   if (!doctor || !specialty) {
     return (
-      <Card>
-        <CardContent className="py-12 text-center">
-          <p className="text-gray-500">No se encontró el especialista o la especialidad.</p>
-          <Button onClick={() => router.push("/user/especialistas")} className="mt-4">
+      <Card className="border-2 border-dashed border-gray-200 dark:border-gray-700 animate-fadeIn">
+        <CardContent className="py-16 text-center">
+          <div className="empty-state-icon-colored">
+            <Stethoscope className="h-10 w-10 text-zuli-veronica" />
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+            Especialista no encontrado
+          </h3>
+          <p className="text-gray-500 dark:text-gray-400 max-w-sm mx-auto mb-6">
+            No se encontró el especialista o la especialidad. Es posible que el enlace haya expirado.
+          </p>
+          <Button onClick={() => router.push("/user/especialistas")} className="btn-zuli-gradient">
+            <ArrowLeft className="h-4 w-4 mr-2" />
             Volver al marketplace
           </Button>
         </CardContent>
@@ -655,17 +698,22 @@ function CuestionarioContent() {
     const selectedProviderData = LAB_PROVIDERS.find((p) => p.id === selectedProvider)
 
     return (
-      <div className="max-w-2xl mx-auto space-y-6">
-        <Button variant="ghost" onClick={() => setStep("questionnaire")}>
-          <ArrowLeft className="h-4 w-4 mr-2" />
+      <div className="max-w-2xl mx-auto space-y-6 animate-fadeIn">
+        <Button variant="ghost" onClick={() => setStep("questionnaire")} className="group hover:bg-zuli-veronica/5">
+          <ArrowLeft className="h-4 w-4 mr-2 group-hover:-translate-x-1 transition-transform" />
           Volver al cuestionario
         </Button>
 
         {/* Header */}
-        <Card className="bg-gradient-to-r from-zuli-cyan to-zuli-indigo text-white border-0">
-          <CardContent className="py-6">
+        <Card className="bg-gradient-to-r from-zuli-cyan to-zuli-indigo text-white border-0 overflow-hidden relative">
+          {/* Decorative pattern */}
+          <div className="absolute inset-0 opacity-10">
+            <div className="absolute top-0 right-0 w-48 h-48 rounded-full bg-white/20 -translate-y-1/2 translate-x-1/2" />
+            <div className="absolute bottom-0 left-0 w-24 h-24 rounded-full bg-white/20 translate-y-1/2 -translate-x-1/2" />
+          </div>
+          <CardContent className="py-6 relative">
             <div className="flex items-center gap-4">
-              <div className="p-3 rounded-xl bg-white/20">
+              <div className="p-3 rounded-xl bg-white/20 shadow-lg">
                 <FlaskConical className="h-8 w-8" />
               </div>
               <div>
@@ -679,7 +727,8 @@ function CuestionarioContent() {
         </Card>
 
         {/* Tests recomendados */}
-        <Card>
+        <Card className="overflow-hidden animate-fadeInUp" style={{ animationDelay: '0.1s' }}>
+          <div className="h-1 bg-gradient-to-r from-zuli-cyan to-zuli-indigo" />
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <FileText className="h-5 w-5 text-zuli-indigo" />
@@ -688,8 +737,14 @@ function CuestionarioContent() {
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap gap-2">
-              {recommendedTests.map((test) => (
-                <Badge key={test} variant="secondary" className="py-1.5 px-3">
+              {recommendedTests.map((test, index) => (
+                <Badge
+                  key={test}
+                  variant="secondary"
+                  className="py-1.5 px-3 bg-zuli-indigo/10 text-zuli-indigo border border-zuli-indigo/20 animate-fadeInUp"
+                  style={{ animationDelay: `${index * 50}ms` }}
+                >
+                  <CheckCircle2 className="h-3 w-3 mr-1.5" />
                   {test}
                 </Badge>
               ))}
@@ -698,10 +753,11 @@ function CuestionarioContent() {
         </Card>
 
         {/* Selección de laboratorio */}
-        <Card>
+        <Card className="overflow-hidden animate-fadeInUp" style={{ animationDelay: '0.15s' }}>
+          <div className="h-1 bg-gradient-to-r from-zuli-veronica to-zuli-indigo" />
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
-              <Building2 className="h-5 w-5 text-zuli-indigo" />
+              <Building2 className="h-5 w-5 text-zuli-veronica" />
               Selecciona tu Laboratorio
             </CardTitle>
             <CardDescription>
@@ -710,23 +766,31 @@ function CuestionarioContent() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
-              {LAB_PROVIDERS.map((provider) => (
+              {LAB_PROVIDERS.map((provider, index) => (
                 <Card
                   key={provider.id}
-                  className={`cursor-pointer transition-all hover:shadow-md ${
+                  className={`cursor-pointer transition-all duration-300 group overflow-hidden animate-fadeInUp ${
                     selectedProvider === provider.id
-                      ? "border-2 border-zuli-veronica bg-zuli-veronica/5"
-                      : "border hover:border-zuli-veronica/30"
+                      ? "border-2 border-zuli-veronica bg-zuli-veronica/5 shadow-md shadow-zuli-veronica/10"
+                      : "border-2 border-transparent hover:border-zuli-veronica/30 hover:shadow-lg"
                   }`}
+                  style={{ animationDelay: `${index * 50}ms` }}
                   onClick={() => {
                     setSelectedProvider(provider.id)
                     setSelectedBranch(null)
                   }}
                 >
+                  {/* Top accent bar */}
+                  <div className={`h-1 bg-gradient-to-r from-zuli-veronica to-zuli-indigo transition-opacity duration-300 ${
+                    selectedProvider === provider.id ? "opacity-100" : "opacity-0 group-hover:opacity-50"
+                  }`} />
                   <CardContent className="p-4 text-center">
-                    <div className="text-3xl mb-2">{provider.logo}</div>
-                    <p className="font-medium text-sm">{provider.name}</p>
-                    <p className="text-xs text-gray-500">{provider.branches.length} sucursales</p>
+                    <div className="text-3xl mb-2 group-hover:scale-110 transition-transform duration-200">{provider.logo}</div>
+                    <p className="font-medium text-sm text-gray-900 dark:text-white">{provider.name}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{provider.branches.length} sucursales</p>
+                    {selectedProvider === provider.id && (
+                      <CheckCircle2 className="h-4 w-4 text-zuli-veronica mx-auto mt-2 animate-scale-in" />
+                    )}
                   </CardContent>
                 </Card>
               ))}
@@ -736,31 +800,42 @@ function CuestionarioContent() {
 
         {/* Selección de sucursal */}
         {selectedProviderData && (
-          <Card>
+          <Card className="overflow-hidden animate-fadeInUp" style={{ animationDelay: '0.2s' }}>
+            <div className="h-1 bg-gradient-to-r from-zuli-cyan to-zuli-veronica" />
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
-                <MapPin className="h-5 w-5 text-zuli-indigo" />
+                <MapPin className="h-5 w-5 text-zuli-cyan-600" />
                 Selecciona la Sucursal
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              {selectedProviderData.branches.map((branch) => (
+              {selectedProviderData.branches.map((branch, index) => (
                 <div
                   key={branch.id}
-                  className={`p-4 rounded-lg cursor-pointer transition-all border ${
+                  className={`p-4 rounded-xl cursor-pointer transition-all duration-200 border-2 animate-fadeInUp ${
                     selectedBranch === branch.id
-                      ? "border-zuli-veronica bg-zuli-veronica/5"
-                      : "border-gray-200 hover:border-zuli-veronica/30 hover:bg-zuli-veronica/5"
+                      ? "border-zuli-veronica bg-zuli-veronica/5 shadow-md shadow-zuli-veronica/10"
+                      : "border-gray-100 dark:border-gray-800 hover:border-zuli-veronica/30 hover:bg-zuli-veronica/5"
                   }`}
+                  style={{ animationDelay: `${index * 50}ms` }}
                   onClick={() => setSelectedBranch(branch.id)}
                 >
                   <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">{branch.name}</p>
-                      <p className="text-sm text-gray-500">{branch.address}</p>
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-lg transition-colors ${
+                        selectedBranch === branch.id
+                          ? "bg-zuli-veronica text-white"
+                          : "bg-gray-100 dark:bg-gray-800 text-gray-500"
+                      }`}>
+                        <MapPin className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900 dark:text-white">{branch.name}</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">{branch.address}</p>
+                      </div>
                     </div>
                     {selectedBranch === branch.id && (
-                      <CheckCircle2 className="h-5 w-5 text-zuli-veronica" />
+                      <CheckCircle2 className="h-5 w-5 text-zuli-veronica animate-scale-in" />
                     )}
                   </div>
                 </div>
@@ -789,7 +864,7 @@ function CuestionarioContent() {
         </Button>
 
         {status && (
-          <Alert className="bg-zuli-veronica/10 border-zuli-veronica/20 text-zuli-veronica">
+          <Alert className="bg-green-50 border-green-200 text-green-700 dark:bg-green-900/20 dark:border-green-800 dark:text-green-400 animate-fadeInUp">
             <CheckCircle2 className="h-4 w-4" />
             <AlertDescription>{status}</AlertDescription>
           </Alert>
@@ -800,19 +875,24 @@ function CuestionarioContent() {
 
   // Cuestionario principal - todas las preguntas a la vez
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="max-w-2xl mx-auto space-y-6 animate-fadeIn">
       {/* Header con info del doctor */}
-      <Card className="bg-gradient-to-r from-zuli-veronica to-zuli-indigo text-white border-0">
-        <CardContent className="py-6">
+      <Card className="bg-gradient-to-r from-zuli-veronica to-zuli-indigo text-white border-0 overflow-hidden relative">
+        {/* Decorative pattern */}
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute top-0 right-0 w-64 h-64 rounded-full bg-white/20 -translate-y-1/2 translate-x-1/2" />
+          <div className="absolute bottom-0 left-0 w-32 h-32 rounded-full bg-white/20 translate-y-1/2 -translate-x-1/2" />
+        </div>
+        <CardContent className="py-6 relative">
           <div className="flex items-center gap-4">
-            <div className="h-14 w-14 rounded-full bg-white/20 flex items-center justify-center text-2xl font-bold">
+            <div className="h-14 w-14 rounded-full bg-white/20 flex items-center justify-center text-2xl font-bold ring-4 ring-white/30 shadow-lg">
               {doctor.first_name?.[0]}
             </div>
             <div className="flex-1">
               <p className="font-semibold text-lg">
                 Dr. {doctor.first_name} {doctor.last_name}
               </p>
-              <Badge variant="secondary" className="mt-1">
+              <Badge variant="secondary" className="mt-1 bg-white/20 text-white border-0 backdrop-blur-sm">
                 {specialtyIcons[specialty.name]}
                 <span className="ml-1">{specialty.name}</span>
               </Badge>
@@ -839,31 +919,51 @@ function CuestionarioContent() {
 
       {/* Todas las preguntas */}
       <div className="space-y-4">
-        {questions.map((q, index) => (
-          <Card key={q.id} className="border">
-            <CardContent className="pt-5 space-y-4">
-              <div className="flex items-start gap-3">
-                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-zuli-veronica/10 text-zuli-veronica flex items-center justify-center text-sm font-bold">
-                  {index + 1}
+        {questions.map((q, index) => {
+          const isAnswered = answers[q.id] !== undefined && answers[q.id] !== null && answers[q.id] !== "" && (!Array.isArray(answers[q.id]) || answers[q.id].length > 0)
+
+          return (
+            <Card
+              key={q.id}
+              className={`border-2 overflow-hidden transition-all duration-300 animate-fadeInUp ${
+                isAnswered
+                  ? "border-green-200 dark:border-green-800 bg-green-50/30 dark:bg-green-900/10"
+                  : "border-gray-100 dark:border-gray-800 hover:border-zuli-veronica/30"
+              }`}
+              style={{ animationDelay: `${index * 50}ms` }}
+            >
+              {/* Top accent bar - shows green when answered */}
+              <div className={`h-1 transition-colors duration-300 ${
+                isAnswered ? "bg-green-500" : "bg-gradient-to-r from-zuli-veronica to-zuli-indigo opacity-20"
+              }`} />
+              <CardContent className="pt-5 pb-5 space-y-4">
+                <div className="flex items-start gap-3">
+                  <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all duration-300 ${
+                    isAnswered
+                      ? "bg-green-500 text-white"
+                      : "bg-zuli-veronica/10 text-zuli-veronica"
+                  }`}>
+                    {isAnswered ? <CheckCircle2 className="h-4 w-4" /> : index + 1}
+                  </div>
+                  <div className="flex-1 space-y-3">
+                    <Label className="text-base font-medium text-gray-900 dark:text-white">
+                      {q.prompt}
+                      {q.is_required && <span className="text-red-500 ml-1">*</span>}
+                    </Label>
+                    {renderField(q)}
+                  </div>
                 </div>
-                <div className="flex-1 space-y-3">
-                  <Label className="text-base font-medium text-gray-900">
-                    {q.prompt}
-                    {q.is_required && <span className="text-red-500 ml-1">*</span>}
-                  </Label>
-                  {renderField(q)}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+              </CardContent>
+            </Card>
+          )
+        })}
       </div>
 
       {/* Botón continuar */}
       <Button
         onClick={handleSubmitQuestionnaire}
         disabled={saving || answeredCount < questions.filter((q) => q.is_required).length}
-        className="w-full btn-zuli-gradient"
+        className="w-full h-12 btn-zuli-gradient touch-target group"
       >
         {saving ? (
           <>
@@ -873,13 +973,13 @@ function CuestionarioContent() {
         ) : (
           <>
             Continuar
-            <ChevronRight className="h-4 w-4 ml-2" />
+            <ChevronRight className="h-4 w-4 ml-2 group-hover:translate-x-1 transition-transform" />
           </>
         )}
       </Button>
 
       {error && (
-        <Alert variant="destructive">
+        <Alert variant="destructive" className="animate-fadeInUp">
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}

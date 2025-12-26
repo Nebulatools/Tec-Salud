@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/hooks/use-auth"
-import { ChevronLeft, ChevronRight, CalendarIcon, Clock, Plus, List } from "lucide-react"
+import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, CalendarIcon, Clock, Plus, List, Users } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import AddAppointmentForm from "./add-appointment-form"
 import ConfirmCancelModal from "@/components/ui/confirm-cancel-modal"
@@ -43,6 +43,7 @@ export default function AppointmentCalendar() {
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [appointmentToDelete, setAppointmentToDelete] = useState<Appointment | null>(null)
   const [hideCompletedToday, setHideCompletedToday] = useState<boolean>(true)
+  const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set())
 
   // Persist toggle in localStorage
   useEffect(() => {
@@ -226,6 +227,55 @@ export default function AppointmentCalendar() {
     } catch { return false }
   }
 
+  // Group appointments by date for list view
+  const groupAppointmentsByDate = (appts: Appointment[]) => {
+    const groups: Record<string, Appointment[]> = {}
+    appts.forEach((apt) => {
+      const dateKey = apt.appointment_date
+      if (!groups[dateKey]) {
+        groups[dateKey] = []
+      }
+      groups[dateKey].push(apt)
+    })
+    // Sort dates
+    const sortedKeys = Object.keys(groups).sort()
+    return sortedKeys.map((date) => ({
+      date,
+      appointments: groups[date],
+    }))
+  }
+
+  const toggleDateExpanded = (date: string) => {
+    setExpandedDates((prev) => {
+      const newSet = new Set(prev)
+      if (newSet.has(date)) {
+        newSet.delete(date)
+      } else {
+        newSet.add(date)
+      }
+      return newSet
+    })
+  }
+
+  const formatGroupDate = (dateStr: string) => {
+    const date = new Date(dateStr + 'T12:00:00') // Add noon to avoid timezone issues
+    const today = new Date()
+    const tomorrow = new Date(today)
+    tomorrow.setDate(today.getDate() + 1)
+
+    if (date.toDateString() === today.toDateString()) {
+      return "Hoy"
+    } else if (date.toDateString() === tomorrow.toDateString()) {
+      return "Mañana"
+    } else {
+      return date.toLocaleDateString("es-ES", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+      })
+    }
+  }
+
   const formatTime = (timeString: string) => {
     const [hours, minutes] = timeString.split(":")
     const date = new Date()
@@ -323,10 +373,29 @@ export default function AppointmentCalendar() {
 
   if (loading) {
     return (
-      <div className="space-y-4">
-        <Card className="animate-pulse">
+      <div className="space-y-6 animate-fadeIn">
+        {/* Header skeleton */}
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          <div className="h-8 w-32 rounded animate-shimmer" />
+          <div className="h-10 w-48 rounded animate-shimmer" style={{ animationDelay: '0.1s' }} />
+        </div>
+        {/* Filter skeleton */}
+        <div className="flex items-center gap-2">
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="h-9 w-24 rounded-full animate-shimmer" style={{ animationDelay: `${i * 0.05}s` }} />
+          ))}
+        </div>
+        {/* Calendar skeleton */}
+        <Card>
           <CardContent className="p-6">
-            <div className="h-96 bg-gray-200 dark:bg-gray-700 rounded"></div>
+            <div className="space-y-4">
+              <div className="h-12 w-full rounded animate-shimmer" />
+              <div className="grid grid-cols-7 gap-2">
+                {[...Array(7)].map((_, i) => (
+                  <div key={i} className="h-32 rounded animate-shimmer" style={{ animationDelay: `${i * 0.03}s` }} />
+                ))}
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -335,52 +404,68 @@ export default function AppointmentCalendar() {
 
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Consultas</h1>
+    <div className="space-y-6 animate-fadeIn">
+      {/* Header con gradiente */}
+      <div className="bg-gradient-to-r from-zuli-veronica to-zuli-indigo rounded-2xl p-6 text-white relative overflow-hidden">
+        {/* Decorative pattern */}
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute top-0 right-0 w-64 h-64 rounded-full bg-white/20 -translate-y-1/2 translate-x-1/2" />
+          <div className="absolute bottom-0 left-0 w-32 h-32 rounded-full bg-white/20 translate-y-1/2 -translate-x-1/2" />
         </div>
+        <div className="relative flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold">Consultas</h1>
+            <p className="text-white/80 mt-1">Gestiona tu agenda y citas con pacientes</p>
+          </div>
 
-        <div className="flex items-center gap-4">
-          {/* View Toggle */}
-          <div className="flex items-center bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
-            <Button
-              variant={viewMode === "list" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setViewMode("list")}
-              className={viewMode === "list" ? "bg-orange-500 hover:bg-orange-600" : ""}
-            >
-              <List className="mr-2 h-4 w-4" />
-              Lista
-            </Button>
-            <Button
-              variant={viewMode === "week" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setViewMode("week")}
-              className={viewMode === "week" ? "bg-orange-500 hover:bg-orange-600" : ""}
-            >
-              <CalendarIcon className="mr-2 h-4 w-4" />
-              Calendario
-            </Button>
+          <div className="flex items-center gap-3">
+            {/* View Toggle - Polished segmented control */}
+            <div className="flex items-center bg-white/10 backdrop-blur-sm rounded-xl p-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setViewMode("list")}
+                className={`rounded-lg px-4 py-2 text-sm font-medium transition-all ${
+                  viewMode === "list"
+                    ? "bg-white text-zuli-veronica shadow-md"
+                    : "text-white/80 hover:text-white hover:bg-white/10"
+                }`}
+              >
+                <List className="mr-2 h-4 w-4" />
+                Lista
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setViewMode("week")}
+                className={`rounded-lg px-4 py-2 text-sm font-medium transition-all ${
+                  viewMode === "week"
+                    ? "bg-white text-zuli-veronica shadow-md"
+                    : "text-white/80 hover:text-white hover:bg-white/10"
+                }`}
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                Calendario
+              </Button>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Filters and Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 p-1 bg-gray-50 dark:bg-gray-800/50 rounded-full">
           {["Hoy", "Esta semana", "Este mes"].map((filter) => (
             <Button
               key={filter}
-              variant={selectedFilter === filter ? "default" : "outline"}
+              variant="ghost"
               size="sm"
               onClick={() => setSelectedFilter(filter)}
-              className={
+              className={`filter-pill touch-target ${
                 selectedFilter === filter
-                  ? "bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-900 dark:text-orange-300"
-                  : ""
-              }
+                  ? "filter-pill-active"
+                  : "filter-pill-inactive"
+              }`}
             >
               {filter}
             </Button>
@@ -399,7 +484,7 @@ export default function AppointmentCalendar() {
           }}
         >
           <DialogTrigger asChild>
-            <Button className="bg-orange-500 hover:bg-orange-600 text-white">
+            <Button className="btn-zuli-gradient">
               <Plus className="mr-2 h-4 w-4" />
               Nueva consulta
             </Button>
@@ -479,20 +564,26 @@ export default function AppointmentCalendar() {
           </CardHeader>
           <CardContent>
             {selectedFilter === "Hoy" ? (
-              // Special day view - beautiful and compact
+              // Special day view - beautiful and compact with zuli colors
               <div className="space-y-6">
-                {/* Today's header */}
-                <div className="text-center bg-gradient-to-r from-teal-50 to-blue-50 dark:from-teal-900/20 dark:to-blue-900/20 rounded-lg p-6">
-                  <div className="text-sm font-medium text-gray-500 dark:text-gray-400">HOY</div>
-                  <div className="text-3xl font-bold text-teal-600 dark:text-teal-400 mt-1">
-                    {new Date().getDate()}
+                {/* Today's header - zuli gradient */}
+                <div className="text-center bg-gradient-to-r from-zuli-veronica/10 to-zuli-indigo/10 dark:from-zuli-veronica/20 dark:to-zuli-indigo/20 rounded-2xl p-8 relative overflow-hidden">
+                  <div className="absolute inset-0 opacity-10">
+                    <div className="absolute top-0 right-0 w-32 h-32 rounded-full bg-zuli-veronica -translate-y-1/2 translate-x-1/2" />
+                    <div className="absolute bottom-0 left-0 w-24 h-24 rounded-full bg-zuli-indigo translate-y-1/2 -translate-x-1/2" />
                   </div>
-                  <div className="text-lg text-gray-700 dark:text-gray-300">
-                    {new Date().toLocaleDateString("es-ES", { 
-                      weekday: "long", 
-                      month: "long", 
-                      year: "numeric" 
-                    })}
+                  <div className="relative">
+                    <div className="text-sm font-semibold uppercase tracking-wider text-zuli-veronica">Hoy</div>
+                    <div className="text-4xl font-bold bg-gradient-to-r from-zuli-veronica to-zuli-indigo bg-clip-text text-transparent mt-2">
+                      {new Date().getDate()}
+                    </div>
+                    <div className="text-lg text-gray-700 dark:text-gray-300 capitalize mt-1">
+                      {new Date().toLocaleDateString("es-ES", {
+                        weekday: "long",
+                        month: "long",
+                        year: "numeric"
+                      })}
+                    </div>
                   </div>
                 </div>
 
@@ -500,37 +591,44 @@ export default function AppointmentCalendar() {
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Consultas de hoy</h3>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-gray-600">Ocultar completadas de hoy</span>
+                    <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-800 rounded-lg px-3 py-2">
+                      <span className="text-sm text-gray-600 dark:text-gray-400">Ocultar completadas</span>
                       <Switch checked={hideCompletedToday} onCheckedChange={setHideCompletedToday} />
                     </div>
                   </div>
-                  
+
                   {getAppointmentsForDate(new Date()).length === 0 ? (
-                    <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                      <CalendarIcon className="mx-auto h-16 w-16 text-gray-400 mb-4" />
-                      <p className="text-gray-500 dark:text-gray-400 text-lg">
-                        No tienes consultas programadas para hoy
+                    <div className="text-center py-16 animate-fadeIn">
+                      <div className="empty-state-icon-colored">
+                        <CalendarIcon className="h-12 w-12 text-zuli-veronica/60" />
+                      </div>
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                        Sin consultas para hoy
+                      </h3>
+                      <p className="text-gray-500 dark:text-gray-400 max-w-sm mx-auto mb-6">
+                        No tienes consultas programadas para hoy. ¡Es un buen momento para organizar tu agenda!
                       </p>
-                      <p className="text-gray-400 dark:text-gray-500 text-sm mt-2">
-                        
-                      </p>
+                      <Button className="btn-zuli-gradient">
+                        <Plus className="mr-2 h-4 w-4" />
+                        Programar consulta
+                      </Button>
                     </div>
                   ) : (
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                       {getAppointmentsForDate(new Date())
                         // Ya estamos en "Hoy", no necesitamos validar fecha; solo ocultar completadas
                         .filter((apt) => !(hideCompletedToday && apt.status === 'Completada'))
-                        .map((appointment) => (
+                        .map((appointment, aptIndex) => (
                         <div
                           key={appointment.id}
-                          className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:shadow-lg transition-all duration-200 hover:border-teal-300 dark:hover:border-teal-600 cursor-pointer"
+                          className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 hover:shadow-lg transition-all duration-200 hover:border-zuli-veronica/40 cursor-pointer animate-fadeInUp"
+                          style={{ animationDelay: `${aptIndex * 50}ms` }}
                           onClick={() => handleStartConsultation(appointment)}
                         >
                           <div className="flex items-start justify-between mb-3">
                             <div className="flex items-center gap-3">
-                              <Avatar className="h-10 w-10">
-                                <AvatarFallback className="bg-teal-100 text-teal-700 dark:bg-teal-900 dark:text-teal-300">
+                              <Avatar className="h-11 w-11">
+                                <AvatarFallback className="bg-gradient-to-br from-zuli-veronica/20 to-zuli-indigo/20 text-zuli-veronica font-semibold">
                                   {getInitials(appointment.patient.first_name, appointment.patient.last_name)}
                                 </AvatarFallback>
                               </Avatar>
@@ -544,7 +642,7 @@ export default function AppointmentCalendar() {
                               {appointment.status}
                             </Badge>
                           </div>
-                          
+
                           <div className="space-y-2">
                             <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
                               <Clock className="h-4 w-4" />
@@ -564,9 +662,9 @@ export default function AppointmentCalendar() {
                             <Button size="sm" variant="outline" className="flex-1">
                               Ver detalles
                             </Button>
-                            <Button 
-                              size="sm" 
-                              className="bg-orange-500 hover:bg-orange-600 text-white"
+                            <Button
+                              size="sm"
+                              className="btn-zuli-gradient"
                               onClick={() => handleStartConsultation(appointment)}
                             >
                               Iniciar consulta
@@ -603,62 +701,84 @@ export default function AppointmentCalendar() {
                 )}
               </div>
             ) : selectedFilter === "Este mes" ? (
-              // Month view with weeks
+              // Month view with weeks - polished grid
               <div className="space-y-4">
-                {/* Month header */}
-                <div className="grid grid-cols-7 gap-2 mb-4">
-                  {dayNames.map((dayName) => (
-                    <div key={dayName} className="text-center text-sm font-medium text-gray-500 dark:text-gray-400 p-2">
+                {/* Month header with styled day names */}
+                <div className="grid grid-cols-7 gap-2 mb-2">
+                  {dayNames.map((dayName, idx) => (
+                    <div
+                      key={dayName}
+                      className={`text-center text-xs font-semibold uppercase tracking-wider py-3 rounded-lg ${
+                        idx >= 5
+                          ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
+                          : 'bg-gradient-to-r from-zuli-veronica/5 to-zuli-indigo/5 text-zuli-veronica'
+                      }`}
+                    >
                       {dayName}
                     </div>
                   ))}
                 </div>
-                
-                {/* Month grid */}
+
+                {/* Month grid with improved styling */}
                 <div className="grid grid-cols-7 gap-2">
                   {weekDays.map((day, dayIndex) => {
                     const isCurrentMonth = day.getMonth() === new Date().getMonth()
-                    const isToday = day.toDateString() === new Date().toDateString()
+                    const isTodayDate = day.toDateString() === new Date().toDateString()
                     const dayAppointments = getAppointmentsForDate(day)
-                    
+                    const isWeekend = day.getDay() === 0 || day.getDay() === 6
+
                     return (
                       <div
                         key={dayIndex}
-                        className={`min-h-[120px] p-2 border rounded-lg ${
-                          isCurrentMonth 
-                            ? 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700' 
-                            : 'bg-gray-50 dark:bg-gray-900 border-gray-100 dark:border-gray-800'
-                        } ${isToday ? 'ring-2 ring-teal-500' : ''}`}
+                        className={`min-h-[120px] p-2 border rounded-xl transition-all duration-200 hover:shadow-md ${
+                          isCurrentMonth
+                            ? isWeekend
+                              ? 'bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700'
+                              : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-zuli-veronica/30'
+                            : 'bg-gray-100/50 dark:bg-gray-900 border-gray-100 dark:border-gray-800'
+                        } ${isTodayDate ? 'ring-2 ring-zuli-veronica shadow-lg shadow-zuli-veronica/10' : ''}`}
                       >
-                        <div className={`text-sm font-medium mb-2 ${
-                          isToday 
-                            ? 'text-teal-600 dark:text-teal-400' 
-                            : isCurrentMonth 
-                              ? 'text-gray-900 dark:text-white' 
-                              : 'text-gray-400 dark:text-gray-500'
-                        }`}>
-                          {day.getDate()}
+                        <div className={`flex items-center justify-between mb-2`}>
+                          <span className={`text-sm font-semibold ${
+                            isTodayDate
+                              ? 'bg-zuli-veronica text-white px-2 py-0.5 rounded-full'
+                              : isCurrentMonth
+                                ? 'text-gray-900 dark:text-white'
+                                : 'text-gray-400 dark:text-gray-500'
+                          }`}>
+                            {day.getDate()}
+                          </span>
+                          {dayAppointments.length > 0 && !isTodayDate && (
+                            <span className="w-2 h-2 rounded-full bg-zuli-veronica"></span>
+                          )}
                         </div>
-                        
+
                         <div className="space-y-1">
-                          {dayAppointments.slice(0, 3).map((appointment) => (
+                          {dayAppointments.slice(0, 2).map((appointment) => (
                             <div
                               key={appointment.id}
-                              className="bg-teal-100 dark:bg-teal-900 border-l-2 border-teal-500 p-1 rounded text-xs hover:bg-teal-200 dark:hover:bg-teal-800 cursor-pointer transition-colors"
+                              className={`border-l-2 p-1.5 rounded-r text-xs cursor-pointer transition-all duration-200 ${
+                                appointment.status === 'Completada'
+                                  ? 'bg-green-50 dark:bg-green-900/30 border-green-500 hover:bg-green-100 dark:hover:bg-green-900/50'
+                                  : appointment.status === 'Cancelada'
+                                    ? 'bg-red-50 dark:bg-red-900/30 border-red-400 hover:bg-red-100 dark:hover:bg-red-900/50'
+                                    : 'bg-gradient-to-r from-zuli-veronica/10 to-zuli-indigo/5 border-zuli-veronica hover:from-zuli-veronica/20 hover:to-zuli-indigo/10'
+                              }`}
                               title={`${appointment.patient.first_name} ${appointment.patient.last_name} - ${formatTime(appointment.start_time)} - ${appointment.status}`}
                               onClick={() => handleStartConsultation(appointment)}
                             >
                               <div className="font-medium text-gray-900 dark:text-white truncate">
                                 {appointment.patient.first_name}
                               </div>
-                              <div className="text-gray-600 dark:text-gray-400">
+                              <div className="text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                                <Clock className="h-3 w-3" />
                                 {formatTime(appointment.start_time)}
                               </div>
                             </div>
                           ))}
-                          {dayAppointments.length > 3 && (
-                            <div className="text-xs text-gray-500 dark:text-gray-400 text-center">
-                              +{dayAppointments.length - 3} más
+                          {dayAppointments.length > 2 && (
+                            <div className="text-xs text-zuli-veronica font-medium text-center py-1 bg-zuli-veronica/5 rounded-full">
+                              +{dayAppointments.length - 2} más
                             </div>
                           )}
                         </div>
@@ -668,170 +788,283 @@ export default function AppointmentCalendar() {
                 </div>
               </div>
             ) : (
-              // Week/Day view with time slots
-              <div className={`grid ${getGridCols()} gap-4 relative`}>
-                {/* Columna de horas */}
-                <div className="space-y-0">
-                  <div className="h-12 border-b border-gray-200 dark:border-gray-700"></div>
+              // Week/Day view with time slots - clean design
+              <div className={`grid ${getGridCols()} gap-1 relative`}>
+                {/* Columna de horas - minimal */}
+                <div className="space-y-0 pr-2">
+                  <div className="h-14"></div>
                   {Array.from({ length: 12 }, (_, i) => (
-                    <div key={i} className="h-16 flex items-start pt-1 text-sm font-medium text-gray-500 dark:text-gray-400 text-right pr-3 border-t border-gray-100 dark:border-gray-700">
-                      {`${i + 8}:00`}
+                    <div key={i} className="h-16 flex items-start text-[11px] font-medium text-gray-400 dark:text-gray-500 text-right pr-2 -mt-2">
+                      {`${String(i + 8).padStart(2, '0')}:00`}
                     </div>
                   ))}
                 </div>
 
                 {/* Days columns */}
-                {weekDays.map((day, dayIndex) => (
-                  <div key={dayIndex} className="relative">
-                    {/* Day header */}
-                    <div className="text-center p-2 h-12 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
-                      <div className="text-sm font-medium text-gray-500 dark:text-gray-400">{getDayName(dayIndex, day)}</div>
-                      <div
-                        className={`text-lg font-bold mt-1 ${
-                          day.toDateString() === new Date().toDateString()
-                            ? "text-teal-600 dark:text-teal-400"
-                            : "text-gray-900 dark:text-white"
-                        }`}
-                      >
-                        {day.getDate()}
-                      </div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">
-                        {day.toLocaleDateString("es-ES", { month: "short" })}
-                      </div>
-                    </div>
+                {weekDays.map((day, dayIndex) => {
+                  const isTodayColumn = day.toDateString() === new Date().toDateString()
 
-                    {/* Líneas de tiempo */}
-                    <div className="absolute inset-0 top-12 pointer-events-none">
-                      {Array.from({ length: 12 }, (_, i) => (
-                        <div key={i} className="h-16 border-t border-gray-50 dark:border-gray-800"></div>
-                      ))}
-                    </div>
+                  return (
+                    <div key={dayIndex} className="relative">
+                      {/* Day header - clean minimal design */}
+                      <div className="text-center h-14 flex flex-col items-center justify-center">
+                        <div className="text-[11px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide">
+                          {getDayName(dayIndex, day)}
+                        </div>
+                        <div className={`w-9 h-9 flex items-center justify-center rounded-full text-sm font-semibold mt-0.5 ${
+                          isTodayColumn
+                            ? 'bg-zuli-veronica text-white'
+                            : 'text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800'
+                        }`}>
+                          {day.getDate()}
+                        </div>
+                      </div>
 
-                    {/* Citas posicionadas por tiempo */}
-                    <div className="relative h-[768px]">
-                      {getAppointmentsForDate(day).map((appointment) => {
-                        const { top, height } = getAppointmentPosition(appointment.start_time, appointment.end_time)
-                        const showBadge = height > 45
-                        
-                        return (
+                      {/* Líneas de tiempo - clean lines */}
+                      <div className="absolute inset-0 top-14 pointer-events-none border-l border-gray-100 dark:border-gray-800">
+                        {Array.from({ length: 12 }, (_, i) => (
                           <div
-                            key={appointment.id}
-                            className="absolute left-1 right-1 bg-gradient-to-r from-teal-100 to-teal-50 dark:from-teal-900 dark:to-teal-800 border-l-4 border-teal-500 p-2 rounded-md text-xs hover:from-teal-200 hover:to-teal-100 dark:hover:from-teal-800 dark:hover:to-teal-700 cursor-pointer transition-all duration-200 shadow-sm hover:shadow-md z-10"
-                            style={{ top, height }}
-                            title={`${appointment.patient.first_name} ${appointment.patient.last_name} - ${formatTime(appointment.start_time)} a ${formatTime(appointment.end_time)}`}
-                            onClick={() => handleStartConsultation(appointment)}
-                          >
-                            <div className="font-semibold text-gray-900 dark:text-white truncate">
-                              {appointment.patient.first_name} {appointment.patient.last_name}
-                            </div>
-                            <div className="flex items-center gap-1 text-gray-600 dark:text-gray-400 mt-0.5">
-                              <Clock className="h-3 w-3 flex-shrink-0" />
-                              <span>{formatTime(appointment.start_time)}</span>
-                            </div>
-                            {showBadge && (
-                              <Badge className={`text-xs px-1.5 py-0.5 mt-1 ${getStatusColor(appointment.status)}`}>
-                                {appointment.status}
-                              </Badge>
-                            )}
-                          </div>
-                        )
-                      })}
-                      
+                            key={i}
+                            className="h-16 border-t border-gray-100 dark:border-gray-800"
+                          ></div>
+                        ))}
+                      </div>
 
+                      {/* Citas posicionadas por tiempo */}
+                      <div className="relative h-[768px] mt-14">
+                        {getAppointmentsForDate(day).map((appointment) => {
+                          const { top, height } = getAppointmentPosition(appointment.start_time, appointment.end_time)
+                          const showBadge = height > 50
+
+                          // Status-based colors - clean solid colors
+                          const getAppointmentStyle = () => {
+                            if (appointment.status === 'Completada') {
+                              return 'bg-green-50 dark:bg-green-900/30 border-l-green-500 hover:bg-green-100 dark:hover:bg-green-900/50'
+                            } else if (appointment.status === 'Cancelada' || appointment.status === 'No asistió') {
+                              return 'bg-gray-50 dark:bg-gray-800 border-l-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                            }
+                            return 'bg-zuli-veronica/10 dark:bg-zuli-veronica/20 border-l-zuli-veronica hover:bg-zuli-veronica/20 dark:hover:bg-zuli-veronica/30'
+                          }
+
+                          return (
+                            <div
+                              key={appointment.id}
+                              className={`absolute left-0.5 right-0.5 border-l-3 px-2 py-1.5 rounded-r text-xs cursor-pointer transition-colors duration-150 z-10 ${getAppointmentStyle()}`}
+                              style={{ top, height: Math.max(height, 28) }}
+                              title={`${appointment.patient.first_name} ${appointment.patient.last_name} - ${formatTime(appointment.start_time)} a ${formatTime(appointment.end_time)}`}
+                              onClick={() => handleStartConsultation(appointment)}
+                            >
+                              <div className="font-medium text-gray-900 dark:text-white truncate leading-tight">
+                                {appointment.patient.first_name} {appointment.patient.last_name}
+                              </div>
+                              <div className="text-[10px] text-gray-500 dark:text-gray-400">
+                                {formatTime(appointment.start_time)}
+                              </div>
+                              {showBadge && (
+                                <Badge className={`text-[10px] px-1 py-0 mt-0.5 ${getStatusColor(appointment.status)}`}>
+                                  {appointment.status}
+                                </Badge>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </CardContent>
         </Card>
       ) : (
-        /* List View */
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>
-                {selectedFilter === "Hoy" && "Consultas de hoy"}
-                {selectedFilter === "Esta semana" && "Consultas de esta semana"}
-                {selectedFilter === "Este mes" && "Consultas de este mes"}
-              </CardTitle>
-              {selectedFilter === 'Hoy' && (
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-600">Ocultar completadas de hoy</span>
-                  <Switch checked={hideCompletedToday} onCheckedChange={setHideCompletedToday} />
+        /* List View with Collapsible Groups */
+        <div className="space-y-4 animate-fadeIn">
+          {/* Header Card */}
+          <Card className="border-none shadow-sm bg-gradient-to-r from-gray-50 to-white dark:from-gray-800/50 dark:to-gray-900">
+            <CardHeader className="pb-2">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div>
+                  <CardTitle className="text-lg font-semibold text-gray-900 dark:text-white">
+                    {selectedFilter === "Hoy" && "Consultas de hoy"}
+                    {selectedFilter === "Esta semana" && "Consultas de esta semana"}
+                    {selectedFilter === "Este mes" && "Consultas de este mes"}
+                  </CardTitle>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    {appointments.length} consulta{appointments.length !== 1 ? 's' : ''} programada{appointments.length !== 1 ? 's' : ''}
+                  </p>
                 </div>
-              )}
-            </div>
-          </CardHeader>
-          <CardContent>
-            {appointments.length === 0 ? (
-              <div className="text-center py-12">
-                <CalendarIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                <p className="text-gray-500 dark:text-gray-400 text-lg">
-                  No hay consultas programadas para este período
-                </p>
+                {selectedFilter === 'Hoy' && (
+                  <div className="flex items-center gap-2 bg-white dark:bg-gray-800 rounded-lg px-3 py-2 border border-gray-200 dark:border-gray-700">
+                    <span className="text-sm text-gray-600 dark:text-gray-400">Ocultar completadas</span>
+                    <Switch checked={hideCompletedToday} onCheckedChange={setHideCompletedToday} />
+                  </div>
+                )}
               </div>
-            ) : (
-              <div className="space-y-4">
-                {(selectedFilter === 'Hoy'
-                    // En vista de lista con filtro "Hoy" el backend ya trae solo hoy; ocultar completadas directamente
-                    ? appointments.filter(a => !(hideCompletedToday && a.status === 'Completada'))
-                    : appointments
-                  ).map((appointment) => (
-                  <div
-                    key={appointment.id}
-                    className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                  >
-                    <div className="flex items-center gap-4">
-                      <Avatar className="h-10 w-10">
-                        <AvatarFallback className="bg-teal-100 text-teal-700 dark:bg-teal-900 dark:text-teal-300">
-                          {getInitials(appointment.patient.first_name, appointment.patient.last_name)}
-                        </AvatarFallback>
-                      </Avatar>
+            </CardHeader>
+          </Card>
 
-                      <div>
-                        <h4 className="font-medium text-gray-900 dark:text-white">
-                          {appointment.patient.first_name} {appointment.patient.last_name}
-                        </h4>
-                        <div className="flex items-center gap-4 mt-1 text-sm text-gray-500 dark:text-gray-400">
-                          <div className="flex items-center gap-1">
-                            <CalendarIcon className="h-4 w-4" />
-                            {new Date(appointment.appointment_date).toLocaleDateString("es-ES")}
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Clock className="h-4 w-4" />
-                            {formatTime(appointment.start_time)} - {formatTime(appointment.end_time)}
+          {/* Empty State */}
+          {appointments.length === 0 ? (
+            <Card>
+              <CardContent className="py-16">
+                <div className="text-center animate-fadeIn">
+                  <div className="empty-state-icon-colored">
+                    <CalendarIcon className="h-12 w-12 text-zuli-veronica/60" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                    Sin consultas programadas
+                  </h3>
+                  <p className="text-gray-500 dark:text-gray-400 max-w-sm mx-auto mb-6">
+                    No hay consultas para este período. ¡Es un buen momento para organizar tu agenda!
+                  </p>
+                  <Button className="btn-zuli-gradient" onClick={() => setIsAddDialogOpen(true)}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Programar consulta
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            /* Collapsible Date Groups */
+            <div className="space-y-3">
+              {groupAppointmentsByDate(
+                selectedFilter === 'Hoy'
+                  ? appointments.filter(a => !(hideCompletedToday && a.status === 'Completada'))
+                  : appointments
+              ).map((group, groupIndex) => {
+                const isExpanded = expandedDates.has(group.date)
+                const isTodayGroup = isToday(group.date)
+                const completedCount = group.appointments.filter(a => a.status === 'Completada').length
+                const pendingCount = group.appointments.filter(a => a.status === 'Programada').length
+
+                return (
+                  <Card
+                    key={group.date}
+                    className={`overflow-hidden transition-all duration-200 animate-fadeInUp ${
+                      isTodayGroup ? 'ring-2 ring-zuli-veronica/30' : ''
+                    }`}
+                    style={{ animationDelay: `${groupIndex * 50}ms` }}
+                  >
+                    {/* Collapsible Header */}
+                    <button
+                      onClick={() => toggleDateExpanded(group.date)}
+                      className="w-full px-4 py-4 flex items-center justify-between bg-gradient-to-r from-gray-50 to-white dark:from-gray-800 dark:to-gray-800/50 hover:from-gray-100 hover:to-gray-50 dark:hover:from-gray-700 dark:hover:to-gray-800 transition-colors"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                          isTodayGroup
+                            ? 'bg-gradient-to-br from-zuli-veronica to-zuli-indigo text-white'
+                            : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+                        }`}>
+                          <CalendarIcon className="h-5 w-5" />
+                        </div>
+                        <div className="text-left">
+                          <h3 className={`font-semibold capitalize ${
+                            isTodayGroup
+                              ? 'text-zuli-veronica'
+                              : 'text-gray-900 dark:text-white'
+                          }`}>
+                            {formatGroupDate(group.date)}
+                          </h3>
+                          <div className="flex items-center gap-3 text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                            <span className="flex items-center gap-1">
+                              <Users className="h-3.5 w-3.5" />
+                              {group.appointments.length} cita{group.appointments.length !== 1 ? 's' : ''}
+                            </span>
+                            {pendingCount > 0 && (
+                              <Badge variant="outline" className="text-xs px-2 py-0 bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800">
+                                {pendingCount} pendiente{pendingCount !== 1 ? 's' : ''}
+                              </Badge>
+                            )}
+                            {completedCount > 0 && (
+                              <Badge variant="outline" className="text-xs px-2 py-0 bg-green-50 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800">
+                                {completedCount} completada{completedCount !== 1 ? 's' : ''}
+                              </Badge>
+                            )}
                           </div>
                         </div>
                       </div>
-                    </div>
+                      <div className={`p-2 rounded-full transition-colors ${
+                        isExpanded
+                          ? 'bg-zuli-veronica/10 text-zuli-veronica'
+                          : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
+                      }`}>
+                        {isExpanded ? (
+                          <ChevronUp className="h-5 w-5" />
+                        ) : (
+                          <ChevronDown className="h-5 w-5" />
+                        )}
+                      </div>
+                    </button>
 
-                    <div className="flex items-center gap-2">
-                      <Badge className={getStatusColor(appointment.status)}>{appointment.status}</Badge>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => {
-                          setAppointmentToDelete(appointment)
-                          setShowDeleteModal(true)
-                        }}
-                      >
-                        Eliminar
-                      </Button>
-                      <Button 
-                        size="sm" 
-                        className="bg-orange-500 hover:bg-orange-600 text-white"
-                        onClick={() => handleStartConsultation(appointment)}
-                      >
-                        Iniciar consulta
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                    {/* Expanded Content */}
+                    {isExpanded && (
+                      <CardContent className="pt-0 pb-3 px-3 animate-fadeIn">
+                        <div className="border-t border-gray-100 dark:border-gray-700 pt-3 space-y-2">
+                          {group.appointments.map((appointment, aptIndex) => (
+                            <div
+                              key={appointment.id}
+                              className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl bg-white dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700 hover:border-zuli-veronica/30 hover:shadow-md transition-all duration-200 animate-fadeInUp"
+                              style={{ animationDelay: `${aptIndex * 30}ms` }}
+                            >
+                              <div className="flex items-center gap-4">
+                                <Avatar className="h-11 w-11">
+                                  <AvatarFallback className="bg-gradient-to-br from-zuli-veronica/20 to-zuli-indigo/20 text-zuli-veronica font-semibold">
+                                    {getInitials(appointment.patient.first_name, appointment.patient.last_name)}
+                                  </AvatarFallback>
+                                </Avatar>
+
+                                <div>
+                                  <h4 className="font-semibold text-gray-900 dark:text-white">
+                                    {appointment.patient.first_name} {appointment.patient.last_name}
+                                  </h4>
+                                  <div className="flex items-center gap-2 mt-1 text-sm text-gray-500 dark:text-gray-400">
+                                    <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700">
+                                      <Clock className="h-3.5 w-3.5" />
+                                      <span className="font-medium">
+                                        {formatTime(appointment.start_time)} - {formatTime(appointment.end_time)}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-2 sm:ml-auto">
+                                <Badge className={`${getStatusColor(appointment.status)} font-medium`}>
+                                  {appointment.status}
+                                </Badge>
+                                <div className="flex items-center gap-1.5">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                    onClick={() => {
+                                      setAppointmentToDelete(appointment)
+                                      setShowDeleteModal(true)
+                                    }}
+                                  >
+                                    Eliminar
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    className="btn-zuli-gradient"
+                                    onClick={() => handleStartConsultation(appointment)}
+                                  >
+                                    Iniciar consulta
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    )}
+                  </Card>
+                )
+              })}
+            </div>
+          )}
+        </div>
       )}
     </div>
   )

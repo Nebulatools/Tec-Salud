@@ -168,74 +168,110 @@ export default function EspecialistasMarketplacePage() {
 
   if (loading) {
     return (
-      <div className="min-h-[50vh] flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-4 border-zuli-veronica/20 border-t-zuli-veronica mx-auto" />
-          <p className="text-gray-500 mt-3">Cargando especialistas...</p>
+      <div className="space-y-6 animate-fadeIn">
+        {/* Header skeleton */}
+        <div className="h-32 rounded-2xl animate-shimmer" />
+
+        {/* Search skeleton */}
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="h-10 flex-1 rounded-xl animate-shimmer" />
+          <div className="h-10 w-32 rounded-xl animate-shimmer" style={{ animationDelay: '0.1s' }} />
+        </div>
+
+        {/* Filter skeleton */}
+        <div className="flex flex-wrap gap-2">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="h-9 w-28 rounded-full animate-shimmer" style={{ animationDelay: `${i * 0.05}s` }} />
+          ))}
+        </div>
+
+        {/* Grid skeleton */}
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[...Array(6)].map((_, i) => (
+            <Card key={i}>
+              <CardContent className="p-5">
+                <div className="flex items-start gap-3">
+                  <div className="h-12 w-12 rounded-full animate-shimmer" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-4 w-32 rounded animate-shimmer" />
+                    <div className="h-3 w-24 rounded animate-shimmer" style={{ animationDelay: '0.1s' }} />
+                    <div className="h-6 w-20 rounded animate-shimmer" style={{ animationDelay: '0.15s' }} />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-zuli-veronica to-zuli-indigo rounded-2xl p-6 text-white">
-        <h1 className="text-2xl font-bold">Encuentra tu Especialista</h1>
-        <p className="text-white/80 mt-1">
-          Busca por nombre, especialidad o usa los filtros para encontrar al médico ideal
-        </p>
+    <div className="space-y-6 animate-fadeIn">
+      {/* Header with decorative elements */}
+      <div className="bg-gradient-to-r from-zuli-veronica to-zuli-indigo rounded-2xl p-6 text-white relative overflow-hidden">
+        {/* Decorative pattern */}
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute top-0 right-0 w-64 h-64 rounded-full bg-white/20 -translate-y-1/2 translate-x-1/2" />
+          <div className="absolute bottom-0 left-0 w-32 h-32 rounded-full bg-white/20 translate-y-1/2 -translate-x-1/2" />
+        </div>
+        <div className="relative">
+          <h1 className="text-2xl font-bold">Encuentra tu Especialista</h1>
+          <p className="text-white/80 mt-1">
+            Busca por nombre, especialidad o usa los filtros para encontrar al médico ideal
+          </p>
+        </div>
       </div>
 
-      {/* Barra de búsqueda */}
+      {/* Enhanced Search Bar */}
       <div className="flex flex-col md:flex-row gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <div className="relative flex-1 group">
+          <div className="absolute inset-0 bg-gradient-to-r from-zuli-veronica/5 to-zuli-indigo/5 rounded-xl blur opacity-0 group-focus-within:opacity-100 transition-opacity" />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 group-focus-within:text-zuli-veronica transition-colors" />
           <Input
             placeholder="Buscar por nombre o especialidad..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
+            className="pl-12 py-3 h-12 rounded-xl border-gray-200 focus:border-zuli-veronica focus:ring-zuli-veronica/20 transition-all"
           />
         </div>
-        <div className="flex items-center gap-2">
-          <Filter className="h-4 w-4 text-gray-400" />
-          <span className="text-sm text-gray-500">Filtrar:</span>
+        <div className="flex items-center gap-2 text-gray-500">
+          <Filter className="h-4 w-4" />
+          <span className="text-sm font-medium">Filtrar:</span>
         </div>
       </div>
 
-      {/* Filtros de especialidad */}
-      <div className="flex flex-wrap gap-2">
+      {/* Enhanced Filter Pills */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
         <Button
           variant={selectedSpecialty === null ? "default" : "outline"}
           size="sm"
           onClick={() => setSelectedSpecialty(null)}
-          className={selectedSpecialty === null ? "bg-zuli-veronica hover:bg-zuli-veronica-600" : ""}
+          className={`filter-pill whitespace-nowrap touch-target ${
+            selectedSpecialty === null
+              ? "filter-pill-active"
+              : "filter-pill-inactive"
+          }`}
         >
-          Todas
+          Todas las especialidades
         </Button>
         {specialties.map((spec) => {
-          const colors = specialtyColors[spec.name] ?? {
-            bg: "bg-gray-50",
-            text: "text-gray-600",
-            border: "border-gray-200",
-          }
           const isSelected = selectedSpecialty === spec.id
 
           return (
             <Button
               key={spec.id}
-              variant={isSelected ? "default" : "outline"}
+              variant="outline"
               size="sm"
               onClick={() => setSelectedSpecialty(isSelected ? null : spec.id)}
-              className={
+              className={`filter-pill whitespace-nowrap touch-target border-2 transition-all ${
                 isSelected
-                  ? "bg-zuli-veronica hover:bg-zuli-veronica-600"
-                  : `${colors.bg} ${colors.text} ${colors.border} hover:${colors.bg}`
-              }
+                  ? "border-zuli-veronica bg-zuli-veronica/10 text-zuli-veronica"
+                  : "hover:border-gray-300"
+              }`}
             >
-              {specialtyIcons[spec.name] ?? <Stethoscope className="h-4 w-4 mr-1" />}
-              <span className="ml-1">{spec.name}</span>
+              {specialtyIcons[spec.name] ?? <Stethoscope className="h-4 w-4" />}
+              <span className="ml-1.5">{spec.name}</span>
             </Button>
           )
         })}
@@ -243,19 +279,39 @@ export default function EspecialistasMarketplacePage() {
 
       {/* Grid de especialistas */}
       {filteredDoctors.length === 0 ? (
-        <Card className="border-2 border-dashed">
-          <CardContent className="py-12 text-center">
-            <Building2 className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-            <p className="text-gray-500">
+        <Card className="border-2 border-dashed border-gray-200 dark:border-gray-700 animate-fadeIn">
+          <CardContent className="py-16 text-center">
+            <div className="empty-state-icon-colored">
+              <Building2 className="h-10 w-10 text-zuli-veronica" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
               {searchQuery || selectedSpecialty
-                ? "No se encontraron especialistas con esos criterios"
-                : "No hay especialistas disponibles aún"}
+                ? "Sin resultados"
+                : "Sin especialistas"}
+            </h3>
+            <p className="text-gray-500 dark:text-gray-400 max-w-sm mx-auto">
+              {searchQuery || selectedSpecialty
+                ? "No se encontraron especialistas con esos criterios. Intenta ajustar los filtros."
+                : "No hay especialistas disponibles aún. Vuelve pronto."}
             </p>
+            {(searchQuery || selectedSpecialty) && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-4"
+                onClick={() => {
+                  setSearchQuery("")
+                  setSelectedSpecialty(null)
+                }}
+              >
+                Limpiar filtros
+              </Button>
+            )}
           </CardContent>
         </Card>
       ) : (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredDoctors.map((doctor) => {
+          {filteredDoctors.map((doctor, index) => {
             const colors = specialtyColors[doctor.specialty_name] ?? {
               bg: "bg-gray-50",
               text: "text-gray-600",
@@ -269,9 +325,12 @@ export default function EspecialistasMarketplacePage() {
             return (
               <Card
                 key={`${doctor.id}-${doctor.specialty_id}`}
-                className="hover:shadow-lg transition-shadow cursor-pointer group overflow-hidden"
+                className="cursor-pointer group overflow-hidden border-2 border-transparent hover:border-zuli-veronica/20 hover:shadow-xl transition-all duration-300 animate-fadeInUp"
+                style={{ animationDelay: `${index * 50}ms` }}
                 onClick={() => handleSelectDoctor(doctor)}
               >
+                {/* Top accent bar */}
+                <div className="h-1 bg-gradient-to-r from-zuli-veronica to-zuli-indigo opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 <CardContent className="p-5">
                   <div className="flex items-start gap-3">
                     {/* Avatar */}
@@ -279,10 +338,10 @@ export default function EspecialistasMarketplacePage() {
                       <img
                         src={doctor.avatar_url}
                         alt={doctor.first_name}
-                        className="h-12 w-12 rounded-full object-cover border"
+                        className="h-12 w-12 rounded-full object-cover ring-2 ring-gray-100 group-hover:ring-zuli-veronica/30 transition-all duration-300"
                       />
                     ) : (
-                      <div className="h-12 w-12 rounded-full bg-zuli-tricolor text-white flex items-center justify-center text-lg font-bold shrink-0">
+                      <div className="h-12 w-12 rounded-full bg-gradient-to-br from-zuli-veronica to-zuli-indigo text-white flex items-center justify-center text-lg font-bold shrink-0 ring-2 ring-transparent group-hover:ring-zuli-veronica/30 transition-all duration-300">
                         {doctor.first_name?.[0] ?? "D"}
                       </div>
                     )}
@@ -346,17 +405,17 @@ export default function EspecialistasMarketplacePage() {
       )}
 
       {/* Info adicional */}
-      <Card className="bg-gradient-to-r from-slate-50 to-slate-100 border-slate-200">
+      <Card className="bg-gradient-to-r from-zuli-veronica/5 via-zuli-indigo/5 to-zuli-cyan/5 border-zuli-veronica/10 dark:from-zuli-veronica/10 dark:via-zuli-indigo/10 dark:to-zuli-cyan/10 animate-fadeIn">
         <CardContent className="py-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-white">
-              <User className="h-5 w-5 text-slate-600" />
+          <div className="flex items-center gap-4">
+            <div className="p-3 rounded-xl bg-gradient-to-br from-zuli-veronica to-zuli-indigo shadow-lg shadow-zuli-veronica/20">
+              <User className="h-5 w-5 text-white" />
             </div>
             <div>
-              <p className="text-sm font-medium text-slate-700">
+              <p className="text-sm font-medium text-gray-900 dark:text-white">
                 Al seleccionar un especialista, completarás un cuestionario específico
               </p>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                 Esto ayudará al médico a prepararse mejor para tu consulta
               </p>
             </div>

@@ -278,3 +278,235 @@
   background: rgba(173, 17, 255, 0.4);
   color: #FFFFFF;
 }
+
+/* ========================================
+   UI/UX ENHANCEMENT ANIMATIONS & UTILITIES
+   ======================================== */
+
+/* Keyframe Animations */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideInFromRight {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes pulse-subtle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.85; }
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Animation Classes */
+.animate-fadeInUp {
+  animation: fadeInUp 0.4s ease-out forwards;
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease-out forwards;
+}
+
+.animate-slideInFromRight {
+  animation: slideInFromRight 0.4s ease-out forwards;
+}
+
+.animate-scale-in {
+  animation: scale-in 0.3s ease-out forwards;
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+.dark .animate-shimmer {
+  background: linear-gradient(90deg, #1f2937 25%, #374151 50%, #1f2937 75%);
+  background-size: 200% 100%;
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 2s ease-in-out infinite;
+}
+
+/* Staggered Animation Delays */
+.stagger-1 { animation-delay: 50ms; }
+.stagger-2 { animation-delay: 100ms; }
+.stagger-3 { animation-delay: 150ms; }
+.stagger-4 { animation-delay: 200ms; }
+.stagger-5 { animation-delay: 250ms; }
+.stagger-6 { animation-delay: 300ms; }
+
+/* Enhanced Focus States */
+.focus-ring {
+  @apply focus:outline-none focus:ring-2 focus:ring-zuli-veronica/30 focus:ring-offset-2 transition-shadow;
+}
+
+.focus-ring-inset {
+  @apply focus:outline-none focus:ring-2 focus:ring-inset focus:ring-zuli-veronica/30 transition-shadow;
+}
+
+/* Scrollbar Hide Utility */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Enhanced Card Hover States */
+.card-interactive {
+  @apply transition-all duration-300 hover:shadow-xl hover:-translate-y-1;
+}
+
+.card-interactive-subtle {
+  @apply transition-all duration-200 hover:shadow-lg hover:scale-[1.02];
+}
+
+/* Gradient Overlays */
+.gradient-overlay-hover {
+  @apply relative overflow-hidden;
+}
+
+.gradient-overlay-hover::after {
+  content: '';
+  @apply absolute inset-0 bg-gradient-to-br from-transparent via-transparent to-zuli-veronica/5 opacity-0 transition-opacity duration-300;
+}
+
+.gradient-overlay-hover:hover::after {
+  @apply opacity-100;
+}
+
+/* Touch-friendly minimum sizes */
+.touch-target {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .animate-shimmer {
+    animation: none;
+  }
+}
+
+/* Empty State Styling */
+.empty-state-icon {
+  @apply w-24 h-24 mx-auto mb-6 rounded-full bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700 flex items-center justify-center;
+}
+
+.empty-state-icon-colored {
+  @apply w-24 h-24 mx-auto mb-6 rounded-full bg-gradient-to-br from-zuli-veronica/10 to-zuli-indigo/10 flex items-center justify-center;
+}
+
+/* Progress Circle */
+.progress-ring {
+  transform: rotate(-90deg);
+  transform-origin: 50% 50%;
+}
+
+.progress-ring-circle {
+  transition: stroke-dashoffset 0.5s ease;
+}
+
+/* Segmented Control */
+.segmented-control {
+  @apply flex items-center bg-gray-100 dark:bg-gray-800 rounded-xl p-1 shadow-inner;
+}
+
+.segmented-control-item {
+  @apply rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200;
+}
+
+.segmented-control-item-active {
+  @apply bg-white dark:bg-gray-700 shadow-sm text-zuli-veronica;
+}
+
+.segmented-control-item-inactive {
+  @apply text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200;
+}
+
+/* Filter Pills */
+.filter-pill {
+  @apply rounded-full px-4 py-2 text-sm font-medium transition-all duration-200 whitespace-nowrap;
+}
+
+.filter-pill-active {
+  @apply bg-zuli-veronica text-white shadow-md shadow-zuli-veronica/25;
+}
+
+.filter-pill-inactive {
+  @apply text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700;
+}
+
+/* Selection Card */
+.selection-card {
+  @apply relative p-6 rounded-2xl border-2 transition-all duration-200 flex flex-col items-center gap-3 text-center cursor-pointer;
+}
+
+.selection-card-active {
+  @apply border-zuli-veronica bg-zuli-veronica/5 shadow-lg shadow-zuli-veronica/10;
+}
+
+.selection-card-inactive {
+  @apply border-gray-200 dark:border-gray-700 hover:border-zuli-veronica/30 hover:bg-gray-50 dark:hover:bg-gray-800;
+}
+
+/* Chip/Badge Button */
+.chip-button {
+  @apply px-4 py-2 rounded-full text-sm font-medium border-2 transition-all duration-200;
+}
+
+.chip-button-selected {
+  @apply bg-zuli-veronica text-white border-zuli-veronica shadow-md shadow-zuli-veronica/25;
+}
+
+.chip-button-unselected {
+  @apply bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:border-zuli-veronica/50 hover:bg-zuli-veronica/5;
+}
