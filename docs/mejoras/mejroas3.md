@@ -1,0 +1,11 @@
+mejoras:
+
+Anets que nada, conectate al mcp de supabase para que puedas analizar mis tablas del proyetco de tecsalud: didbxinquugseweufvpr, ya una vez que sepas cokmo esta estrcuturado ya puedes hacer los puntos a continuacion:
+
+1. del sidebar, cuando se seleccione uno se matenga, peor veo que tamben se esta manteniendo el de "mi portal", ahi hay que correjirjlo
+
+2. mejorar la ui dy a consistencia de el cuestionario base!, hazlo profesional, manten la mismaestrctutra , hay qeu hacer definir una estructura unifrome de las preguntas, y asegurat de que si agrega una neuva que no esta lostad, que te permita hacero, y si lo quitas tambien te deje!, tenemos las preguntas listadas como si, no, no sabe, pero ahi veo pastillas tambein , veo que las pastillas que aparecen abajio de Condiciones y antecedentes estan de mas, ya que ya tenemso las peguntas listadas mas abajo (si, np, no sabe), as tambeinmantenr el mismo formato con las pregntas de alergias!, ok, recuerda que el usr puede agregar si no esta listada. o quitarlas, , yo diria que me ayudaras a mejorar la ui del cuestoanrio no crees?,
+
+3. tenemos ver bien la vinculacion del pacienete, ya habaimos deshbailitado eso, de cuando el user busque el doctor puede  hacer el cuestionario sinq ue se le solicite la vinculacion, ya un avez que queira hacer la consulta, ya deberia de de poder vincualrse el user con el pacinete, para fines practcios, el user podria solicitra una consulta, priemro hagamos un boton para solciitra la cita, con un botn de pago falso, solo que le pqiue depsue svemos esp de la pasarela de pago, por lo pornto pongamos el boron de pagi y una vez que pase es, ya peude se vncula con el especialista, ok?, asi le odemos hacer para que la vincualcion sea mas seamesly!
+
+4. debemos rebotar ,tambein debemos poder integarr que el user scanee un qr que ese ligado con el del especialista, una vez que el user lea el qr, si esta autenicado deberia poder llevarlo a la pagian apar llenar el cuestionario del especilaista, correcto??, no se que tan complejo sea eso ahoerita , pero si no podemos dejarl para otra fase posterior!,

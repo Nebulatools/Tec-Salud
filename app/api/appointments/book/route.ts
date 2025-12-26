@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
       if (existingLink.status === "revoked" || existingLink.status === "rejected") {
         await supabaseAdmin
           .from("doctor_patient_links")
-          .update({ status: "pending", updated_at: new Date().toISOString() })
+          .update({ status: "pending", requested_by: "patient" })
           .eq("id", existingLink.id)
       }
       linkId = existingLink.id
@@ -45,6 +45,7 @@ export async function POST(req: NextRequest) {
           doctor_id: doctorId,
           patient_user_id: patientUserId,
           status: "pending",
+          requested_by: "patient",
         })
         .select("id")
         .single()
@@ -84,28 +85,26 @@ export async function POST(req: NextRequest) {
     }
 
     // 4. Crear un registro de cita pendiente (opcional - para tracking)
-    const { data: appointment, error: appointmentError } = await supabaseAdmin
-      .from("appointments")
-      .insert({
-        doctor_id: doctorId,
-        patient_user_id: patientUserId,
-        status: "pending",
-        scheduled_at: null, // El doctor asignará la fecha después
-        notes: "Cita solicitada desde marketplace",
-      })
-      .select("id")
-      .single()
-
-    if (appointmentError) {
-      // Si falla la cita pero la vinculación se creó, no es crítico
-      console.warn("Could not create appointment record:", appointmentError)
-    }
+    // Nota: La tabla appointments requiere appointment_date, start_time, end_time
+    // Por ahora solo creamos la vinculación - el doctor asignará la cita después
+    // Si quisieras crear una cita placeholder:
+    // const { data: appointment } = await supabaseAdmin.from("appointments").insert({
+    //   doctor_id: doctorId,
+    //   patient_user_id: patientUserId,
+    //   appointment_date: new Date().toISOString().split('T')[0],
+    //   start_time: '09:00',
+    //   end_time: '09:30',
+    //   status: "Programada",
+    //   notes: "Cita solicitada desde marketplace - pendiente confirmar horario",
+    // }).select("id").single()
+    // Por ahora no creamos cita, solo la vinculación
+    // El doctor asignará la cita después desde su dashboard
 
     return NextResponse.json({
       success: true,
       linkId,
-      appointmentId: appointment?.id || null,
-      message: "Cita reservada exitosamente. El especialista confirmará la fecha.",
+      appointmentId: null,
+      message: "Solicitud enviada. El especialista confirmará la fecha de tu cita.",
     })
   } catch (error) {
     console.error("Book appointment error:", error)

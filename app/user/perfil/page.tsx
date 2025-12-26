@@ -13,7 +13,7 @@ import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Checkbox } from "@/components/ui/checkbox"
+import { cn } from "@/lib/utils"
 import {
   User,
   Heart,
@@ -27,6 +27,117 @@ import {
   Plus,
   Sparkles,
 } from "lucide-react"
+
+// ============================================================================
+// COMPONENTES REUTILIZABLES PARA UI PROFESIONAL
+// ============================================================================
+
+type BooleanAnswer = "SI" | "NO" | "NO SABE" | null
+
+function BooleanButtons({
+  value,
+  onChange,
+  size = "default",
+}: {
+  value: string | null | undefined
+  onChange: (val: BooleanAnswer) => void
+  size?: "sm" | "default"
+}) {
+  const options: { value: BooleanAnswer; label: string; color: string }[] = [
+    { value: "SI", label: "Sí", color: "bg-emerald-500 hover:bg-emerald-600 text-white" },
+    { value: "NO", label: "No", color: "bg-gray-500 hover:bg-gray-600 text-white" },
+    { value: "NO SABE", label: "No sé", color: "bg-amber-500 hover:bg-amber-600 text-white" },
+  ]
+
+  return (
+    <div className="flex gap-1.5">
+      {options.map((opt) => (
+        <Button
+          key={opt.value}
+          type="button"
+          size={size === "sm" ? "sm" : "default"}
+          variant={value === opt.value ? "default" : "outline"}
+          className={cn(
+            "min-w-[60px] transition-all",
+            value === opt.value ? opt.color : "hover:bg-gray-100"
+          )}
+          onClick={() => onChange(opt.value)}
+        >
+          {opt.label}
+        </Button>
+      ))}
+    </div>
+  )
+}
+
+function ToggleBadge({
+  label,
+  selected,
+  onClick,
+  colorClass = "bg-zuli-indigo",
+}: {
+  label: string
+  selected: boolean
+  onClick: () => void
+  colorClass?: string
+}) {
+  return (
+    <Badge
+      variant={selected ? "default" : "outline"}
+      className={cn(
+        "cursor-pointer transition-all text-sm py-1.5 px-3",
+        selected ? `${colorClass} hover:opacity-90` : "hover:bg-gray-100 border-gray-300"
+      )}
+      onClick={onClick}
+    >
+      {selected && <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />}
+      {label}
+    </Badge>
+  )
+}
+
+function AddCustomInput({
+  placeholder,
+  onAdd,
+}: {
+  placeholder: string
+  onAdd: (value: string) => void
+}) {
+  const [inputValue, setInputValue] = useState("")
+
+  const handleAdd = () => {
+    if (!inputValue.trim()) return
+    onAdd(inputValue.trim())
+    setInputValue("")
+  }
+
+  return (
+    <div className="flex gap-2 mt-3">
+      <Input
+        value={inputValue}
+        onChange={(e) => setInputValue(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault()
+            handleAdd()
+          }
+        }}
+        placeholder={placeholder}
+        className="flex-1"
+      />
+      <Button
+        type="button"
+        variant="outline"
+        onClick={handleAdd}
+        disabled={!inputValue.trim()}
+        className="shrink-0"
+      >
+        <Plus className="h-4 w-4 mr-1" />
+        Agregar
+      </Button>
+    </div>
+  )
+}
 
 // Opciones predefinidas
 const BLOOD_TYPES = ["O+", "O-", "A+", "A-", "B+", "B-", "AB+", "AB-", "No sé"]
@@ -379,15 +490,6 @@ export default function PerfilPage() {
     }))
   }
 
-  const addOtherAllergy = () => {
-    if (!form.other_allergy.trim()) return
-    setForm((prev) => ({
-      ...prev,
-      allergies: [...prev.allergies.filter((a) => a !== "Ninguna conocida"), prev.other_allergy.trim()],
-      other_allergy: "",
-    }))
-  }
-
   const updateFamilyHistory = (id: string, value: string) => {
     setForm((prev) => ({
       ...prev,
@@ -479,11 +581,16 @@ export default function PerfilPage() {
       {/* Formulario */}
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Información básica */}
-        <Card>
+        <Card className="border-l-4 border-l-red-500">
           <CardHeader className="pb-3">
             <div className="flex items-center gap-2">
-              <Heart className="h-5 w-5 text-red-500" />
-              <CardTitle className="text-base">Información Básica</CardTitle>
+              <div className="p-2 bg-red-100 rounded-lg">
+                <Heart className="h-5 w-5 text-red-500" />
+              </div>
+              <div>
+                <CardTitle className="text-base">Información Básica</CardTitle>
+                <p className="text-sm text-gray-500">Datos demográficos y vitales</p>
+              </div>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -572,199 +679,205 @@ export default function PerfilPage() {
         </Card>
 
         {/* Alergias */}
-        <Card>
+        <Card className="border-l-4 border-l-blue-500">
           <CardHeader className="pb-3">
             <div className="flex items-center gap-2">
-              <Activity className="h-5 w-5 text-blue-500" />
-              <CardTitle className="text-base">Alergias</CardTitle>
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <Activity className="h-5 w-5 text-blue-600" />
+              </div>
+              <div>
+                <CardTitle className="text-base">Alergias</CardTitle>
+                <p className="text-sm text-gray-500">Selecciona todas las que apliquen</p>
+              </div>
             </div>
-            <p className="text-sm text-gray-500">Selecciona todas las que apliquen</p>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex flex-wrap gap-2">
-              {COMMON_ALLERGIES.map((allergy) => {
-                const isSelected = form.allergies.includes(allergy)
-                return (
+              {COMMON_ALLERGIES.map((allergy) => (
+                <ToggleBadge
+                  key={allergy}
+                  label={allergy}
+                  selected={form.allergies.includes(allergy)}
+                  onClick={() => toggleAllergy(allergy)}
+                  colorClass="bg-blue-600"
+                />
+              ))}
+              {/* Mostrar alergias personalizadas agregadas */}
+              {form.allergies
+                .filter((a) => !COMMON_ALLERGIES.includes(a))
+                .map((customAllergy) => (
                   <Badge
-                    key={allergy}
-                    variant={isSelected ? "default" : "outline"}
-                    className={`cursor-pointer transition-all ${
-                      isSelected
-                        ? "bg-zuli-indigo hover:bg-zuli-indigo-600"
-                        : "hover:bg-gray-100"
-                    }`}
-                    onClick={() => toggleAllergy(allergy)}
+                    key={customAllergy}
+                    className="bg-blue-600 text-white py-1.5 px-3 flex items-center gap-1"
                   >
-                    {isSelected && <CheckCircle2 className="h-3 w-3 mr-1" />}
-                    {allergy}
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    {customAllergy}
+                    <button
+                      type="button"
+                      onClick={() => toggleAllergy(customAllergy)}
+                      className="ml-1 hover:bg-white/20 rounded-full p-0.5"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
                   </Badge>
-                )
-              })}
+                ))}
             </div>
             {!form.allergies.includes("Ninguna conocida") && (
-              <div className="space-y-2">
-                <Label className="text-sm text-gray-500">¿Otra alergia no listada?</Label>
-                <div className="flex gap-2">
-                  <Input
-                    value={form.other_allergy}
-                    onChange={(e) => setForm((prev) => ({ ...prev, other_allergy: e.target.value }))}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault()
-                        addOtherAllergy()
-                      }
-                    }}
-                    placeholder="Especificar otra alergia..."
-                  />
-                  <Button type="button" variant="outline" onClick={addOtherAllergy}>
-                    Agregar
-                  </Button>
-                </div>
-              </div>
+              <AddCustomInput
+                placeholder="Agregar otra alergia..."
+                onAdd={(value) => {
+                  setForm((prev) => ({
+                    ...prev,
+                    allergies: [...prev.allergies.filter((a) => a !== "Ninguna conocida"), value],
+                  }))
+                }}
+              />
             )}
           </CardContent>
         </Card>
 
-        {/* Condiciones crónicas */}
-        <Card>
+        {/* Condiciones y Antecedentes */}
+        <Card className="border-l-4 border-l-purple-500">
           <CardHeader className="pb-3">
             <div className="flex items-center gap-2">
-              <FileText className="h-5 w-5 text-blue-900" />
-              <CardTitle className="text-base">Condiciones y antecedentes</CardTitle>
+              <div className="p-2 bg-purple-100 rounded-lg">
+                <FileText className="h-5 w-5 text-purple-600" />
+              </div>
+              <div>
+                <CardTitle className="text-base">Condiciones y Antecedentes</CardTitle>
+                <p className="text-sm text-gray-500">Responde Sí, No o No sé para cada pregunta</p>
+              </div>
             </div>
-            <p className="text-sm text-gray-500">Selecciona todas las que apliquen</p>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex flex-wrap gap-2">
-              {CHRONIC_CONDITIONS.map((condition) => {
-                const isSelected = form.chronic_conditions.includes(condition)
-                return (
-                  <Badge
-                    key={condition}
-                    variant={isSelected ? "default" : "outline"}
-                    className={`cursor-pointer transition-all ${
-                      isSelected
-                        ? "bg-zuli-veronica hover:bg-zuli-veronica-600"
-                        : "hover:bg-gray-100"
-                    }`}
-                    onClick={() => toggleCondition(condition)}
-                  >
-                    {isSelected && <CheckCircle2 className="h-3 w-3 mr-1" />}
-                    {condition}
-                  </Badge>
-                )
-              })}
+          <CardContent className="space-y-6">
+            {/* Condiciones Crónicas */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-purple-100 rounded-lg">
+                  <FileText className="h-4 w-4 text-purple-600" />
+                </div>
+                <p className="font-medium text-gray-800">Condiciones crónicas</p>
+              </div>
+              <div className="space-y-3 bg-gray-50 rounded-lg p-4">
+                {CHRONIC_CONDITIONS.filter(c => c !== "Ninguna").map((condition) => (
+                  <div key={condition} className="flex items-center justify-between gap-4 py-1">
+                    <span className="text-sm text-gray-700 font-medium">{condition}</span>
+                    <BooleanButtons
+                      value={form.chronic_conditions.includes(condition) ? "SI" : (form.chronic_conditions.includes("Ninguna") ? "NO" : null)}
+                      onChange={(val) => {
+                        if (val === "SI") {
+                          setForm((prev) => ({
+                            ...prev,
+                            chronic_conditions: [...prev.chronic_conditions.filter(c => c !== "Ninguna" && c !== condition), condition],
+                          }))
+                        } else {
+                          setForm((prev) => ({
+                            ...prev,
+                            chronic_conditions: prev.chronic_conditions.filter(c => c !== condition),
+                          }))
+                        }
+                      }}
+                      size="sm"
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
-            {!form.chronic_conditions.includes("Ninguna") && (
-              <div className="space-y-2">
-                <Label className="text-sm text-gray-500">¿Otra condición no listada?</Label>
-                <Input
-                  value={form.other_condition}
-                  onChange={(e) => setForm((prev) => ({ ...prev, other_condition: e.target.value }))}
-                  placeholder="Especificar otra condición..."
-                />
-              </div>
-            )}
 
-            <div className="space-y-6">
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
+            {/* Antecedentes Familiares */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-red-100 rounded-lg">
                   <Heart className="h-4 w-4 text-red-500" />
-                  <p className="font-medium text-gray-800">Antecedentes familiares</p>
                 </div>
-                <div className="space-y-3">
-                  {FAMILY_HISTORY.map((item) => (
-                    <div key={item.id} className="flex items-center justify-between gap-4">
-                      <span className="text-sm text-gray-700">{item.label}</span>
-                      <div className="flex gap-2">
-                        {["SI", "NO", "NO SABE"].map((opt) => (
-                          <Button
-                            key={opt}
-                            type="button"
-                            size="sm"
-                            variant={form.family_history[item.id] === opt ? "default" : "outline"}
-                            onClick={() => updateFamilyHistory(item.id, opt)}
-                            className={form.family_history[item.id] === opt ? "bg-zuli-indigo hover:bg-zuli-indigo-600" : ""}
-                          >
-                            {opt}
-                          </Button>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                <p className="font-medium text-gray-800">Antecedentes familiares</p>
               </div>
+              <div className="space-y-3 bg-gray-50 rounded-lg p-4">
+                {FAMILY_HISTORY.map((item) => (
+                  <div key={item.id} className="flex items-center justify-between gap-4 py-1">
+                    <span className="text-sm text-gray-700 font-medium">{item.label}</span>
+                    <BooleanButtons
+                      value={form.family_history[item.id]}
+                      onChange={(val) => updateFamilyHistory(item.id, val || "")}
+                      size="sm"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
 
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <User className="h-4 w-4 text-zuli-indigo" />
-                  <p className="font-medium text-gray-800">Antecedentes personales</p>
+            {/* Antecedentes Personales */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-indigo-100 rounded-lg">
+                  <User className="h-4 w-4 text-indigo-600" />
                 </div>
-                <div className="space-y-3">
-                  {PERSONAL_HISTORY.filter((p) => !p.femaleOnly || isFemale).map((item) => (
-                    <div key={item.id} className="space-y-1">
-                      <div className="flex items-center justify-between gap-4">
-                        <span className="text-sm text-gray-700">{item.label}</span>
-                        <div className="flex gap-2">
-                          {["SI", "NO", "NO SABE"].map((opt) => (
-                            <Button
-                              key={opt}
-                              type="button"
-                              size="sm"
-                              variant={form.personal_history[item.id] === opt ? "default" : "outline"}
-                              onClick={() => updatePersonalHistory(item.id, opt)}
-                              className={
-                                form.personal_history[item.id] === opt ? "bg-zuli-veronica hover:bg-zuli-veronica-600" : ""
-                              }
-                            >
-                              {opt}
-                            </Button>
-                          ))}
-                        </div>
+                <p className="font-medium text-gray-800">Antecedentes personales</p>
+              </div>
+              <div className="space-y-3 bg-gray-50 rounded-lg p-4">
+                {PERSONAL_HISTORY.filter((p) => !p.femaleOnly || isFemale).map((item) => (
+                  <div key={item.id} className="space-y-2">
+                    <div className="flex items-center justify-between gap-4 py-1">
+                      <span className="text-sm text-gray-700 font-medium">{item.label}</span>
+                      <BooleanButtons
+                        value={form.personal_history[item.id]}
+                        onChange={(val) => updatePersonalHistory(item.id, val || "")}
+                        size="sm"
+                      />
+                    </div>
+                    {item.followUp === "cigarettes" && form.personal_history[item.id] === "SI" && (
+                      <div className="ml-4 p-3 bg-white rounded-lg border border-amber-200">
+                        <Label className="text-xs text-amber-700 font-medium">¿Cuántos cigarros al día?</Label>
+                        <Input
+                          value={form.fuma_cigarettes}
+                          onChange={(e) => setForm((prev) => ({ ...prev, fuma_cigarettes: e.target.value }))}
+                          placeholder="Ej. 5"
+                          className="mt-1"
+                        />
                       </div>
-                      {item.followUp === "cigarettes" && form.personal_history[item.id] === "SI" && (
-                        <div className="pl-2">
-                          <Label className="text-xs text-gray-500">¿Cuántos diarios?</Label>
-                          <Input
-                            value={form.fuma_cigarettes}
-                            onChange={(e) => setForm((prev) => ({ ...prev, fuma_cigarettes: e.target.value }))}
-                            placeholder="Ej. 5"
-                          />
-                        </div>
-                      )}
-                      {item.hasDate && (
-                        <div className="pl-2 grid grid-cols-2 gap-2">
+                    )}
+                    {item.hasDate && (
+                      <div className="ml-4 p-3 bg-white rounded-lg border grid grid-cols-2 gap-2">
+                        <div>
+                          <Label className="text-xs text-gray-500">Resultado</Label>
                           <Input
                             type="text"
                             value={form.citologia_result}
                             onChange={(e) => setForm((prev) => ({ ...prev, citologia_result: e.target.value }))}
                             placeholder="Resultado"
                           />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-gray-500">Fecha</Label>
                           <Input
                             type="date"
                             value={form.citologia_date}
                             onChange={(e) => setForm((prev) => ({ ...prev, citologia_date: e.target.value }))}
-                            placeholder="Fecha"
                           />
                         </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
             </div>
           </CardContent>
         </Card>
 
         {/* Medicamentos */}
-        <Card>
+        <Card className="border-l-4 border-l-pink-500">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Pill className="h-5 w-5 text-zuli-veronica" />
-                <CardTitle className="text-base">Medicamentos Actuales</CardTitle>
+                <div className="p-2 bg-pink-100 rounded-lg">
+                  <Pill className="h-5 w-5 text-pink-600" />
+                </div>
+                <div>
+                  <CardTitle className="text-base">Medicamentos Actuales</CardTitle>
+                  <p className="text-sm text-gray-500">Medicamentos que tomas regularmente</p>
+                </div>
               </div>
-              <Button type="button" variant="outline" size="sm" onClick={addMedication}>
+              <Button type="button" variant="outline" size="sm" onClick={addMedication} className="shrink-0">
                 <Plus className="h-4 w-4 mr-1" />
                 Agregar
               </Button>
@@ -822,11 +935,16 @@ export default function PerfilPage() {
         </Card>
 
         {/* Cirugías */}
-        <Card>
+        <Card className="border-l-4 border-l-amber-500">
           <CardHeader className="pb-3">
             <div className="flex items-center gap-2">
-              <FileText className="h-5 w-5 text-amber-500" />
-              <CardTitle className="text-base">Cirugías / Hospitalizaciones</CardTitle>
+              <div className="p-2 bg-amber-100 rounded-lg">
+                <FileText className="h-5 w-5 text-amber-600" />
+              </div>
+              <div>
+                <CardTitle className="text-base">Cirugías / Hospitalizaciones</CardTitle>
+                <p className="text-sm text-gray-500">Procedimientos quirúrgicos previos</p>
+              </div>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -883,11 +1001,16 @@ export default function PerfilPage() {
         </Card>
 
         {/* Estilo de vida */}
-        <Card>
+        <Card className="border-l-4 border-l-emerald-500">
           <CardHeader className="pb-3">
             <div className="flex items-center gap-2">
-              <Activity className="h-5 w-5 text-blue-900" />
-              <CardTitle className="text-base">Estilo de Vida</CardTitle>
+              <div className="p-2 bg-emerald-100 rounded-lg">
+                <Activity className="h-5 w-5 text-emerald-600" />
+              </div>
+              <div>
+                <CardTitle className="text-base">Estilo de Vida</CardTitle>
+                <p className="text-sm text-gray-500">Hábitos y rutina diaria</p>
+              </div>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
