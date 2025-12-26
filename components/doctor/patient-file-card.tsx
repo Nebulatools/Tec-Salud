@@ -20,7 +20,10 @@ import {
   Sparkles,
   AlertTriangle,
   Download,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 
 type PatientFileCardProps = {
   patientUserId: string
@@ -100,6 +103,7 @@ export function PatientFileCard({
   const [labOrder, setLabOrder] = useState<LabOrder | null>(null)
   const [internRun, setInternRun] = useState<InternRun | null>(null)
   const [reports, setReports] = useState<MedicalReport[]>([])
+  const [expandedReports, setExpandedReports] = useState<Set<string>>(new Set())
   const [runningIntern, setRunningIntern] = useState(false)
   const [internStatus, setInternStatus] = useState<string | null>(null)
   const [internError, setInternError] = useState<string | null>(null)
@@ -257,7 +261,7 @@ export function PatientFileCard({
     return (
       <Card className="border-2 border-dashed">
         <CardContent className="py-12 text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mx-auto" />
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-zuli-veronica mx-auto" />
           <p className="text-sm text-gray-500 mt-3">Cargando ficha del paciente...</p>
         </CardContent>
       </Card>
@@ -267,11 +271,11 @@ export function PatientFileCard({
   return (
     <div className="space-y-4">
       {/* Header del paciente */}
-      <Card className="bg-gradient-to-r from-orange-50 to-amber-50 border-orange-200">
+      <Card className="bg-gradient-to-r from-zuli-veronica/10 to-zuli-indigo/10 border-zuli-veronica/20">
         <CardContent className="py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className="h-14 w-14 rounded-full bg-orange-500 text-white flex items-center justify-center text-xl font-bold">
+              <div className="h-14 w-14 rounded-full bg-gradient-to-br from-zuli-veronica to-zuli-indigo text-white flex items-center justify-center text-xl font-bold">
                 {patientName?.[0]?.toUpperCase() ?? "P"}
               </div>
               <div>
@@ -297,7 +301,7 @@ export function PatientFileCard({
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
-            <User className="h-5 w-5 text-orange-500" />
+            <User className="h-5 w-5 text-zuli-veronica" />
             <CardTitle className="text-base">Cuestionario Base</CardTitle>
             {hasBaseline ? (
               <CheckCircle2 className="h-4 w-4 text-green-500 ml-auto" />
@@ -365,7 +369,7 @@ export function PatientFileCard({
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
-            <FileText className="h-5 w-5 text-orange-500" />
+            <FileText className="h-5 w-5 text-zuli-veronica" />
             <CardTitle className="text-base">Cuestionario de Especialidad</CardTitle>
             {hasResponses ? (
               <CheckCircle2 className="h-4 w-4 text-green-500 ml-auto" />
@@ -396,7 +400,7 @@ export function PatientFileCard({
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
-            <FileText className="h-5 w-5 text-orange-500" />
+            <FileText className="h-5 w-5 text-zuli-veronica" />
             <CardTitle className="text-base">Reportes de Consulta</CardTitle>
             {reports.length > 0 ? (
               <CheckCircle2 className="h-4 w-4 text-green-500 ml-auto" />
@@ -409,32 +413,64 @@ export function PatientFileCard({
           {reports.length === 0 ? (
             <p className="text-sm text-gray-500 italic">Sin reportes de consulta guardados.</p>
           ) : (
-            <div className="space-y-4">
-              {reports.map((report) => (
-                <div key={report.id} className="border rounded-lg p-4 bg-gray-50">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-sm font-semibold text-gray-900">
-                      {report.title || "Reporte médico"}
-                    </p>
-                    <Badge variant={report.report_type === "FINAL" ? "default" : "secondary"} className="text-xs">
-                      {report.report_type || "BORRADOR"}
-                    </Badge>
-                  </div>
-                  <p className="text-xs text-gray-500">
-                    {new Date(report.created_at).toLocaleString("es-MX")}
-                  </p>
-                  {report.compliance_status && (
-                    <p className="text-xs text-gray-500 mb-2">
-                      Cumplimiento: {report.compliance_status}
-                    </p>
-                  )}
-                  {report.content && (
-                    <div className="mt-3 p-4 bg-white rounded-lg border text-sm text-gray-800 whitespace-pre-line">
-                      {report.content}
+            <div className="space-y-3">
+              {reports.map((report) => {
+                const isExpanded = expandedReports.has(report.id)
+                return (
+                  <Collapsible
+                    key={report.id}
+                    open={isExpanded}
+                    onOpenChange={(open) => {
+                      const newSet = new Set(expandedReports)
+                      if (open) {
+                        newSet.add(report.id)
+                      } else {
+                        newSet.delete(report.id)
+                      }
+                      setExpandedReports(newSet)
+                    }}
+                  >
+                    <div className="border rounded-lg bg-gray-50 overflow-hidden">
+                      <CollapsibleTrigger asChild>
+                        <button className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-100 transition-colors">
+                          <div className="flex items-center gap-3">
+                            {isExpanded ? (
+                              <ChevronDown className="h-4 w-4 text-gray-400" />
+                            ) : (
+                              <ChevronRight className="h-4 w-4 text-gray-400" />
+                            )}
+                            <div className="text-left">
+                              <p className="text-sm font-semibold text-gray-900">
+                                {report.title || "Reporte médico"}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                {new Date(report.created_at).toLocaleString("es-MX")}
+                              </p>
+                            </div>
+                          </div>
+                          <Badge variant={report.report_type === "FINAL" ? "default" : "secondary"} className="text-xs">
+                            {report.report_type || "BORRADOR"}
+                          </Badge>
+                        </button>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <div className="px-4 pb-4 pt-0 border-t">
+                          {report.compliance_status && (
+                            <p className="text-xs text-gray-500 mt-3 mb-2">
+                              Cumplimiento: {report.compliance_status}
+                            </p>
+                          )}
+                          {report.content && (
+                            <div className="mt-3 p-4 bg-white rounded-lg border text-sm text-gray-800 whitespace-pre-line">
+                              {report.content}
+                            </div>
+                          )}
+                        </div>
+                      </CollapsibleContent>
                     </div>
-                  )}
-                </div>
-              ))}
+                  </Collapsible>
+                )
+              })}
             </div>
           )}
         </CardContent>
@@ -444,7 +480,7 @@ export function PatientFileCard({
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
-            <Upload className="h-5 w-5 text-orange-500" />
+            <Upload className="h-5 w-5 text-zuli-veronica" />
             <CardTitle className="text-base">Pruebas de Laboratorio</CardTitle>
             {hasLabResults ? (
               <CheckCircle2 className="h-4 w-4 text-green-500 ml-auto" />
@@ -521,12 +557,12 @@ export function PatientFileCard({
       </Card>
 
       {/* Pasante Virtual */}
-      <Card className={canRunVirtualIntern ? "border-orange-200 bg-orange-50/30" : "border-gray-200 bg-gray-50"}>
+      <Card className={canRunVirtualIntern ? "border-zuli-veronica/20 bg-zuli-veronica/5" : "border-gray-200 bg-gray-50"}>
         <CardContent className="py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className={`p-2 rounded-lg ${canRunVirtualIntern ? "bg-orange-100" : "bg-gray-100"}`}>
-                <Sparkles className={`h-5 w-5 ${canRunVirtualIntern ? "text-orange-500" : "text-gray-400"}`} />
+              <div className={`p-2 rounded-lg ${canRunVirtualIntern ? "bg-zuli-veronica/20" : "bg-gray-100"}`}>
+                <Sparkles className={`h-5 w-5 ${canRunVirtualIntern ? "text-zuli-veronica" : "text-gray-400"}`} />
               </div>
               <div>
                 <p className="font-semibold text-gray-900">Pasante Virtual</p>
@@ -540,7 +576,7 @@ export function PatientFileCard({
             <Button
               onClick={handleVirtualIntern}
               disabled={!canRunVirtualIntern || runningIntern}
-              className={canRunVirtualIntern ? "bg-orange-500 hover:bg-orange-600" : ""}
+              className={canRunVirtualIntern ? "btn-zuli-gradient" : ""}
             >
             {runningIntern ? (
               <>

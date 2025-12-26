@@ -11,7 +11,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/hooks/use-auth"
-import { Loader2, Search } from "lucide-react"
+import { Loader2, Search, CalendarIcon, Clock } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 
@@ -182,7 +183,7 @@ export default function AddAppointmentForm({ onSuccess, onCancel }: AddAppointme
 
         {/* Patient Selection */}
         <div className="space-y-2">
-          <Label>Paciente *</Label>
+          <Label className="text-sm font-medium">Paciente</Label>
           <Popover open={open} onOpenChange={setOpen}>
             <PopoverTrigger asChild>
               <Button variant="outline" role="combobox" aria-expanded={open} className="w-full justify-between">
@@ -220,48 +221,88 @@ export default function AddAppointmentForm({ onSuccess, onCancel }: AddAppointme
         {/* Date and Time */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="appointment_date">Fecha *</Label>
-            <Input
-              id="appointment_date"
-              name="appointment_date"
-              type="date"
-              value={formData.appointment_date}
-              onChange={handleChange}
-              required
-              disabled={loading}
-            />
+            <Label htmlFor="appointment_date" className="text-sm font-medium flex items-center gap-1.5">
+              <CalendarIcon className="h-3.5 w-3.5 text-zuli-veronica" />
+              Fecha
+            </Label>
+            <div className="relative">
+              <Input
+                id="appointment_date"
+                name="appointment_date"
+                type="date"
+                value={formData.appointment_date}
+                onChange={handleChange}
+                required
+                disabled={loading}
+                className="pl-3 pr-3 h-10 bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 focus:border-zuli-veronica focus:ring-zuli-veronica/20"
+              />
+            </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="start_time">Hora de Inicio *</Label>
-            <Input
-              id="start_time"
-              name="start_time"
-              type="time"
+            <Label className="text-sm font-medium flex items-center gap-1.5">
+              <Clock className="h-3.5 w-3.5 text-zuli-veronica" />
+              Inicio
+            </Label>
+            <Select
               value={formData.start_time}
-              onChange={handleChange}
-              required
+              onValueChange={(value) => setFormData({ ...formData, start_time: value })}
               disabled={loading}
-            />
+            >
+              <SelectTrigger className="h-10 bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 focus:border-zuli-veronica focus:ring-zuli-veronica/20">
+                <SelectValue placeholder="Seleccionar" />
+              </SelectTrigger>
+              <SelectContent>
+                {Array.from({ length: 28 }, (_, i) => {
+                  const hour = Math.floor(i / 2) + 7
+                  const minute = i % 2 === 0 ? '00' : '30'
+                  const time = `${hour.toString().padStart(2, '0')}:${minute}`
+                  const displayHour = hour > 12 ? hour - 12 : hour
+                  const ampm = hour >= 12 ? 'PM' : 'AM'
+                  return (
+                    <SelectItem key={time} value={time}>
+                      {displayHour}:{minute} {ampm}
+                    </SelectItem>
+                  )
+                })}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="end_time">Hora de Fin *</Label>
-            <Input
-              id="end_time"
-              name="end_time"
-              type="time"
+            <Label className="text-sm font-medium flex items-center gap-1.5">
+              <Clock className="h-3.5 w-3.5 text-zuli-veronica" />
+              Fin
+            </Label>
+            <Select
               value={formData.end_time}
-              onChange={handleChange}
-              required
+              onValueChange={(value) => setFormData({ ...formData, end_time: value })}
               disabled={loading}
-            />
+            >
+              <SelectTrigger className="h-10 bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 focus:border-zuli-veronica focus:ring-zuli-veronica/20">
+                <SelectValue placeholder="Seleccionar" />
+              </SelectTrigger>
+              <SelectContent>
+                {Array.from({ length: 28 }, (_, i) => {
+                  const hour = Math.floor(i / 2) + 7
+                  const minute = i % 2 === 0 ? '00' : '30'
+                  const time = `${hour.toString().padStart(2, '0')}:${minute}`
+                  const displayHour = hour > 12 ? hour - 12 : hour
+                  const ampm = hour >= 12 ? 'PM' : 'AM'
+                  return (
+                    <SelectItem key={time} value={time}>
+                      {displayHour}:{minute} {ampm}
+                    </SelectItem>
+                  )
+                })}
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
         {/* Notes */}
         <div className="space-y-2">
-          <Label htmlFor="notes">Notas</Label>
+          <Label htmlFor="notes" className="text-sm font-medium">Notas (opcional)</Label>
           <Textarea
             id="notes"
             name="notes"
