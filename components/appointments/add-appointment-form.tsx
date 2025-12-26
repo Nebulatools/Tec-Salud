@@ -201,6 +201,7 @@ export default function AddAppointmentForm({ onSuccess, onCancel }: AddAppointme
                     {patients.map((patient) => (
                       <CommandItem
                         key={patient.id}
+                        value={`${patient.first_name} ${patient.last_name} ${patient.id}`}
                         onSelect={() => {
                           setSelectedPatient(patient)
                           setOpen(false)
@@ -290,7 +291,7 @@ export default function AddAppointmentForm({ onSuccess, onCancel }: AddAppointme
         >
           Cancelar
         </Button>
-        <Button type="submit" className="bg-orange-500 hover:bg-orange-600 text-white" disabled={loading}>
+        <Button type="submit" className="btn-zuli-gradient" disabled={loading}>
           {loading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
