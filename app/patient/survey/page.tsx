@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { Suspense, useEffect, useState } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -96,7 +96,7 @@ const defaultSurveyQuestions: SurveyQuestion[] = [
   },
 ]
 
-export default function PatientSurveyPage() {
+function PatientSurveyContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const qrId = searchParams.get("qr")
@@ -591,5 +591,20 @@ export default function PatientSurveyPage() {
         )}
       </div>
     </div>
+  )
+}
+
+export default function PatientSurveyPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex flex-col items-center justify-center min-h-[60vh] animate-fadeIn">
+          <Loader2 className="h-8 w-8 animate-spin text-zuli-indigo mb-4" />
+          <p className="text-slate-600 dark:text-slate-400">Cargando cuestionario...</p>
+        </div>
+      }
+    >
+      <PatientSurveyContent />
+    </Suspense>
   )
 }
