@@ -614,3 +614,159 @@ export type Database = {
     }
   }
 }
+
+// ============================================
+// New Types for Critical Gaps Implementation
+// ============================================
+
+// QR Links
+export interface QRLink {
+  id: string
+  doctor_id: string
+  campaign_type: 'specialty_survey' | 'quick_profile' | 'appointment'
+  target_resource_id: string | null
+  redirect_url: string
+  scans_count: number
+  expires_at: string | null
+  metadata: Record<string, unknown>
+  created_at: string
+}
+
+// Medical Units
+export interface MedicalUnit {
+  id: string
+  name: string
+  address_line: string | null
+  coordinates: { lat: number; lng: number } | null
+  logo_url: string | null
+  billing_info: {
+    rfc?: string
+    razon_social?: string
+    direccion_fiscal?: string
+    regimen_fiscal?: string
+  }
+  operating_hours: Record<string, { open: string; close: string }>
+  phone: string | null
+  email: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface DoctorUnit {
+  id: string
+  doctor_id: string
+  unit_id: string
+  role: 'owner' | 'admin' | 'staff'
+  is_primary: boolean
+  created_at: string
+}
+
+// Prescriptions
+export interface Medication {
+  brand_name: string
+  generic_name: string
+  dosage: string
+  frequency: string
+  duration: string
+  instructions?: string
+  quantity?: string
+}
+
+export interface Prescription {
+  id: string
+  appointment_id: string | null
+  doctor_id: string
+  patient_id: string
+  medications: Medication[]
+  diagnosis: string | null
+  notes: string | null
+  status: 'draft' | 'signed' | 'delivered' | 'cancelled'
+  signed_url: string | null
+  signed_at: string | null
+  delivered_at: string | null
+  valid_until: string | null
+  created_at: string
+  updated_at: string
+}
+
+// Family Groups
+export interface FamilyGroup {
+  id: string
+  owner_user_id: string
+  group_name: string
+  created_at: string
+}
+
+export interface FamilyMember {
+  id: string
+  group_id: string
+  user_id: string | null
+  relationship: 'self' | 'spouse' | 'child' | 'parent' | 'sibling' | 'grandparent' | 'other'
+  profile_data: {
+    full_name?: string
+    date_of_birth?: string
+    gender?: string
+    allergies?: string[]
+    blood_type?: string
+    medical_notes?: string
+  }
+  is_primary: boolean
+  created_at: string
+}
+
+// Doctor Verification
+export interface DoctorVerification {
+  id: string
+  doctor_id: string
+  status: 'pending' | 'submitted' | 'under_review' | 'verified' | 'rejected'
+  cedula_professional: string | null
+  cedula_storage_path: string | null
+  specialty_certificate_path: string | null
+  additional_documents: Array<{
+    path: string
+    type: string
+    uploaded_at: string
+  }>
+  rejection_reason: string | null
+  rejection_details: Record<string, unknown> | null
+  reviewed_by: string | null
+  submitted_at: string | null
+  reviewed_at: string | null
+  verified_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+// Virtual Intern Runs (Extended for all AI jobs)
+// Extends existing table - reuse instead of creating ai_processing_jobs
+export interface VirtualInternRunExtended {
+  id: string
+  appointment_id: string | null
+  doctor_id: string
+  patient_user_id: string
+  patient_id: string | null
+  lab_order_id: string | null
+  specialty_id: string | null
+  job_type: 'virtual_intern' | 'transcription' | 'diarization' | 'enrichment' | 'soap_generation'
+  status: 'pending' | 'processing' | 'succeeded' | 'failed'
+  // Existing fields
+  summary: string | null
+  findings: Record<string, unknown> | null
+  alerts: Array<{ type: string; message: string }> | null
+  suggestions: string[]
+  data_sources_analyzed: Record<string, boolean> | null
+  // Extended fields for all job types
+  audio_storage_path: string | null
+  input_data: Record<string, unknown>
+  error: string | null
+  error_message: string | null
+  retry_count: number
+  max_retries: number
+  priority: number
+  started_at: string | null
+  completed_at: string | null
+  requested_at: string
+}
+
+// Alias for backwards compatibility and semantic clarity
+export type AIProcessingJob = VirtualInternRunExtended

@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Printer, Download, Save } from "lucide-react"
+import { Printer, Download, Save, FileText } from "lucide-react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import SuccessModal from "@/components/ui/success-modal"
 import { supabase } from "@/lib/supabase"
@@ -253,10 +254,21 @@ ${originalTranscript}
     ? new Date(consultationData.onsetDate).toLocaleDateString('es-ES')
     : (fechaHoraAI ? new Date(fechaHoraAI).toLocaleDateString('es-ES') : getCurrentDate())
 
+  // Build prescription URL with patient and appointment context
+  const prescriptionUrl = consultationData?.patientInfo?.id
+    ? `/recetas/nueva?patient_id=${consultationData.patientInfo.id}${appointmentId ? `&appointment_id=${appointmentId}` : ''}`
+    : '/recetas/nueva'
+
   return (
     <div className="space-y-6">
       {/* Action Buttons */}
-      <div className="flex justify-end gap-3">
+      <div className="flex flex-wrap justify-end gap-3">
+        <Link href={prescriptionUrl}>
+          <Button variant="outline" className="text-zuli-veronica border-zuli-veronica/30 hover:bg-zuli-veronica/10 rounded-xl">
+            <FileText className="w-4 h-4 mr-2" />
+            Crear Receta
+          </Button>
+        </Link>
         <Button variant="outline" onClick={handlePrint} className="text-gray-600 dark:text-gray-400 rounded-xl">
           <Printer className="w-4 h-4 mr-2" />
           Imprimir
