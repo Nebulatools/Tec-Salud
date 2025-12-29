@@ -37,9 +37,9 @@
   - Ya existe `specialist_responses` (145 rows - cuestionarios de especialidad)
   - **FIX NECESARIO**: Cambiar `/app/patient/survey/page.tsx` para usar `specialist_responses` en lugar de `patient_surveys`
 
-- [ ] **1.3** Fix bug columna incorrecta en `/app/patient/appointments/new/page.tsx:116`
-  - Cambiar: `.select('scheduled_time')`
-  - Por: `.select('appointment_date, start_time')`
+- [x] **1.3** ~~Fix bug columna incorrecta~~ **COMPLETADO**
+  - Cambiado de `scheduled_time` a `appointment_date, start_time`
+  - Agregado Suspense boundary para `useSearchParams()` (requerido por Next.js 16)
 
 - [x] **1.4** ~~Crear función `create_medical_unit_with_owner` (RLS fix)~~ **COMPLETADO**
   - Migración aplicada: `fix_medical_units_rls`
@@ -78,8 +78,9 @@
 | Bug | Archivo | Línea | Estado |
 |-----|---------|-------|--------|
 | Calendar renderiza números | `/app/user/citas/page.tsx` | varios | ✅ FIXED |
-| Query usa `scheduled_time` | `/app/patient/appointments/new/page.tsx` | 116 | ❌ Pendiente |
-| RLS bloquea medical_units | Supabase | - | ❌ Pendiente |
+| Query usa `scheduled_time` | `/app/patient/appointments/new/page.tsx` | 192-197 | ✅ FIXED |
+| RLS bloquea medical_units | Supabase | - | ✅ FIXED |
+| useSearchParams sin Suspense | `/app/patient/appointments/new/page.tsx` | 83 | ✅ FIXED |
 
 ---
 

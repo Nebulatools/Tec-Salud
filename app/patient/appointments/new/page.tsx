@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { Suspense, useEffect, useState } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -80,7 +80,7 @@ const defaultTimeSlots: TimeSlot[] = [
   { time: "17:30", available: true },
 ]
 
-export default function NewAppointmentPage() {
+function NewAppointmentContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const qrId = searchParams.get("qr")
@@ -191,18 +191,14 @@ export default function NewAppointmentPage() {
       const dateStr = format(selectedDate, "yyyy-MM-dd")
       const { data } = await supabase
         .from("appointments")
-        .select("scheduled_time")
+        .select("appointment_date, start_time")
         .eq("doctor_id", doctor.id)
-        .gte("scheduled_time", `${dateStr}T00:00:00`)
-        .lt("scheduled_time", `${dateStr}T23:59:59`)
-        .in("status", ["scheduled", "confirmed"])
+        .eq("appointment_date", dateStr)
+        .in("status", ["scheduled", "confirmed", "Programada", "Confirmada"])
 
       if (data) {
-        const booked = data.map((apt) => {
-          const time = new Date(apt.scheduled_time)
-          return format(time, "HH:mm")
-        })
-        setBookedSlots(booked)
+        const booked = data.map((apt) => apt.start_time?.substring(0, 5) || "")
+        setBookedSlots(booked.filter(Boolean))
       }
     }
 
@@ -786,5 +782,20 @@ export default function NewAppointmentPage() {
         </Card>
       )}
     </div>
+  )
+}
+
+export default function NewAppointmentPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex flex-col items-center justify-center min-h-[60vh] animate-fadeIn">
+          <Loader2 className="h-8 w-8 animate-spin text-zuli-indigo mb-4" />
+          <p className="text-slate-600 dark:text-slate-400">Cargando disponibilidad...</p>
+        </div>
+      }
+    >
+      <NewAppointmentContent />
+    </Suspense>
   )
 }
