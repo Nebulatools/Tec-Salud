@@ -31,36 +31,26 @@ export default function NuevoConsultorioPage() {
     setError(null)
 
     try {
-      // Create medical unit
-      const { data: unit, error: unitError } = await supabase
-        .from("medical_units")
-        .insert({
-          name: name.trim(),
-          address_line: address.trim() || null,
-          phone: phone.trim() || null,
-          email: email.trim() || null,
-        })
-        .select()
-        .single()
-
-      if (unitError) throw unitError
-
-      // Link doctor as owner
-      const { error: linkError } = await supabase
-        .from("doctor_units")
-        .insert({
-          doctor_id: doctorId,
-          unit_id: unit.id,
-          role: "owner",
-          is_primary: true,
+      // Usar función RPC que crea consultorio + asigna owner atómicamente
+      const { data: unitId, error: rpcError } = await supabase
+        .rpc("create_medical_unit_with_owner", {
+          p_name: name.trim(),
+          p_address_line: address.trim() || null,
+          p_phone: phone.trim() || null,
+          p_email: email.trim() || null,
         })
 
-      if (linkError) throw linkError
+      if (rpcError) {
+        console.error("Error creating medical unit:", rpcError.message, rpcError.details, rpcError.hint, rpcError.code)
+        throw rpcError
+      }
 
+      console.log("Consultorio creado con ID:", unitId)
       router.push("/consultorios")
-    } catch (err) {
-      console.error("Error creating unit:", err)
-      setError("Error al crear el consultorio")
+    } catch (err: unknown) {
+      const error = err as { message?: string; details?: string; hint?: string; code?: string }
+      console.error("Error creating unit:", error.message || err, error.details, error.hint)
+      setError(error.message || "Error al crear el consultorio")
     } finally {
       setCreating(false)
     }

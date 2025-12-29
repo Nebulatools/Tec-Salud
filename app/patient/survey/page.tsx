@@ -11,6 +11,13 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
   Loader2,
   CheckCircle,
   AlertCircle,
@@ -21,6 +28,8 @@ import {
   User,
   Phone,
   Mail,
+  Calendar,
+  Users,
 } from "lucide-react"
 
 interface DoctorInfo {
@@ -109,6 +118,8 @@ export default function PatientSurveyPage() {
   const [lastName, setLastName] = useState("")
   const [phone, setPhone] = useState("")
   const [email, setEmail] = useState("")
+  const [birthDate, setBirthDate] = useState("")
+  const [gender, setGender] = useState("")
 
   // Survey answers
   const [answers, setAnswers] = useState<Record<string, string>>({})
@@ -174,6 +185,14 @@ export default function PatientSurveyPage() {
         setError("Por favor ingresa tu nombre y apellido.")
         return
       }
+      if (!birthDate) {
+        setError("Por favor ingresa tu fecha de nacimiento.")
+        return
+      }
+      if (!gender) {
+        setError("Por favor selecciona tu sexo.")
+        return
+      }
     }
     setError(null)
     setCurrentStep((prev) => prev + 1)
@@ -199,6 +218,8 @@ export default function PatientSurveyPage() {
           last_name: lastName.trim(),
           phone: phone.trim() || null,
           email: email.trim() || null,
+          date_of_birth: birthDate,
+          gender: gender,
           doctor_id: doctor.id,
         })
         .select()
@@ -407,6 +428,34 @@ export default function PatientSurveyPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 className="h-11"
               />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="birthDate" className="text-sm flex items-center gap-1">
+                <Calendar className="h-3 w-3" /> Fecha de nacimiento *
+              </Label>
+              <Input
+                id="birthDate"
+                type="date"
+                value={birthDate}
+                onChange={(e) => setBirthDate(e.target.value)}
+                className="h-11"
+                required
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-sm flex items-center gap-1">
+                <Users className="h-3 w-3" /> Sexo *
+              </Label>
+              <Select value={gender} onValueChange={setGender} required>
+                <SelectTrigger className="h-11">
+                  <SelectValue placeholder="Selecciona..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Masculino">Masculino</SelectItem>
+                  <SelectItem value="Femenino">Femenino</SelectItem>
+                  <SelectItem value="Otro">Otro</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </CardContent>
         </Card>

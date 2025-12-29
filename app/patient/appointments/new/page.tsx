@@ -10,6 +10,13 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
   Loader2,
   CheckCircle,
   AlertCircle,
@@ -22,6 +29,7 @@ import {
   ChevronLeft,
   ChevronRight,
   MapPin,
+  Users,
 } from "lucide-react"
 import { format, addDays, startOfWeek, isSameDay, isAfter, setHours, setMinutes } from "date-fns"
 import { es } from "date-fns/locale"
@@ -98,10 +106,15 @@ export default function NewAppointmentPage() {
   const [selectedTime, setSelectedTime] = useState<string | null>(null)
 
   // Patient info
+  const [existingPatientId, setExistingPatientId] = useState<string | null>(null)
+  const [patientFound, setPatientFound] = useState(false)
+  const [searchingPatient, setSearchingPatient] = useState(false)
   const [firstName, setFirstName] = useState("")
   const [lastName, setLastName] = useState("")
   const [phone, setPhone] = useState("")
   const [email, setEmail] = useState("")
+  const [birthDate, setBirthDate] = useState("")
+  const [gender, setGender] = useState("")
   const [reason, setReason] = useState("")
 
   // Booked appointments (to mark as unavailable)
@@ -225,6 +238,58 @@ export default function NewAppointmentPage() {
     setStep(2)
   }
 
+  // Search for existing patient by phone in Supabase
+  const handlePhoneLookup = async () => {
+    if (!phone.trim() || !doctor) return
+
+    setSearchingPatient(true)
+    setError(null)
+
+    try {
+      const { data: existingPatient } = await supabase
+        .from("patients")
+        .select("id, first_name, last_name, phone, email, date_of_birth, gender")
+        .eq("doctor_id", doctor.id)
+        .eq("phone", phone.trim())
+        .single()
+
+      if (existingPatient) {
+        // Patient found - pre-fill data
+        setExistingPatientId(existingPatient.id)
+        setFirstName(existingPatient.first_name || "")
+        setLastName(existingPatient.last_name || "")
+        setEmail(existingPatient.email || "")
+        setBirthDate(existingPatient.date_of_birth || "")
+        setGender(existingPatient.gender || "")
+        setPatientFound(true)
+      } else {
+        // Patient not found - they need to fill the form
+        setPatientFound(false)
+        setExistingPatientId(null)
+      }
+    } catch {
+      // No patient found, continue with new registration
+      setPatientFound(false)
+      setExistingPatientId(null)
+    } finally {
+      setSearchingPatient(false)
+    }
+  }
+
+  // Reset patient search when changing phone
+  const handlePhoneChange = (value: string) => {
+    setPhone(value)
+    if (patientFound) {
+      setPatientFound(false)
+      setExistingPatientId(null)
+      setFirstName("")
+      setLastName("")
+      setEmail("")
+      setBirthDate("")
+      setGender("")
+    }
+  }
+
   const handleSubmit = async () => {
     if (!doctor || !selectedDate || !selectedTime) return
 
@@ -232,34 +297,47 @@ export default function NewAppointmentPage() {
     setError(null)
 
     try {
-      // Create patient record
-      const { data: patient, error: patientError } = await supabase
-        .from("patients")
-        .insert({
-          first_name: firstName.trim(),
-          last_name: lastName.trim(),
-          phone: phone.trim() || null,
-          email: email.trim() || null,
-          doctor_id: doctor.id,
-        })
-        .select()
-        .single()
+      let patientId = existingPatientId
 
-      if (patientError) throw patientError
+      // Only create patient if not already registered
+      if (!patientId) {
+        const { data: patient, error: patientError } = await supabase
+          .from("patients")
+          .insert({
+            first_name: firstName.trim(),
+            last_name: lastName.trim(),
+            phone: phone.trim() || null,
+            email: email.trim() || null,
+            date_of_birth: birthDate,
+            gender: gender,
+            doctor_id: doctor.id,
+          })
+          .select()
+          .single()
+
+        if (patientError) throw patientError
+        patientId = patient.id
+      }
 
       // Create appointment
       const [hours, minutes] = selectedTime.split(":").map(Number)
-      const scheduledTime = setMinutes(setHours(selectedDate, hours), minutes)
+      const appointmentDate = format(selectedDate, "yyyy-MM-dd")
+      const startTime = selectedTime
+      // End time is 30 minutes after start time
+      const endHours = minutes >= 30 ? hours + 1 : hours
+      const endMinutes = minutes >= 30 ? minutes - 30 : minutes + 30
+      const endTime = `${String(endHours).padStart(2, "0")}:${String(endMinutes).padStart(2, "0")}`
 
       const { error: appointmentError } = await supabase
         .from("appointments")
         .insert({
-          patient_id: patient.id,
+          patient_id: patientId,
           doctor_id: doctor.id,
-          unit_id: medicalUnit?.id || null,
-          scheduled_time: scheduledTime.toISOString(),
-          status: "scheduled",
-          reason: reason.trim() || null,
+          appointment_date: appointmentDate,
+          start_time: startTime,
+          end_time: endTime,
+          status: "Programada",
+          notes: reason.trim() || null,
         })
 
       if (appointmentError) throw appointmentError
@@ -271,7 +349,7 @@ export default function NewAppointmentPage() {
           .from("qr_conversions")
           .insert({
             qr_link_id: qrLink.id,
-            patient_id: patient.id,
+            patient_id: patientId,
             conversion_type: "appointment_booked",
           })
           .then(() => {})
@@ -533,66 +611,145 @@ export default function NewAppointmentPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label htmlFor="firstName" className="text-sm">Nombre *</Label>
-                <Input
-                  id="firstName"
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
-                  className="h-11"
-                  required
-                />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="lastName" className="text-sm">Apellido *</Label>
-                <Input
-                  id="lastName"
-                  value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
-                  className="h-11"
-                  required
-                />
-              </div>
-            </div>
-
+            {/* Phone lookup - first step */}
             <div className="space-y-1">
               <Label htmlFor="phone" className="text-sm flex items-center gap-1">
                 <Phone className="h-3 w-3" /> Teléfono *
               </Label>
-              <Input
-                id="phone"
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                className="h-11"
-                required
-              />
+              <div className="flex gap-2">
+                <Input
+                  id="phone"
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => handlePhoneChange(e.target.value)}
+                  className="h-11 flex-1"
+                  placeholder="55 1234 5678"
+                  required
+                />
+                <Button
+                  type="button"
+                  onClick={handlePhoneLookup}
+                  disabled={!phone.trim() || searchingPatient}
+                  className="h-11 px-4"
+                  variant="outline"
+                >
+                  {searchingPatient ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    "Buscar"
+                  )}
+                </Button>
+              </div>
+              <p className="text-xs text-slate-500">Ingresa tu teléfono para verificar si ya estás registrado</p>
             </div>
 
-            <div className="space-y-1">
-              <Label htmlFor="email" className="text-sm flex items-center gap-1">
-                <Mail className="h-3 w-3" /> Email
-              </Label>
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="h-11"
-              />
-            </div>
+            {/* Patient found - confirmation */}
+            {patientFound && existingPatientId && (
+              <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                <div className="flex items-center gap-3">
+                  <CheckCircle className="h-8 w-8 text-green-500" />
+                  <div>
+                    <p className="font-medium text-green-800 dark:text-green-200">¡Te encontramos!</p>
+                    <p className="text-lg font-semibold text-green-900 dark:text-green-100">
+                      {firstName} {lastName}
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-3 space-y-1">
+                  <Label htmlFor="reason" className="text-sm">Motivo de la consulta</Label>
+                  <Textarea
+                    id="reason"
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value)}
+                    rows={2}
+                    placeholder="Describe brevemente el motivo..."
+                  />
+                </div>
+              </div>
+            )}
 
-            <div className="space-y-1">
-              <Label htmlFor="reason" className="text-sm">Motivo de la consulta</Label>
-              <Textarea
-                id="reason"
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                rows={2}
-                placeholder="Describe brevemente el motivo..."
-              />
-            </div>
+            {/* New patient - full form */}
+            {!patientFound && phone.trim() && !searchingPatient && (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label htmlFor="firstName" className="text-sm">Nombre *</Label>
+                    <Input
+                      id="firstName"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      className="h-11"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="lastName" className="text-sm">Apellido *</Label>
+                    <Input
+                      id="lastName"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      className="h-11"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <Label htmlFor="email" className="text-sm flex items-center gap-1">
+                    <Mail className="h-3 w-3" /> Email
+                  </Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="h-11"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label htmlFor="birthDate" className="text-sm flex items-center gap-1">
+                      <Calendar className="h-3 w-3" /> Fecha de nacimiento *
+                    </Label>
+                    <Input
+                      id="birthDate"
+                      type="date"
+                      value={birthDate}
+                      onChange={(e) => setBirthDate(e.target.value)}
+                      className="h-11"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-sm flex items-center gap-1">
+                      <Users className="h-3 w-3" /> Sexo *
+                    </Label>
+                    <Select value={gender} onValueChange={setGender} required>
+                      <SelectTrigger className="h-11">
+                        <SelectValue placeholder="Selecciona..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Masculino">Masculino</SelectItem>
+                        <SelectItem value="Femenino">Femenino</SelectItem>
+                        <SelectItem value="Otro">Otro</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <Label htmlFor="reason" className="text-sm">Motivo de la consulta</Label>
+                  <Textarea
+                    id="reason"
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value)}
+                    rows={2}
+                    placeholder="Describe brevemente el motivo..."
+                  />
+                </div>
+              </>
+            )}
 
             <div className="flex gap-3 pt-2">
               <Button
@@ -605,7 +762,11 @@ export default function NewAppointmentPage() {
               </Button>
               <Button
                 onClick={handleSubmit}
-                disabled={!firstName.trim() || !lastName.trim() || !phone.trim() || submitting}
+                disabled={
+                  submitting ||
+                  !phone.trim() ||
+                  (patientFound ? false : (!firstName.trim() || !lastName.trim() || !birthDate || !gender))
+                }
                 className="flex-1 h-11 btn-zuli-gradient"
               >
                 {submitting ? (

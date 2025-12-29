@@ -18,32 +18,37 @@ import {
   Clock,
   CheckCircle,
   XCircle,
+  UserPlus,
+  QrCode,
+  Search,
 } from "lucide-react"
+import Link from "next/link"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
+
+interface Medication {
+  brand_name?: string
+  generic_name?: string
+  medication_name?: string // fallback
+  dosage?: string | null
+  frequency?: string | null
+  duration?: string | null
+  instructions?: string | null
+}
 
 interface Prescription {
   id: string
   created_at: string
-  status: "draft" | "signed" | "cancelled"
+  status: "draft" | "signed" | "delivered" | "cancelled"
   diagnosis: string | null
   notes: string | null
-  medications: PrescriptionMedication[]
+  medications: Medication[]
   doctor: {
     id: string
     first_name: string
     last_name: string
     specialty: string | null
   }
-}
-
-interface PrescriptionMedication {
-  id: string
-  medication_name: string
-  dosage: string | null
-  frequency: string | null
-  duration: string | null
-  instructions: string | null
 }
 
 const statusConfig = {
@@ -61,6 +66,13 @@ const statusConfig = {
     bgColor: "bg-green-50 dark:bg-green-900/20",
     badgeVariant: "default" as const,
   },
+  delivered: {
+    label: "Entregada",
+    icon: CheckCircle,
+    color: "text-blue-600",
+    bgColor: "bg-blue-50 dark:bg-blue-900/20",
+    badgeVariant: "default" as const,
+  },
   cancelled: {
     label: "Cancelada",
     icon: XCircle,
@@ -75,6 +87,7 @@ export default function PatientRecetasPage() {
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [noPatientProfile, setNoPatientProfile] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
   useEffect(() => {
@@ -90,12 +103,13 @@ export default function PatientRecetasPage() {
           .single()
 
         if (patientError || !patient) {
-          setError("No se encontró tu perfil de paciente.")
+          setNoPatientProfile(true)
           setLoading(false)
           return
         }
 
         // Fetch prescriptions for this patient
+        // Note: medications is a JSONB column, not a related table
         const { data, error: prescriptionsError } = await supabase
           .from("prescriptions")
           .select(`
@@ -104,14 +118,7 @@ export default function PatientRecetasPage() {
             status,
             diagnosis,
             notes,
-            prescription_medications (
-              id,
-              medication_name,
-              dosage,
-              frequency,
-              duration,
-              instructions
-            ),
+            medications,
             doctors (
               id,
               first_name,
@@ -122,18 +129,22 @@ export default function PatientRecetasPage() {
           .eq("patient_id", patient.id)
           .order("created_at", { ascending: false })
 
-        if (prescriptionsError) throw prescriptionsError
+        if (prescriptionsError) {
+          console.error("Error fetching prescriptions:", prescriptionsError.message, prescriptionsError.details, prescriptionsError.hint)
+          throw prescriptionsError
+        }
 
         // Transform data to match interface
         const transformed = (data || []).map((p) => ({
           ...p,
-          medications: p.prescription_medications || [],
+          medications: (p.medications || []) as Medication[],
           doctor: p.doctors,
         })) as unknown as Prescription[]
 
         setPrescriptions(transformed)
-      } catch (err) {
-        console.error("Error fetching prescriptions:", err)
+      } catch (err: unknown) {
+        const error = err as { message?: string; details?: string; hint?: string }
+        console.error("Error fetching prescriptions:", error.message || err, error.details, error.hint)
         setError("Error al cargar las recetas.")
       } finally {
         setLoading(false)
@@ -187,6 +198,85 @@ export default function PatientRecetasPage() {
         <Button onClick={() => window.location.href = "/login"}>
           Iniciar sesión
         </Button>
+      </div>
+    )
+  }
+
+  if (noPatientProfile) {
+    return (
+      <div className="space-y-6 animate-fadeIn">
+        {/* Header */}
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            Mis Recetas
+          </h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            Historial de recetas médicas emitidas por tus doctores
+          </p>
+        </div>
+
+        {/* Onboarding Card */}
+        <Card className="border-2 border-dashed border-gray-200 dark:border-gray-700">
+          <CardContent className="p-8">
+            <div className="text-center max-w-md mx-auto">
+              <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/30 dark:to-purple-900/30 flex items-center justify-center">
+                <FileText className="h-10 w-10 text-indigo-500" />
+              </div>
+
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-3">
+                Aún no tienes recetas
+              </h3>
+
+              <p className="text-gray-500 dark:text-gray-400 mb-6">
+                Para ver tus recetas médicas, primero necesitas vincularte con un doctor.
+                Puedes hacerlo de dos formas:
+              </p>
+
+              <div className="grid gap-4 sm:grid-cols-2 mb-6">
+                {/* Opción 1: Escanear QR */}
+                <div className="p-4 rounded-xl bg-gray-50 dark:bg-gray-800/50 text-left">
+                  <div className="w-10 h-10 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center mb-3">
+                    <QrCode className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                  </div>
+                  <h4 className="font-medium text-gray-900 dark:text-white mb-1">
+                    Código QR
+                  </h4>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Escanea el código QR de tu doctor o ingresa su código manual
+                  </p>
+                </div>
+
+                {/* Opción 2: Buscar doctor */}
+                <div className="p-4 rounded-xl bg-gray-50 dark:bg-gray-800/50 text-left">
+                  <div className="w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center mb-3">
+                    <Search className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                  </div>
+                  <h4 className="font-medium text-gray-900 dark:text-white mb-1">
+                    Buscar doctor
+                  </h4>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Encuentra un especialista en nuestro directorio médico
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <Link href="/user/citas">
+                  <Button className="w-full sm:w-auto bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600">
+                    <UserPlus className="h-4 w-4 mr-2" />
+                    Vincular Doctor
+                  </Button>
+                </Link>
+                <Link href="/user/especialistas">
+                  <Button variant="outline" className="w-full sm:w-auto">
+                    <Search className="h-4 w-4 mr-2" />
+                    Buscar Especialistas
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     )
   }
@@ -303,15 +393,15 @@ export default function PatientRecetasPage() {
                           Medicamentos
                         </p>
                         <div className="space-y-2">
-                          {prescription.medications.map((med) => (
+                          {prescription.medications.map((med, idx) => (
                             <div
-                              key={med.id}
+                              key={idx}
                               className="flex items-start gap-2 p-2 bg-gray-50 dark:bg-gray-800/50 rounded-lg"
                             >
                               <Pill className="h-4 w-4 text-zuli-veronica mt-0.5" />
                               <div className="flex-1">
                                 <p className="font-medium text-sm text-gray-900 dark:text-white">
-                                  {med.medication_name}
+                                  {med.brand_name || med.generic_name || med.medication_name || "Medicamento"}
                                 </p>
                                 <div className="text-xs text-gray-500 space-y-0.5">
                                   {med.dosage && <p>Dosis: {med.dosage}</p>}

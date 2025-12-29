@@ -33,6 +33,7 @@ interface QRLinkDetail {
   qr_url: string
   redirect_url: string
   metadata: Record<string, unknown>
+  short_code: string | null
 }
 
 const campaignConfig = {
@@ -323,6 +324,47 @@ export default function QRDetailPage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Short Code for manual linking */}
+          {qrLink.short_code && (
+            <Card className="border-2 border-dashed border-zuli-indigo/30 bg-gradient-to-r from-zuli-indigo/5 to-zuli-veronica/5">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <span className="text-lg">🔗</span>
+                  Código de Vinculación
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-gray-500 mb-3">
+                  Los pacientes pueden vincularse contigo ingresando este código en su app:
+                </p>
+                <div className="flex items-center justify-center gap-2 mb-3">
+                  <code className="text-3xl font-mono font-bold tracking-[0.3em] px-6 py-3 bg-white dark:bg-gray-800 rounded-xl shadow-sm border-2 border-gray-200 dark:border-gray-700">
+                    {qrLink.short_code}
+                  </code>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={async () => {
+                      await navigator.clipboard.writeText(qrLink.short_code!)
+                      setCopied(true)
+                      setTimeout(() => setCopied(false), 2000)
+                    }}
+                    className="h-12 w-12"
+                  >
+                    {copied ? (
+                      <Check className="h-5 w-5 text-green-500" />
+                    ) : (
+                      <Copy className="h-5 w-5" />
+                    )}
+                  </Button>
+                </div>
+                <p className="text-xs text-center text-gray-400">
+                  Alternativa al escaneo de QR para pacientes sin cámara
+                </p>
+              </CardContent>
+            </Card>
+          )}
 
           {/* URL */}
           <Card>

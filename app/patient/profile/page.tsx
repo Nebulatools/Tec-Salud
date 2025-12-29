@@ -9,6 +9,13 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
   User,
   Phone,
   Mail,
@@ -17,6 +24,7 @@ import {
   CheckCircle,
   AlertCircle,
   Stethoscope,
+  Users,
 } from "lucide-react"
 
 interface DoctorInfo {
@@ -52,6 +60,7 @@ export default function PatientProfilePage() {
   const [phone, setPhone] = useState("")
   const [email, setEmail] = useState("")
   const [birthDate, setBirthDate] = useState("")
+  const [gender, setGender] = useState("")
 
   useEffect(() => {
     async function fetchQrData() {
@@ -121,7 +130,8 @@ export default function PatientProfilePage() {
           last_name: lastName.trim(),
           phone: phone.trim() || null,
           email: email.trim() || null,
-          date_of_birth: birthDate || null,
+          date_of_birth: birthDate,
+          gender: gender,
           doctor_id: doctor.id,
           // user_id is NULL - patient doesn't have an account yet
         })
@@ -313,20 +323,38 @@ export default function PatientProfilePage() {
             <div className="space-y-2">
               <Label htmlFor="birthDate" className="flex items-center gap-2">
                 <Calendar className="h-4 w-4" />
-                Fecha de nacimiento
+                Fecha de nacimiento *
               </Label>
               <Input
                 id="birthDate"
                 type="date"
                 value={birthDate}
                 onChange={(e) => setBirthDate(e.target.value)}
+                required
                 className="h-12 text-base"
               />
             </div>
 
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <Users className="h-4 w-4" />
+                Sexo *
+              </Label>
+              <Select value={gender} onValueChange={setGender} required>
+                <SelectTrigger className="h-12 text-base">
+                  <SelectValue placeholder="Selecciona..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Masculino">Masculino</SelectItem>
+                  <SelectItem value="Femenino">Femenino</SelectItem>
+                  <SelectItem value="Otro">Otro</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
             <Button
               type="submit"
-              disabled={!firstName.trim() || !lastName.trim() || submitting}
+              disabled={!firstName.trim() || !lastName.trim() || !birthDate || !gender || submitting}
               className="w-full h-12 text-base btn-zuli-gradient mt-4"
             >
               {submitting ? (

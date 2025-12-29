@@ -64,16 +64,39 @@ export default function ConsultoriosPage() {
           `)
           .eq("doctor_id", doctorId)
 
-        if (error) throw error
+        if (error) {
+          console.error("Supabase error:", error.message, error.details, error.hint, error.code)
+          throw error
+        }
 
-        const formatted = data?.map((d) => ({
-          ...d.unit,
-          role: d.role,
-        })) as MedicalUnit[]
+        // Handle the nested structure from Supabase join
+        const formatted = data?.map((d) => {
+          const unit = d.unit as unknown as {
+            id: string
+            name: string
+            address_line: string | null
+            phone: string | null
+            email: string | null
+            operating_hours: Record<string, { open: string; close: string }> | null
+            created_at: string
+          } | null
+          if (!unit) return null
+          return {
+            id: unit.id,
+            name: unit.name,
+            address_line: unit.address_line,
+            phone: unit.phone,
+            email: unit.email,
+            operating_hours: unit.operating_hours,
+            created_at: unit.created_at,
+            role: d.role as "owner" | "admin" | "staff",
+          }
+        }).filter((u): u is MedicalUnit => u !== null) || []
 
-        setUnits(formatted || [])
-      } catch (err) {
-        console.error("Error fetching units:", err)
+        setUnits(formatted)
+      } catch (err: unknown) {
+        const error = err as { message?: string; details?: string; hint?: string; code?: string }
+        console.error("Error fetching units:", error.message || err, error.details, error.hint)
         setError("No se pudieron cargar los consultorios")
       } finally {
         setLoading(false)
