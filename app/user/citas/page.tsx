@@ -80,7 +80,7 @@ interface DoctorPatientLink {
 const statusConfig = {
   "Programada": {
     label: "Programada",
-    icon: Calendar,
+    icon: CalendarIcon,
     color: "text-blue-600",
     bgColor: "bg-blue-50 dark:bg-blue-900/20",
     badgeVariant: "default" as const,
