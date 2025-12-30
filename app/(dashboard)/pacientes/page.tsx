@@ -1,4 +1,4 @@
-// Vista para especialistas/admin: gestionar vínculos y laboratorios
+// Vista de pacientes: gestionar vínculos y laboratorios
 "use client"
 
 import { LinkRequests } from "@/components/doctor/link-requests"
@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Settings, Users, Stethoscope } from "lucide-react"
 import Link from "next/link"
 
-export default function EspecialistasPage() {
+export default function PacientesPage() {
   const { doctorId, loading } = useAppUser()
 
   if (loading) {
@@ -56,7 +56,7 @@ export default function EspecialistasPage() {
       {/* Header with context and quick actions */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Expedientes</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Pacientes</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
             Gestiona tus vínculos con pacientes y solicitudes
           </p>

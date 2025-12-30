@@ -1,14 +1,15 @@
 // ZULI Sidebar - Collapsible navigation with brand styling
 "use client"
 
-import { LayoutDashboard, Users, Activity, FileText, User as UserIcon, QrCode, Building2, ShieldCheck } from "lucide-react"
+import { LayoutDashboard, Users, Activity, FileText, User as UserIcon, QrCode, Building2, ShieldCheck, FolderOpen } from "lucide-react"
 import { BaseSidebar } from "@/components/layout/base-sidebar"
 import { ZuliLogo } from "@/components/ui/zuli-logo"
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Consulta", href: "/consultas", icon: Activity, matchPrefix: true },
-  { name: "Expedientes", href: "/especialistas", icon: Users, matchPrefix: true },
+  { name: "Pacientes", href: "/pacientes", icon: Users, matchPrefix: true },
+  { name: "Expedientes", href: "/expedientes", icon: FolderOpen, matchPrefix: true },
   { name: "Recetas", href: "/recetas", icon: FileText, matchPrefix: true },
   { name: "QR Codes", href: "/qr-codes", icon: QrCode, matchPrefix: true },
   { name: "Consultorios", href: "/consultorios", icon: Building2, matchPrefix: true },

@@ -204,6 +204,8 @@ export type Database = {
           original_transcript: string | null
           ai_suggestions: string[] | null
           compliance_status: string | null
+          structured_data: Record<string, unknown> | null
+          compliance_score: number | null
           created_at: string
           updated_at: string
         }
@@ -221,6 +223,8 @@ export type Database = {
           original_transcript?: string | null
           ai_suggestions?: string[] | null
           compliance_status?: string | null
+          structured_data?: Record<string, unknown> | null
+          compliance_score?: number | null
           created_at?: string
           updated_at?: string
         }
@@ -238,6 +242,8 @@ export type Database = {
           original_transcript?: string | null
           ai_suggestions?: string[] | null
           compliance_status?: string | null
+          structured_data?: Record<string, unknown> | null
+          compliance_score?: number | null
           created_at?: string
           updated_at?: string
         }

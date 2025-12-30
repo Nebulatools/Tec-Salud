@@ -12,31 +12,50 @@ import {
 } from '@react-pdf/renderer'
 import type { MedicationType } from '@/lib/schemas/prescription'
 
-// Register fonts for better rendering
-Font.register({
-  family: 'Inter',
-  fonts: [
-    {
-      src: 'https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuLyfAZ9hiJ-Ek-_EeA.woff2',
-      fontWeight: 400,
-    },
-    {
-      src: 'https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuI6fAZ9hiJ-Ek-_EeA.woff2',
-      fontWeight: 600,
-    },
-    {
-      src: 'https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuFuYAZ9hiJ-Ek-_EeA.woff2',
-      fontWeight: 700,
-    },
-  ],
-})
+// Track if fonts have been registered to avoid duplicate registration
+let fontsRegistered = false
+
+// Register fonts for better rendering - using system fonts as primary for reliability
+function registerFonts() {
+  if (fontsRegistered) return
+
+  try {
+    Font.register({
+      family: 'Inter',
+      fonts: [
+        {
+          src: 'https://cdn.jsdelivr.net/fontsource/fonts/inter@latest/latin-400-normal.ttf',
+          fontWeight: 400,
+        },
+        {
+          src: 'https://cdn.jsdelivr.net/fontsource/fonts/inter@latest/latin-600-normal.ttf',
+          fontWeight: 'bold',
+        },
+        {
+          src: 'https://cdn.jsdelivr.net/fontsource/fonts/inter@latest/latin-700-normal.ttf',
+          fontWeight: 'bold',
+        },
+      ],
+    })
+    fontsRegistered = true
+  } catch {
+    // Font registration failed, will use fallback
+    console.warn('Failed to register Inter font, using Helvetica fallback')
+  }
+}
+
+// Initialize fonts
+registerFonts()
+
+// Disable hyphenation to avoid font issues
+Font.registerHyphenationCallback((word) => [word])
 
 const styles = StyleSheet.create({
   page: {
     flexDirection: 'column',
     backgroundColor: '#FFFFFF',
     padding: 40,
-    fontFamily: 'Inter',
+    fontFamily: 'Helvetica', // Use system font for reliability
   },
   header: {
     marginBottom: 20,
@@ -45,7 +64,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 24,
-    fontWeight: 700,
+    fontWeight: 'bold',
     color: '#0066CC',
     marginBottom: 5,
   },
@@ -60,7 +79,7 @@ const styles = StyleSheet.create({
   },
   doctorName: {
     fontSize: 14,
-    fontWeight: 600,
+    fontWeight: 'bold',
     color: '#333333',
   },
   doctorDetails: {
@@ -73,7 +92,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 12,
-    fontWeight: 600,
+    fontWeight: 'bold',
     color: '#0066CC',
     marginBottom: 8,
     textTransform: 'uppercase',
@@ -85,7 +104,7 @@ const styles = StyleSheet.create({
   },
   patientLabel: {
     fontSize: 10,
-    fontWeight: 600,
+    fontWeight: 'bold',
     color: '#333333',
     width: 80,
   },
@@ -112,13 +131,12 @@ const styles = StyleSheet.create({
   },
   medicationName: {
     fontSize: 12,
-    fontWeight: 600,
+    fontWeight: 'bold',
     color: '#333333',
   },
   medicationGeneric: {
     fontSize: 10,
     color: '#666666',
-    fontStyle: 'italic',
   },
   medicationDetails: {
     flexDirection: 'row',
@@ -131,7 +149,7 @@ const styles = StyleSheet.create({
   },
   detailLabel: {
     fontSize: 9,
-    fontWeight: 600,
+    fontWeight: 'bold',
     color: '#666666',
     marginRight: 4,
   },
@@ -147,7 +165,6 @@ const styles = StyleSheet.create({
   instructionsText: {
     fontSize: 9,
     color: '#666666',
-    fontStyle: 'italic',
   },
   notesSection: {
     backgroundColor: '#FFFBEB',
@@ -157,7 +174,7 @@ const styles = StyleSheet.create({
   },
   notesTitle: {
     fontSize: 10,
-    fontWeight: 600,
+    fontWeight: 'bold',
     color: '#92400E',
     marginBottom: 4,
   },
@@ -204,7 +221,7 @@ const styles = StyleSheet.create({
     transform: 'translate(-50%, -50%) rotate(-45deg)',
     fontSize: 60,
     color: '#F0F0F0',
-    fontWeight: 700,
+    fontWeight: 'bold',
   },
 })
 
@@ -420,7 +437,44 @@ export function PrescriptionPDFViewer({
 export async function generatePrescriptionPDF(
   data: PrescriptionPDFData
 ): Promise<Blob> {
-  return await pdf(<PrescriptionDocument data={data} />).toBlob()
+  // Ensure fonts are registered
+  registerFonts()
+
+  // Sanitize data to prevent rendering issues
+  const sanitizedData: PrescriptionPDFData = {
+    ...data,
+    doctor: {
+      first_name: data.doctor.first_name || 'Doctor',
+      last_name: data.doctor.last_name || '',
+      specialty: data.doctor.specialty || undefined,
+      license_number: data.doctor.license_number || undefined,
+      phone: data.doctor.phone || undefined,
+      email: data.doctor.email || undefined,
+    },
+    patient: {
+      first_name: data.patient.first_name || 'Paciente',
+      last_name: data.patient.last_name || '',
+      date_of_birth: data.patient.date_of_birth || undefined,
+    },
+    medications: data.medications.map((med) => ({
+      brand_name: med.brand_name || 'Medicamento',
+      generic_name: med.generic_name || '',
+      dosage: med.dosage || 'No especificada',
+      frequency: med.frequency || 'No especificada',
+      duration: med.duration || 'No especificada',
+      instructions: med.instructions || undefined,
+      quantity: med.quantity || undefined,
+    })),
+    diagnosis: data.diagnosis || undefined,
+    notes: data.notes || undefined,
+  }
+
+  try {
+    return await pdf(<PrescriptionDocument data={sanitizedData} />).toBlob()
+  } catch (error) {
+    console.error('Error generating PDF:', error)
+    throw new Error('No se pudo generar el PDF. Intenta de nuevo.')
+  }
 }
 
 // Generate PDF and trigger download

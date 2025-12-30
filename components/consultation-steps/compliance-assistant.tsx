@@ -54,11 +54,19 @@ interface ComplianceData {
   missingFields: ComplianceMissingField[]
 }
 
+interface QuestionForDoctor {
+  fieldId: string
+  fieldName: string
+  question: string
+  priority: string
+}
+
 interface ComplianceResponse {
   improvedReport: string
   missingInformation: string[]
-  questionsForDoctor: string[]
+  questionsForDoctor: QuestionForDoctor[]
   compliance?: ComplianceData
+  structuredData?: Record<string, unknown>
 }
 
 interface SuggestionsResponse {
@@ -81,15 +89,19 @@ export default function ComplianceAssistant({
   const [suggestionsLoading, setSuggestionsLoading] = useState(false)
   const suggestionsFetchingRef = useRef(false)
   const lastSuggestionsForRef = useRef<string>('')
+  // Track responses by fieldId for deterministic insertion
   const [doctorResponses, setDoctorResponses] = useState<Record<string, string>>({})
   const [isCompliant, setIsCompliant] = useState(false)
   const [lastProcessedTranscript, setLastProcessedTranscript] = useState<string>('')
   const [previousMissingCount, setPreviousMissingCount] = useState<number | null>(null)
   const [completedFields, setCompletedFields] = useState<Set<string>>(new Set())
   const [expandedField, setExpandedField] = useState<string | null>(null)
-  const [allQuestions, setAllQuestions] = useState<string[]>([]) // Mantener todas las preguntas vistas
+  // Store questions with their fieldIds for deterministic mapping
+  const [allQuestions, setAllQuestions] = useState<QuestionForDoctor[]>([])
   const [doctorName, setDoctorName] = useState<string>('')
   const [patientProfile, setPatientProfile] = useState<any | null>(null)
+  // Structured clinical data (source of truth)
+  const [structuredData, setStructuredData] = useState<Record<string, unknown> | null>(null)
   // Guards to avoid repeated analysis/suggestions
   const analysisInFlightRef = useRef(false)
   const lastAnalyzedForRef = useRef<string>('')
@@ -151,6 +163,10 @@ export default function ComplianceAssistant({
     setReport(fixed)
     setComplianceData(consultationData.reportData?.complianceData || null)
     setAllQuestions(consultationData.reportData?.complianceData?.questionsForDoctor || [])
+    // Restore structured data if available
+    if (consultationData.reportData?.structuredData) {
+      setStructuredData(consultationData.reportData.structuredData)
+    }
     setIsCompliant(consultationData.reportData?.isCompliant || false)
     const currentSuggestions = consultationData.reportData?.suggestions || []
     setSuggestions(currentSuggestions)
@@ -386,6 +402,12 @@ export default function ComplianceAssistant({
       }
 
       const complianceResult: ComplianceResponse = await complianceResponse.json()
+
+      // Store structured data (source of truth)
+      if (complianceResult.structuredData) {
+        setStructuredData(complianceResult.structuredData)
+      }
+
       const fixedReport = ensureIdentification(
         complianceResult.improvedReport,
         patient,
@@ -408,17 +430,24 @@ export default function ComplianceAssistant({
         })
       }
       const cleanedMissing = filterKnown(complianceResult.missingInformation)
-      const cleanedQuestions = filterKnown(complianceResult.questionsForDoctor)
+      // Filter questions (now objects with fieldId)
+      const cleanedQuestions = complianceResult.questionsForDoctor.filter(q => {
+        const s = (q.question || '').toLowerCase()
+        if (hasName && (s.includes('nombre del paciente') || s.includes('nombre de la paciente'))) return false
+        if (hasAge && s.includes('edad')) return false
+        if (hasGender && (s.includes('sexo') || s.includes('género'))) return false
+        return true
+      })
       setComplianceData({ ...complianceResult, missingInformation: cleanedMissing, questionsForDoctor: cleanedQuestions })
       setReport(fixedReport)
       setIsCompliant(cleanedMissing.length === 0)
       setPreviousMissingCount(cleanedMissing.length || 0)
-      
-      // Mantener un registro de todas las preguntas vistas
+
+      // Mantener un registro de todas las preguntas vistas (by fieldId)
       const existingQuestions = allQuestions.length > 0 ? allQuestions : []
       const newQuestions = [...existingQuestions]
       cleanedQuestions?.forEach(q => {
-        if (!newQuestions.includes(q)) {
+        if (!newQuestions.find(existing => existing.fieldId === q.fieldId)) {
           newQuestions.push(q)
         }
       })
@@ -433,12 +462,13 @@ export default function ComplianceAssistant({
         reporte: fixedReport,
         aiGeneratedReport: fixedReport,
         complianceData: complianceResult,
+        structuredData: complianceResult.structuredData, // Source of truth
         suggestions: suggestions || [],
         isCompliant: complianceResult.missingInformation.length === 0,
         fecha: new Date().toISOString().split('T')[0],
-        hora: new Date().toLocaleTimeString('es-MX', { 
-          hour: '2-digit', 
-          minute: '2-digit' 
+        hora: new Date().toLocaleTimeString('es-MX', {
+          hour: '2-digit',
+          minute: '2-digit'
         }),
       }
 
@@ -465,46 +495,21 @@ export default function ComplianceAssistant({
   const handleRevalidate = async () => {
     setValidating(true)
     try {
-      // Baseline known answers (patient, appt, doctor) again so the model no los considere faltantes
-      const baseline: { question: string, answer: string }[] = []
-      const appt = (consultationData as any)?.appointmentDetails
-      const patient = (patientProfile || (consultationData as any)?.patientInfo) || {}
-      const ageFromDob = (dob?: string) => {
-        if (!dob) return ''
-        const d = new Date(dob)
-        if (Number.isNaN(d.getTime())) return ''
-        const today = new Date()
-        let age = today.getFullYear() - d.getFullYear()
-        const m = today.getMonth() - d.getMonth()
-        if (m < 0 || (m === 0 && today.getDate() < d.getDate())) age--
-        return String(age)
-      }
-      if (appt?.appointment_date && appt?.start_time) baseline.push({ question: '¿Cuál fue la fecha y hora exacta de esta consulta?', answer: `${appt.appointment_date} ${appt.start_time}` })
-      if (doctorName) baseline.push({ question: '¿Cuál es el nombre completo del médico tratante?', answer: doctorName })
-      if (patient?.first_name || patient?.last_name) baseline.push({ question: '¿Cuál es el nombre completo de la paciente?', answer: `${patient.first_name ?? ''} ${patient.last_name ?? ''}`.trim() })
-      if (patient?.date_of_birth) {
-        const age = ageFromDob(patient.date_of_birth)
-        if (age) baseline.push({ question: '¿Cuál es la edad de la paciente?', answer: `${age}` })
-      }
-      if (patient?.gender) baseline.push({ question: '¿Cuál es el sexo/ género del paciente?', answer: String(patient.gender) })
-      if (patient?.phone) baseline.push({ question: '¿Cuál es el teléfono del paciente?', answer: String(patient.phone) })
-      if (patient?.address) baseline.push({ question: '¿Cuál es la dirección del paciente?', answer: String(patient.address) })
-      if (patient?.allergies) baseline.push({ question: 'Alergias documentadas del paciente', answer: String(patient.allergies) })
-      if (patient?.current_medications) baseline.push({ question: 'Medicamentos actuales del paciente', answer: String(patient.current_medications) })
-      if (patient?.medical_history) baseline.push({ question: 'Antecedentes médicos relevantes del paciente', answer: String(patient.medical_history) })
+      // Build fieldResponses from doctor answers (using fieldId as key)
+      const fieldResponses = Object.entries(doctorResponses)
+        .filter(([_, value]) => value?.trim())
+        .map(([fieldId, value]) => ({ fieldId, value: value.trim() }))
 
-      // Filtrar solo las respuestas con contenido
-      const answeredQuestions = Object.entries(doctorResponses)
-        .filter(([_, answer]) => answer?.trim())
-        .map(([question, answer]) => ({ question, answer }))
-      
       // Si no hay respuestas, salir temprano
-      if (answeredQuestions.length === 0) {
+      if (fieldResponses.length === 0) {
         setValidating(false)
         return
       }
 
-      // Llamar a la API con las respuestas adicionales usando el nuevo formato
+      console.log('[Compliance] Sending fieldResponses:', fieldResponses)
+      console.log('[Compliance] Using structured data:', structuredData ? 'yes' : 'no')
+
+      // Use structured data for fast-path updates (no AI regeneration needed)
       const complianceResponse = await fetch('/api/enrich-report', {
         method: 'POST',
         headers: {
@@ -512,7 +517,8 @@ export default function ComplianceAssistant({
         },
         body: JSON.stringify({
           transcript: consultationData.transcript || consultationData.recordingData?.processedTranscript || '',
-          additionalInfo: [...baseline, ...answeredQuestions]
+          fieldResponses,
+          existingStructuredData: structuredData, // Fast path: update structured JSON directly
         }),
       })
 
@@ -521,10 +527,15 @@ export default function ComplianceAssistant({
       }
 
       const complianceResult: ComplianceResponse = await complianceResponse.json()
-      
+
+      // Update structured data state (source of truth)
+      if (complianceResult.structuredData) {
+        setStructuredData(complianceResult.structuredData)
+      }
+
       // Control de consistencia: NUNCA debe aumentar el número de campos faltantes
       let finalComplianceResult = complianceResult
-      
+
       // Control silencioso de consistencia
       if (previousMissingCount !== null && complianceResult.missingInformation.length > previousMissingCount) {
         // FORZAR mantener los campos anteriores - no permitir aumento
@@ -536,21 +547,26 @@ export default function ComplianceAssistant({
           }
         }
       }
-      
-      // Actualizar campos completados
+
+      // Actualizar campos completados (now by fieldId)
       const newCompletedFields = new Set(completedFields)
-      
-      // Marcar como completadas las preguntas que ya no están en la lista de faltantes
-      answeredQuestions.forEach(({ question }) => {
-        if (!finalComplianceResult.questionsForDoctor.includes(question)) {
-          newCompletedFields.add(question)
+
+      // Get fieldIds that are no longer in missing list
+      const stillMissingFieldIds = new Set(
+        finalComplianceResult.questionsForDoctor.map(q => q.fieldId)
+      )
+
+      // Mark as completed the fields we answered that are no longer missing
+      fieldResponses.forEach(({ fieldId }) => {
+        if (!stillMissingFieldIds.has(fieldId)) {
+          newCompletedFields.add(fieldId)
         }
       })
-      
-      // Mantener un registro de todas las preguntas vistas
+
+      // Mantener un registro de todas las preguntas vistas (by fieldId)
       const newAllQuestions = [...allQuestions]
       finalComplianceResult.questionsForDoctor.forEach(q => {
-        if (!newAllQuestions.includes(q)) {
+        if (!newAllQuestions.find(existing => existing.fieldId === q.fieldId)) {
           newAllQuestions.push(q)
         }
       })
@@ -559,9 +575,10 @@ export default function ComplianceAssistant({
       setAllQuestions(newAllQuestions)
       
       // Inyectar demográficos si el modelo todavía los marca como [Faltante]
+      const p = (patientProfile || (consultationData as any)?.patientInfo) || {}
       let fixedFinalReport = finalComplianceResult.improvedReport
-        .replace(/\*\s*\*\*Sexo:\*\*\s*\[Faltante\]/i, patient?.gender ? `*  **Sexo:** ${String(patient.gender)}` : '*  **Sexo:** [Faltante]')
-        .replace(/\*\s*\*\*Nombre del paciente:\*\*\s*\[Faltante\]/i, (patient?.first_name || patient?.last_name) ? `*  **Nombre del paciente:** ${(patient.first_name ?? '') + ' ' + (patient.last_name ?? '')}`.trim() : '*  **Nombre del paciente:** [Faltante]')
+        .replace(/\*\s*\*\*Sexo:\*\*\s*\[Faltante\]/i, p?.gender ? `*  **Sexo:** ${String(p.gender)}` : '*  **Sexo:** [Faltante]')
+        .replace(/\*\s*\*\*Nombre del paciente:\*\*\s*\[Faltante\]/i, (p?.first_name || p?.last_name) ? `*  **Nombre del paciente:** ${(p.first_name ?? '') + ' ' + (p.last_name ?? '')}`.trim() : '*  **Nombre del paciente:** [Faltante]')
       // Normalizar médico tratante
       if (doctorName && doctorName.trim()) {
         const safeDoctor = doctorName.trim()
@@ -593,6 +610,7 @@ export default function ComplianceAssistant({
         reporte: finalComplianceResultPatched.improvedReport,
         aiGeneratedReport: finalComplianceResultPatched.improvedReport,
         complianceData: finalComplianceResultPatched,
+        structuredData: complianceResult.structuredData, // Updated source of truth
         suggestions: suggestions,
         isCompliant: complianceResult.missingInformation.length === 0,
       }
@@ -617,12 +635,13 @@ export default function ComplianceAssistant({
       reporte: report,
       aiGeneratedReport: report,
       complianceData: complianceData,
+      structuredData: structuredData, // Include source of truth
       suggestions: suggestions,
       isCompliant: isCompliant,
       fecha: new Date().toISOString().split('T')[0],
-      hora: new Date().toLocaleTimeString('es-MX', { 
-        hour: '2-digit', 
-        minute: '2-digit' 
+      hora: new Date().toLocaleTimeString('es-MX', {
+        hour: '2-digit',
+        minute: '2-digit'
       }),
     }
 
@@ -861,26 +880,27 @@ export default function ComplianceAssistant({
               <ScrollArea className="h-[400px]">
                 <div className="space-y-3 pr-2">
                   {/* Mostrar todas las preguntas: completadas y pendientes */}
-                  {(allQuestions.length > 0 ? allQuestions : complianceData.questionsForDoctor || []).map((question, index) => {
-                    const isCompleted = completedFields.has(question)
-                    const isPending = complianceData.questionsForDoctor?.includes(question) || false
-                    const isExpanded = expandedField === question
-                    const hasAnswer = doctorResponses[question]?.trim()
-                    
+                  {(allQuestions.length > 0 ? allQuestions : complianceData.questionsForDoctor || []).map((questionObj, index) => {
+                    const { fieldId, fieldName, question, priority } = questionObj
+                    const isCompleted = completedFields.has(fieldId)
+                    const isPending = complianceData.questionsForDoctor?.some(q => q.fieldId === fieldId) || false
+                    const isExpanded = expandedField === fieldId
+                    const hasAnswer = doctorResponses[fieldId]?.trim()
+
                     // Si no está ni completada ni pendiente, skip
                     if (!isCompleted && !isPending) return null
-                    
+
                     return (
-                      <div 
-                        key={`${question}-${index}`} 
+                      <div
+                        key={`${fieldId}-${index}`}
                         className={cn(
                           "rounded-lg border transition-all",
                           isCompleted ? "bg-green-50 border-green-200" : "bg-orange-50 border-orange-200"
                         )}
                       >
-                        <div 
+                        <div
                           className="p-3 cursor-pointer"
-                          onClick={() => setExpandedField(isExpanded ? null : question)}
+                          onClick={() => setExpandedField(isExpanded ? null : fieldId)}
                         >
                           <div className="flex items-start justify-between">
                             <div className="flex items-start gap-2 flex-1">
@@ -889,12 +909,17 @@ export default function ComplianceAssistant({
                               ) : (
                                 <AlertCircle className="h-4 w-4 text-orange-600 mt-0.5 flex-shrink-0" />
                               )}
-                              <p className={cn(
-                                "text-sm font-medium",
-                                isCompleted ? "text-green-800 line-through" : "text-gray-800"
-                              )}>
-                                {question}
-                              </p>
+                              <div className="flex-1">
+                                <p className={cn(
+                                  "text-sm font-medium",
+                                  isCompleted ? "text-green-800 line-through" : "text-gray-800"
+                                )}>
+                                  {question}
+                                </p>
+                                <p className="text-xs text-gray-500 mt-0.5">
+                                  Campo: {fieldName}
+                                </p>
+                              </div>
                             </div>
                             <button className="ml-2">
                               {isExpanded ? (
@@ -906,19 +931,19 @@ export default function ComplianceAssistant({
                           </div>
                           {hasAnswer && !isExpanded && (
                             <p className="text-xs text-gray-600 mt-1 ml-6 truncate">
-                              {doctorResponses[question]}
+                              {doctorResponses[fieldId]}
                             </p>
                           )}
                         </div>
-                        
+
                         {isExpanded && (
                           <div className="px-3 pb-3">
                             <Textarea
-                              placeholder="Escriba la respuesta del médico..."
-                              value={doctorResponses[question] || ''}
+                              placeholder={`Escriba el valor para ${fieldName}...`}
+                              value={doctorResponses[fieldId] || ''}
                               onChange={(e) => setDoctorResponses({
                                 ...doctorResponses,
-                                [question]: e.target.value
+                                [fieldId]: e.target.value
                               })}
                               className="min-h-[80px] bg-white mt-2"
                             />
