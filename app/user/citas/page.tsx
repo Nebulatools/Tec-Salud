@@ -462,6 +462,25 @@ export default function PatientCitasPage() {
           doctor: selectedDoctor,
         }
         setAppointments((prev) => [...prev, newApt])
+
+        // Send confirmation email notification (respects user preferences)
+        try {
+          const emailResponse = await fetch("/api/notifications/send", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              type: "appointment_confirmation",
+              userId: user.id,
+              userEmail: user.email, // Pass email directly from auth session
+              appointmentId: newAppointment.id,
+            }),
+          })
+          const emailResult = await emailResponse.json()
+          console.log("Email notification result:", emailResult)
+        } catch (emailError) {
+          // Don't fail the booking if email fails, just log it
+          console.error("Error sending confirmation email:", emailError)
+        }
       }
 
       // Reset form

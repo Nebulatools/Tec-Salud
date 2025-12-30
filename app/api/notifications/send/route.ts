@@ -29,6 +29,7 @@ type NotificationType =
 interface SendNotificationRequest {
   type: NotificationType
   userId?: string
+  userEmail?: string // Direct email if known (from auth session)
   patientId?: string
   appointmentId?: string
   prescriptionId?: string
@@ -38,7 +39,7 @@ interface SendNotificationRequest {
 export async function POST(request: NextRequest) {
   try {
     const body: SendNotificationRequest = await request.json()
-    const { type, userId, patientId, appointmentId, prescriptionId, metadata } = body
+    const { type, userId, userEmail, patientId, appointmentId, prescriptionId, metadata } = body
 
     if (!type) {
       return NextResponse.json({ error: "type is required" }, { status: 400 })
@@ -49,7 +50,12 @@ export async function POST(request: NextRequest) {
     let recipientName: string = ""
     let doctorId: string | null = null
 
-    // Try to get email from user or patient
+    // Use direct email if provided (from auth session)
+    if (userEmail) {
+      recipientEmail = userEmail
+    }
+
+    // Try to get email and name from app_users if we have userId
     if (userId) {
       const { data: userData } = await supabase
         .from("app_users")
@@ -58,8 +64,22 @@ export async function POST(request: NextRequest) {
         .single()
 
       if (userData?.email) {
-        recipientEmail = userData.email
+        recipientEmail = recipientEmail || userData.email
         recipientName = `${userData.first_name || ""} ${userData.last_name || ""}`.trim()
+      }
+
+      // Also try patient_baseline_forms for the name if not found
+      if (!recipientName) {
+        const { data: baselineForm } = await supabase
+          .from("patient_baseline_forms")
+          .select("general_info")
+          .eq("patient_user_id", userId)
+          .single()
+
+        if (baselineForm?.general_info) {
+          const gi = baselineForm.general_info as { first_name?: string; last_name?: string }
+          recipientName = `${gi.first_name || ""} ${gi.last_name || ""}`.trim()
+        }
       }
     }
 
@@ -82,6 +102,32 @@ export async function POST(request: NextRequest) {
         { error: "No email address found for recipient" },
         { status: 400 }
       )
+    }
+
+    // Check user notification preferences before sending email
+    if (userId) {
+      const preferenceField = getPreferenceFieldForType(type)
+      if (preferenceField) {
+        const { data: preferences } = await supabase
+          .from("notification_preferences")
+          .select("*")
+          .eq("user_id", userId)
+          .single()
+
+        // If preferences exist and the specific notification type is disabled, skip sending
+        if (preferences) {
+          const prefRecord = preferences as Record<string, unknown>
+          if (prefRecord[preferenceField] === false) {
+            return NextResponse.json({
+              success: true,
+              skipped: true,
+              reason: "User has disabled this notification type",
+              notificationId: null,
+              emailId: null,
+            })
+          }
+        }
+      }
     }
 
     // Create notification record
@@ -285,4 +331,16 @@ function getNotificationBody(type: NotificationType, name: string): string {
     system_alert: `Hola ${name}, tienes un nuevo aviso del sistema.`,
   }
   return bodies[type] || "Tienes una nueva notificación."
+}
+
+// Map notification types to user preference field names
+function getPreferenceFieldForType(type: NotificationType): string | null {
+  const mapping: Partial<Record<NotificationType, string>> = {
+    appointment_confirmation: "email_appointment_confirmations",
+    appointment_reminder: "email_appointment_reminders",
+    prescription_ready: "email_prescription_ready",
+    lab_results_ready: "email_lab_results",
+    rating_request: "email_appointment_reminders", // Use reminder preference for rating requests
+  }
+  return mapping[type] || null
 }
