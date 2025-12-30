@@ -1,7 +1,7 @@
 // Perfil del especialista (admin)
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { useAppUser } from "@/hooks/use-app-user"
 import { supabase } from "@/lib/supabase"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { DoctorSpecialtySetup } from "@/components/doctor/doctor-specialty-setup"
-import { Loader2, Upload, User, GraduationCap, Link2, FileText, CheckCircle2 } from "lucide-react"
+import { Loader2, Upload, User, GraduationCap, Link2, FileText, CheckCircle2, Camera, X } from "lucide-react"
 
 type ProfileFormState = {
   full_name: string
@@ -28,6 +28,8 @@ export default function PerfilAdminPage() {
   const [saving, setSaving] = useState(false)
   const [status, setStatus] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [form, setForm] = useState<ProfileFormState>({
     full_name: "",
     avatar_url: "",
@@ -108,6 +110,58 @@ export default function PerfilAdminPage() {
     setSaving(false)
   }
 
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !appUser) return
+
+    // Validate file
+    if (!file.type.startsWith("image/")) {
+      setError("Por favor selecciona una imagen válida")
+      return
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      setError("La imagen debe ser menor a 2MB")
+      return
+    }
+
+    setUploadingPhoto(true)
+    setError(null)
+
+    try {
+      // Upload to Supabase Storage
+      const fileExt = file.name.split(".").pop()
+      const fileName = `${appUser.id}-${Date.now()}.${fileExt}`
+
+      const { error: uploadError } = await supabase.storage
+        .from("doctor-avatars")
+        .upload(fileName, file, { upsert: true })
+
+      if (uploadError) throw uploadError
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from("doctor-avatars")
+        .getPublicUrl(fileName)
+
+      // Update form state
+      setForm((prev) => ({ ...prev, avatar_url: publicUrl }))
+      setStatus("Foto subida. No olvides guardar el perfil.")
+    } catch (err: unknown) {
+      const error = err as { message?: string }
+      console.error("Error uploading photo:", error.message || err)
+      setError("Error al subir la foto")
+    } finally {
+      setUploadingPhoto(false)
+    }
+  }
+
+  const removePhoto = () => {
+    setForm((prev) => ({ ...prev, avatar_url: "" }))
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ""
+    }
+  }
+
   if (loading) {
     return (
       <div className="space-y-6 animate-fadeIn">
@@ -173,42 +227,60 @@ export default function PerfilAdminPage() {
           <form className="space-y-6" onSubmit={handleSubmit}>
             {/* Avatar preview and name */}
             <div className="flex flex-col sm:flex-row items-start gap-6">
-              {/* Avatar preview */}
+              {/* Avatar preview with upload */}
               <div className="relative group shrink-0">
                 {form.avatar_url ? (
-                  <img
-                    src={form.avatar_url}
-                    alt="Avatar"
-                    className="w-24 h-24 rounded-full object-cover ring-4 ring-zuli-veronica/20 group-hover:ring-zuli-veronica/40 transition-all"
-                  />
+                  <div className="relative">
+                    <img
+                      src={form.avatar_url}
+                      alt="Avatar"
+                      className="w-24 h-24 rounded-full object-cover ring-4 ring-zuli-veronica/20 group-hover:ring-zuli-veronica/40 transition-all"
+                    />
+                    <button
+                      type="button"
+                      onClick={removePhoto}
+                      className="absolute -top-1 -right-1 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors shadow-lg"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
                 ) : (
                   <div className="w-24 h-24 rounded-full bg-gradient-to-br from-zuli-veronica to-zuli-indigo flex items-center justify-center text-white text-3xl font-bold ring-4 ring-zuli-veronica/20">
                     {form.full_name?.[0] || "D"}
                   </div>
                 )}
+                {/* Upload button overlay */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={handlePhotoUpload}
+                  className="hidden"
+                  id="avatar-upload"
+                />
+                <label
+                  htmlFor="avatar-upload"
+                  className="absolute bottom-0 right-0 p-2 bg-zuli-veronica text-white rounded-full cursor-pointer hover:bg-zuli-indigo transition-colors shadow-lg"
+                >
+                  {uploadingPhoto ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Camera className="h-4 w-4" />
+                  )}
+                </label>
               </div>
 
               <div className="flex-1 space-y-4 w-full">
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Nombre completo</Label>
-                    <Input
-                      value={form.full_name}
-                      onChange={(e) => setForm((prev) => ({ ...prev, full_name: e.target.value }))}
-                      placeholder="Dra. Ana López"
-                      required
-                      className="focus:ring-2 focus:ring-zuli-veronica/30 focus:border-zuli-veronica transition-all"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>URL de foto</Label>
-                    <Input
-                      value={form.avatar_url}
-                      onChange={(e) => setForm((prev) => ({ ...prev, avatar_url: e.target.value }))}
-                      placeholder="https://..."
-                      className="focus:ring-2 focus:ring-zuli-veronica/30 focus:border-zuli-veronica transition-all"
-                    />
-                  </div>
+                <div className="space-y-2">
+                  <Label>Nombre completo</Label>
+                  <Input
+                    value={form.full_name}
+                    onChange={(e) => setForm((prev) => ({ ...prev, full_name: e.target.value }))}
+                    placeholder="Dra. Ana López"
+                    required
+                    className="focus:ring-2 focus:ring-zuli-veronica/30 focus:border-zuli-veronica transition-all"
+                  />
+                  <p className="text-xs text-gray-500">Haz clic en el ícono de cámara para subir tu foto</p>
                 </div>
 
                 <div className="space-y-2">
