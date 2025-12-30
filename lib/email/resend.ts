@@ -1,7 +1,17 @@
 import { Resend } from "resend"
 
-// Initialize Resend client
-const resend = new Resend(process.env.RESEND_API_KEY)
+// Lazy-initialize Resend client to avoid build-time errors when API key is not set
+let _resend: Resend | null = null
+
+function getResend(): Resend {
+  if (!_resend) {
+    if (!process.env.RESEND_API_KEY) {
+      throw new Error("RESEND_API_KEY environment variable is not set")
+    }
+    _resend = new Resend(process.env.RESEND_API_KEY)
+  }
+  return _resend
+}
 
 // Default sender - should be a verified domain in Resend
 const DEFAULT_FROM = process.env.RESEND_FROM_EMAIL || "ZULI Health <noreply@zulihealth.com>"
@@ -47,7 +57,7 @@ export async function sendAppointmentReminder(
   data: AppointmentReminderData
 ): Promise<EmailResult> {
   try {
-    const { data: result, error } = await resend.emails.send({
+    const { data: result, error } = await getResend().emails.send({
       from: DEFAULT_FROM,
       to: [to],
       subject: `Recordatorio: Cita con Dr. ${data.doctorName} - ${data.date}`,
@@ -134,7 +144,7 @@ export async function sendAppointmentConfirmation(
   data: AppointmentConfirmationData
 ): Promise<EmailResult> {
   try {
-    const { data: result, error } = await resend.emails.send({
+    const { data: result, error } = await getResend().emails.send({
       from: DEFAULT_FROM,
       to: [to],
       subject: `Cita Confirmada con Dr. ${data.doctorName} - ${data.date}`,
@@ -226,7 +236,7 @@ export async function sendPrescriptionReady(
   data: PrescriptionReadyData
 ): Promise<EmailResult> {
   try {
-    const { data: result, error } = await resend.emails.send({
+    const { data: result, error } = await getResend().emails.send({
       from: DEFAULT_FROM,
       to: [to],
       subject: `Nueva Receta Disponible - Dr. ${data.doctorName}`,
@@ -289,7 +299,7 @@ export async function sendEmail(
   htmlContent: string
 ): Promise<EmailResult> {
   try {
-    const { data: result, error } = await resend.emails.send({
+    const { data: result, error } = await getResend().emails.send({
       from: DEFAULT_FROM,
       to: [to],
       subject,
@@ -307,4 +317,4 @@ export async function sendEmail(
   }
 }
 
-export { resend }
+export { getResend as resend }
