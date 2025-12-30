@@ -37,7 +37,11 @@ import {
   UserPlus,
   Link2,
   Stethoscope,
+  Star,
+  RefreshCw,
+  Loader2,
 } from "lucide-react"
+import { RatingDialog } from "@/components/ratings/rating-dialog"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { format, isPast, isToday, isTomorrow, addDays } from "date-fns"
@@ -128,28 +132,49 @@ export default function PatientCitasPage() {
 
   // Patient ID state
   const [patientId, setPatientId] = useState<string | null>(null)
+  const [baselineCompleted, setBaselineCompleted] = useState(false)
+
+  // Rating dialog state
+  const [showRatingDialog, setShowRatingDialog] = useState(false)
+  const [ratingAppointment, setRatingAppointment] = useState<Appointment | null>(null)
+  const [ratedAppointments, setRatedAppointments] = useState<Set<string>>(new Set())
+
+  // Reschedule dialog state
+  const [showRescheduleDialog, setShowRescheduleDialog] = useState(false)
+  const [rescheduleAppointment, setRescheduleAppointment] = useState<Appointment | null>(null)
+  const [rescheduleDate, setRescheduleDate] = useState<Date | undefined>(undefined)
+  const [rescheduleTime, setRescheduleTime] = useState<string>("")
+  const [rescheduling, setRescheduling] = useState(false)
 
   useEffect(() => {
     async function fetchData() {
       if (!user) return
 
       try {
-        // First get patient ID linked to this user
-        const { data: patient, error: patientError } = await supabase
+        // First get patient ID linked to this user (if exists)
+        const { data: patient } = await supabase
           .from("patients")
           .select("id")
           .eq("user_id", user.id)
-          .single()
+          .maybeSingle()
 
-        if (patientError || !patient) {
-          // No patient profile yet - that's ok, they can still link to a doctor
-          setLoading(false)
-          return
+        if (patient) {
+          setPatientId(patient.id)
         }
 
-        setPatientId(patient.id)
+        // Check if baseline form is completed
+        const { data: baselineForm } = await supabase
+          .from("patient_baseline_forms")
+          .select("general_info")
+          .eq("patient_user_id", user.id)
+          .maybeSingle()
 
-        // Fetch linked doctors
+        // Check if name, gender, and birth_date are filled
+        const gi = baselineForm?.general_info as { first_name?: string; last_name?: string; gender?: string; birth_date?: string } | null
+        const isComplete = !!(gi?.first_name && gi?.last_name && gi?.gender && gi?.birth_date)
+        setBaselineCompleted(isComplete)
+
+        // Fetch linked doctors (uses patient_user_id, not patient_id)
         const { data: links, error: linksError } = await supabase
           .from("doctor_patient_links")
           .select(`
@@ -175,38 +200,50 @@ export default function PatientCitasPage() {
           setLinkedDoctors(transformedLinks)
         }
 
-        // Fetch appointments for this patient
-        const { data, error: appointmentsError } = await supabase
-          .from("appointments")
-          .select(`
-            id,
-            appointment_date,
-            start_time,
-            end_time,
-            status,
-            notes,
-            doctors (
+        // Fetch appointments for this patient (only if patient record exists)
+        if (patient) {
+          const { data, error: appointmentsError } = await supabase
+            .from("appointments")
+            .select(`
               id,
-              first_name,
-              last_name,
-              specialty
-            )
-          `)
-          .eq("patient_id", patient.id)
-          .order("appointment_date", { ascending: true })
+              appointment_date,
+              start_time,
+              end_time,
+              status,
+              notes,
+              doctors (
+                id,
+                first_name,
+                last_name,
+                specialty
+              )
+            `)
+            .eq("patient_id", patient.id)
+            .order("appointment_date", { ascending: true })
 
-        if (appointmentsError) {
-          console.error("Error fetching appointments:", appointmentsError.message, appointmentsError.details, appointmentsError.hint)
-          throw appointmentsError
+          if (appointmentsError) {
+            console.error("Error fetching appointments:", appointmentsError.message, appointmentsError.details, appointmentsError.hint)
+            throw appointmentsError
+          }
+
+          // Transform data
+          const transformed = (data || []).map((apt) => ({
+            ...apt,
+            doctor: apt.doctors,
+          })) as unknown as Appointment[]
+
+          setAppointments(transformed)
+
+          // Fetch existing ratings to know which appointments are already rated
+          const { data: ratings } = await supabase
+            .from("doctor_ratings")
+            .select("appointment_id")
+            .eq("patient_id", patient.id)
+
+          if (ratings) {
+            setRatedAppointments(new Set(ratings.map((r) => r.appointment_id)))
+          }
         }
-
-        // Transform data
-        const transformed = (data || []).map((apt) => ({
-          ...apt,
-          doctor: apt.doctors,
-        })) as unknown as Appointment[]
-
-        setAppointments(transformed)
       } catch (err: unknown) {
         const error = err as { message?: string; details?: string; hint?: string }
         console.error("Error fetching data:", error.message || err, error.details, error.hint)
@@ -277,40 +314,13 @@ export default function PatientCitasPage() {
         return
       }
 
-      // Get or create patient record
-      let currentPatientId = patientId
-
-      if (!currentPatientId) {
-        // Create patient record for this user
-        const { data: newPatient, error: patientError } = await supabase
-          .from("patients")
-          .insert({
-            user_id: user.id,
-            doctor_id: qrLink.doctor_id,
-            first_name: user.user_metadata?.first_name || user.email?.split("@")[0] || "Paciente",
-            last_name: user.user_metadata?.last_name || "",
-            email: user.email,
-          })
-          .select("id")
-          .single()
-
-        if (patientError) {
-          console.error("Error creating patient:", patientError)
-          setLinkError("Error al crear tu perfil de paciente.")
-          return
-        }
-
-        currentPatientId = newPatient.id
-        setPatientId(currentPatientId)
-      }
-
-      // Create the link
+      // Create the link (patient record will be created when booking with baseline data)
       const { error: linkError } = await supabase
         .from("doctor_patient_links")
         .insert({
           doctor_id: qrLink.doctor_id,
           patient_user_id: user.id,
-          patient_id: currentPatientId,
+          patient_id: null, // Will be set when booking appointment
           status: "accepted", // Auto-accept when using code
           requested_by: "patient",
         })
@@ -345,18 +355,47 @@ export default function PatientCitasPage() {
         (link) => link.doctor.id === selectedDoctorId
       )?.doctor
 
-      // Get or create patient record for this doctor
-      let appointmentPatientId = patientId
+      // Check if patient record exists for THIS doctor
+      let { data: existingPatient } = await supabase
+        .from("patients")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("doctor_id", selectedDoctorId)
+        .maybeSingle()
+
+      let appointmentPatientId = existingPatient?.id
 
       if (!appointmentPatientId) {
-        // Create patient record
+        // Get baseline form data to create patient record
+        const { data: baselineForm } = await supabase
+          .from("patient_baseline_forms")
+          .select("general_info")
+          .eq("patient_user_id", user.id)
+          .single()
+
+        const gi = baselineForm?.general_info as {
+          first_name?: string
+          last_name?: string
+          gender?: string
+          birth_date?: string
+        } | null
+
+        if (!gi?.first_name || !gi?.last_name || !gi?.gender || !gi?.birth_date) {
+          alert("Por favor completa tu información básica en tu perfil antes de agendar.")
+          setCreatingAppointment(false)
+          return
+        }
+
+        // Create patient record for this doctor using baseline data
         const { data: newPatient, error: patientError } = await supabase
           .from("patients")
           .insert({
             user_id: user.id,
             doctor_id: selectedDoctorId,
-            first_name: user.user_metadata?.first_name || user.email?.split("@")[0] || "Paciente",
-            last_name: user.user_metadata?.last_name || "",
+            first_name: gi.first_name,
+            last_name: gi.last_name,
+            date_of_birth: gi.birth_date,
+            gender: gi.gender,
             email: user.email,
           })
           .select("id")
@@ -364,13 +403,21 @@ export default function PatientCitasPage() {
 
         if (patientError) {
           console.error("Error creating patient:", patientError)
-          alert("Error al crear el perfil de paciente.")
+          alert("Error al crear el perfil de paciente. Por favor intenta de nuevo.")
           return
         }
 
         appointmentPatientId = newPatient.id
-        setPatientId(appointmentPatientId)
+
+        // Update doctor_patient_links with the new patient_id
+        await supabase
+          .from("doctor_patient_links")
+          .update({ patient_id: appointmentPatientId })
+          .eq("doctor_id", selectedDoctorId)
+          .eq("patient_user_id", user.id)
       }
+
+      setPatientId(appointmentPatientId)
 
       // Calculate end time (30 min after start)
       const [hours, minutes] = selectedTime.split(":").map(Number)
@@ -459,6 +506,18 @@ export default function PatientCitasPage() {
       ["Completada", "Cancelada", "No asistió"].includes(apt.status)
   )
 
+  const handleOpenRating = (appointment: Appointment) => {
+    setRatingAppointment(appointment)
+    setShowRatingDialog(true)
+  }
+
+  const handleRatingSuccess = () => {
+    if (ratingAppointment) {
+      setRatedAppointments((prev) => new Set(prev).add(ratingAppointment.id))
+    }
+    setRatingAppointment(null)
+  }
+
   const handleCancel = async (appointmentId: string) => {
     if (!confirm("¿Estás seguro de que deseas cancelar esta cita?")) return
 
@@ -479,6 +538,65 @@ export default function PatientCitasPage() {
     } catch (err) {
       console.error("Error cancelling appointment:", err)
       alert("Error al cancelar la cita. Intenta de nuevo.")
+    }
+  }
+
+  const handleOpenReschedule = (appointment: Appointment) => {
+    setRescheduleAppointment(appointment)
+    // Pre-select current date and time
+    const currentDate = new Date(appointment.appointment_date)
+    setRescheduleDate(currentDate)
+    setRescheduleTime(appointment.start_time.substring(0, 5))
+    setShowRescheduleDialog(true)
+  }
+
+  const handleReschedule = async () => {
+    if (!rescheduleAppointment || !rescheduleDate || !rescheduleTime) return
+
+    setRescheduling(true)
+
+    try {
+      // Calculate end time (30 min after start)
+      const [hours, minutes] = rescheduleTime.split(":").map(Number)
+      const endHours = hours + Math.floor((minutes + 30) / 60)
+      const endMinutes = (minutes + 30) % 60
+      const endTime = `${endHours.toString().padStart(2, "0")}:${endMinutes.toString().padStart(2, "0")}:00`
+
+      const { error } = await supabase
+        .from("appointments")
+        .update({
+          appointment_date: format(rescheduleDate, "yyyy-MM-dd"),
+          start_time: `${rescheduleTime}:00`,
+          end_time: endTime,
+        })
+        .eq("id", rescheduleAppointment.id)
+
+      if (error) throw error
+
+      // Update local state
+      setAppointments((prev) =>
+        prev.map((apt) =>
+          apt.id === rescheduleAppointment.id
+            ? {
+                ...apt,
+                appointment_date: format(rescheduleDate, "yyyy-MM-dd"),
+                start_time: `${rescheduleTime}:00`,
+                end_time: endTime,
+              }
+            : apt
+        )
+      )
+
+      // Reset and close dialog
+      setShowRescheduleDialog(false)
+      setRescheduleAppointment(null)
+      setRescheduleDate(undefined)
+      setRescheduleTime("")
+    } catch (err) {
+      console.error("Error rescheduling appointment:", err)
+      alert("Error al reprogramar la cita. Intenta de nuevo.")
+    } finally {
+      setRescheduling(false)
     }
   }
 
@@ -549,6 +667,12 @@ export default function PatientCitasPage() {
       appointment.status === "Programada" &&
       !isPast(appointmentDate)
 
+    const canRate =
+      appointment.status === "Completada" &&
+      !ratedAppointments.has(appointment.id)
+
+    const hasRated = ratedAppointments.has(appointment.id)
+
     return (
       <Card key={appointment.id} className="overflow-hidden">
         <CardContent className="p-0">
@@ -609,17 +733,47 @@ export default function PatientCitasPage() {
             )}
 
             {/* Actions */}
-            {canCancel && (
+            {(canCancel || canRate || hasRated) && (
               <div className="flex gap-2 pt-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex-1 text-red-600 hover:bg-red-50"
-                  onClick={() => handleCancel(appointment.id)}
-                >
-                  <XCircle className="h-4 w-4 mr-1" />
-                  Cancelar
-                </Button>
+                {canCancel && (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1 text-blue-600 hover:bg-blue-50 border-blue-200"
+                      onClick={() => handleOpenReschedule(appointment)}
+                    >
+                      <RefreshCw className="h-4 w-4 mr-1" />
+                      Reprogramar
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1 text-red-600 hover:bg-red-50"
+                      onClick={() => handleCancel(appointment.id)}
+                    >
+                      <XCircle className="h-4 w-4 mr-1" />
+                      Cancelar
+                    </Button>
+                  </>
+                )}
+                {canRate && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 text-amber-600 hover:bg-amber-50 border-amber-200"
+                    onClick={() => handleOpenRating(appointment)}
+                  >
+                    <Star className="h-4 w-4 mr-1" />
+                    Calificar
+                  </Button>
+                )}
+                {hasRated && (
+                  <div className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 bg-green-50 dark:bg-green-900/20 rounded-md text-green-600 dark:text-green-400 text-sm">
+                    <CheckCircle className="h-4 w-4" />
+                    Ya calificaste
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -705,7 +859,7 @@ export default function PatientCitasPage() {
           {/* New Appointment Button */}
           <Dialog open={showNewAppointmentDialog} onOpenChange={setShowNewAppointmentDialog}>
             <DialogTrigger asChild>
-              <Button size="sm" disabled={acceptedDoctors.length === 0}>
+              <Button size="sm" disabled={acceptedDoctors.length === 0 || !baselineCompleted}>
                 <Plus className="h-4 w-4 mr-2" />
                 Nueva Cita
               </Button>
@@ -841,6 +995,35 @@ export default function PatientCitasPage() {
         </div>
       </div>
 
+      {/* Alert: Complete baseline before booking */}
+      {!baselineCompleted && linkedDoctors.length > 0 && (
+        <Card className="border-amber-200 bg-amber-50 dark:bg-amber-900/20">
+          <CardContent className="p-4">
+            <div className="flex items-start gap-3">
+              <div className="p-2 bg-amber-100 dark:bg-amber-800/30 rounded-lg">
+                <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-semibold text-amber-800 dark:text-amber-200 mb-1">
+                  Completa tu perfil para agendar citas
+                </h3>
+                <p className="text-sm text-amber-700 dark:text-amber-300 mb-3">
+                  Para poder agendar citas con tus doctores, primero necesitas completar tu información básica (nombre, género y fecha de nacimiento).
+                </p>
+                <Button
+                  size="sm"
+                  className="bg-amber-600 hover:bg-amber-700 text-white"
+                  onClick={() => window.location.href = "/user/perfil"}
+                >
+                  <User className="h-4 w-4 mr-2" />
+                  Completar Perfil
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Linked Doctors Section */}
       {linkedDoctors.length > 0 && (
         <Card>
@@ -959,6 +1142,138 @@ export default function PatientCitasPage() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Rating Dialog */}
+      {ratingAppointment && patientId && (
+        <RatingDialog
+          open={showRatingDialog}
+          onOpenChange={setShowRatingDialog}
+          appointmentId={ratingAppointment.id}
+          doctorId={ratingAppointment.doctor.id}
+          doctorName={`${ratingAppointment.doctor.first_name} ${ratingAppointment.doctor.last_name}`}
+          patientId={patientId}
+          onSuccess={handleRatingSuccess}
+        />
+      )}
+
+      {/* Reschedule Dialog */}
+      <Dialog open={showRescheduleDialog} onOpenChange={setShowRescheduleDialog}>
+        <DialogContent className="sm:max-w-[450px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <RefreshCw className="h-5 w-5 text-blue-500" />
+              Reprogramar Cita
+            </DialogTitle>
+            <DialogDescription>
+              {rescheduleAppointment && (
+                <>
+                  Cita con Dr. {rescheduleAppointment.doctor.first_name}{" "}
+                  {rescheduleAppointment.doctor.last_name}
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {/* Current appointment info */}
+            {rescheduleAppointment && (
+              <div className="p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg text-sm">
+                <p className="text-gray-500 text-xs uppercase mb-1">Fecha actual</p>
+                <p className="font-medium text-gray-900 dark:text-white">
+                  {format(
+                    new Date(rescheduleAppointment.appointment_date),
+                    "EEEE d 'de' MMMM, yyyy",
+                    { locale: es }
+                  )}{" "}
+                  a las {rescheduleAppointment.start_time.substring(0, 5)} hrs
+                </p>
+              </div>
+            )}
+
+            {/* New Date Selection */}
+            <div className="space-y-2">
+              <Label>Nueva Fecha</Label>
+              <Popover modal={true}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !rescheduleDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {rescheduleDate ? (
+                      format(rescheduleDate, "EEEE d 'de' MMMM, yyyy", { locale: es })
+                    ) : (
+                      "Selecciona una fecha"
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0 z-[100]" align="start" sideOffset={4}>
+                  <Calendar
+                    mode="single"
+                    selected={rescheduleDate}
+                    onSelect={setRescheduleDate}
+                    disabled={(date) =>
+                      date < new Date() || date > addDays(new Date(), 60)
+                    }
+                    locale={es}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            {/* New Time Selection */}
+            <div className="space-y-2">
+              <Label>Nueva Hora</Label>
+              <Select value={rescheduleTime} onValueChange={setRescheduleTime}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona una hora" />
+                </SelectTrigger>
+                <SelectContent>
+                  {timeSlots.map((time) => (
+                    <SelectItem key={time} value={time}>
+                      {time} hrs
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowRescheduleDialog(false)
+                setRescheduleAppointment(null)
+                setRescheduleDate(undefined)
+                setRescheduleTime("")
+              }}
+              disabled={rescheduling}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleReschedule}
+              disabled={!rescheduleDate || !rescheduleTime || rescheduling}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {rescheduling ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Reprogramando...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Confirmar
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -39,6 +39,8 @@ type Doctor = {
   specialty_description: string | null
   avatar_url?: string | null
   headline?: string | null
+  rating?: number | null
+  rating_count?: number
 }
 
 const specialtyIcons: Record<string, React.ReactNode> = {
@@ -133,6 +135,34 @@ export default function EspecialistasMarketplacePage() {
           headline: meta?.headline ?? null,
         }
       })
+    }
+
+    // Fetch doctor ratings from the summary view
+    const doctorIds = mapped.map((d) => d.id).filter(Boolean)
+    if (doctorIds.length > 0) {
+      const { data: ratings } = await supabase
+        .from("doctor_rating_summary")
+        .select("doctor_id, average_rating, total_ratings")
+        .in("doctor_id", doctorIds)
+
+      if (ratings) {
+        const ratingMap = new Map<string, { rating: number; count: number }>()
+        ratings.forEach((r: { doctor_id: string; average_rating: number; total_ratings: number }) => {
+          ratingMap.set(r.doctor_id, {
+            rating: r.average_rating,
+            count: r.total_ratings,
+          })
+        })
+
+        mapped = mapped.map((d) => {
+          const ratingInfo = ratingMap.get(d.id)
+          return {
+            ...d,
+            rating: ratingInfo?.rating ?? null,
+            rating_count: ratingInfo?.count ?? 0,
+          }
+        })
+      }
     }
 
     setDoctors(mapped)
@@ -317,10 +347,11 @@ export default function EspecialistasMarketplacePage() {
               text: "text-gray-600",
               border: "border-gray-200",
             }
-            // Rating simulado (entre 4.0 y 5.0 para demostración)
-            const rating = (4 + Math.random()).toFixed(1)
-            const fullStars = Math.floor(Number(rating))
-            const hasHalfStar = Number(rating) % 1 >= 0.5
+            // Use real rating if available, otherwise show "Nuevo"
+            const hasRating = doctor.rating !== null && doctor.rating !== undefined && doctor.rating_count! > 0
+            const rating = hasRating ? doctor.rating!.toFixed(1) : null
+            const fullStars = hasRating ? Math.floor(doctor.rating!) : 0
+            const hasHalfStar = hasRating ? (doctor.rating! % 1) >= 0.5 : false
 
             return (
               <Card
@@ -375,22 +406,33 @@ export default function EspecialistasMarketplacePage() {
                   {/* Rating y CTA */}
                   <div className="mt-3 pt-3 border-t flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5 shrink-0">
-                      {/* Estrellas */}
-                      <div className="flex items-center">
-                        {[...Array(5)].map((_, i) => (
-                          <Star
-                            key={i}
-                            className={`h-3.5 w-3.5 ${
-                              i < fullStars
-                                ? "text-amber-400 fill-amber-400"
-                                : i === fullStars && hasHalfStar
-                                  ? "text-amber-400 fill-amber-400/50"
-                                  : "text-gray-200 fill-gray-200"
-                            }`}
-                          />
-                        ))}
-                      </div>
-                      <span className="text-xs font-medium text-gray-600">{rating}</span>
+                      {hasRating ? (
+                        <>
+                          {/* Estrellas */}
+                          <div className="flex items-center">
+                            {[...Array(5)].map((_, i) => (
+                              <Star
+                                key={i}
+                                className={`h-3.5 w-3.5 ${
+                                  i < fullStars
+                                    ? "text-amber-400 fill-amber-400"
+                                    : i === fullStars && hasHalfStar
+                                      ? "text-amber-400 fill-amber-400/50"
+                                      : "text-gray-200 fill-gray-200"
+                                }`}
+                              />
+                            ))}
+                          </div>
+                          <span className="text-xs font-medium text-gray-600">
+                            {rating}
+                            <span className="text-gray-400 ml-1">({doctor.rating_count})</span>
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-xs font-medium text-zuli-veronica bg-zuli-veronica/10 px-2 py-0.5 rounded-full">
+                          Nuevo
+                        </span>
+                      )}
                     </div>
                     <span className="text-xs text-zuli-veronica font-medium group-hover:underline flex items-center gap-0.5 shrink-0">
                       Solicitar cita

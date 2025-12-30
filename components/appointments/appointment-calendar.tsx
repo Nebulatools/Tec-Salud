@@ -126,8 +126,9 @@ export default function AppointmentCalendar() {
           .gte("appointment_date", ymdLocal(startOfWeek))
           .lte("appointment_date", ymdLocal(endOfWeek))
       } else if (selectedFilter === "Este mes") {
-        const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
-        const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0)
+        // Use currentDate to allow navigating to other months
+        const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1)
+        const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0)
         query = query
           .gte("appointment_date", ymdLocal(startOfMonth))
           .lte("appointment_date", ymdLocal(endOfMonth))
@@ -182,10 +183,9 @@ export default function AppointmentCalendar() {
       }
       return days
     } else if (selectedFilter === "Este mes") {
-      // Show current month - all weeks of the month
-      const today = new Date()
-      const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
-      const lastOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0)
+      // Show selected month - all weeks of the month (uses currentDate for navigation)
+      const firstOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1)
+      const lastOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0)
       
       // Start from Monday of the week containing the first day
       const startDate = new Date(firstOfMonth)
@@ -338,8 +338,8 @@ export default function AppointmentCalendar() {
       const end = weekDays[6]
       return `${start.getDate()} De ${start.toLocaleDateString("es-ES", { month: "long" })} - ${end.getDate()} De ${end.toLocaleDateString("es-ES", { month: "long" })} De ${end.getFullYear()}`
     } else if (selectedFilter === "Este mes") {
-      const today = new Date()
-      return `${today.toLocaleDateString("es-ES", { month: "long" })} De ${today.getFullYear()}`
+      // Use currentDate for displaying the navigated month
+      return `${currentDate.toLocaleDateString("es-ES", { month: "long" })} De ${currentDate.getFullYear()}`
     }
     
     const start = weekDays[0]
@@ -367,6 +367,10 @@ export default function AppointmentCalendar() {
   }
 
   const handleStartConsultation = (appointment: Appointment) => {
+    // Don't allow starting consultation for canceled or no-show appointments
+    if (appointment.status === "Cancelada" || appointment.status === "No asistió") {
+      return
+    }
     // Redireccionar a la página dedicada de consulta
     router.push(`/consultas/${appointment.id}`)
   }
@@ -539,7 +543,13 @@ export default function AppointmentCalendar() {
                   size="icon"
                   onClick={() => {
                     const newDate = new Date(currentDate)
-                    newDate.setDate(currentDate.getDate() - 7)
+                    if (selectedFilter === "Este mes") {
+                      // Navigate by month
+                      newDate.setMonth(currentDate.getMonth() - 1)
+                    } else {
+                      // Navigate by week
+                      newDate.setDate(currentDate.getDate() - 7)
+                    }
                     setCurrentDate(newDate)
                   }}
                 >
@@ -553,7 +563,13 @@ export default function AppointmentCalendar() {
                   size="icon"
                   onClick={() => {
                     const newDate = new Date(currentDate)
-                    newDate.setDate(currentDate.getDate() + 7)
+                    if (selectedFilter === "Este mes") {
+                      // Navigate by month
+                      newDate.setMonth(currentDate.getMonth() + 1)
+                    } else {
+                      // Navigate by week
+                      newDate.setDate(currentDate.getDate() + 7)
+                    }
                     setCurrentDate(newDate)
                   }}
                 >
@@ -754,17 +770,19 @@ export default function AppointmentCalendar() {
                         </div>
 
                         <div className="space-y-1">
-                          {dayAppointments.slice(0, 2).map((appointment) => (
+                          {dayAppointments.slice(0, 2).map((appointment) => {
+                            const isCanceledOrNoShow = appointment.status === 'Cancelada' || appointment.status === 'No asistió'
+                            return (
                             <div
                               key={appointment.id}
-                              className={`border-l-2 p-1.5 rounded-r text-xs cursor-pointer transition-all duration-200 ${
+                              className={`border-l-2 p-1.5 rounded-r text-xs transition-all duration-200 ${
                                 appointment.status === 'Completada'
-                                  ? 'bg-green-50 dark:bg-green-900/30 border-green-500 hover:bg-green-100 dark:hover:bg-green-900/50'
-                                  : appointment.status === 'Cancelada'
-                                    ? 'bg-red-50 dark:bg-red-900/30 border-red-400 hover:bg-red-100 dark:hover:bg-red-900/50'
-                                    : 'bg-gradient-to-r from-zuli-veronica/10 to-zuli-indigo/5 border-zuli-veronica hover:from-zuli-veronica/20 hover:to-zuli-indigo/10'
+                                  ? 'bg-green-50 dark:bg-green-900/30 border-green-500 hover:bg-green-100 dark:hover:bg-green-900/50 cursor-pointer'
+                                  : isCanceledOrNoShow
+                                    ? 'bg-red-50 dark:bg-red-900/30 border-red-400 opacity-60 cursor-not-allowed line-through'
+                                    : 'bg-gradient-to-r from-zuli-veronica/10 to-zuli-indigo/5 border-zuli-veronica hover:from-zuli-veronica/20 hover:to-zuli-indigo/10 cursor-pointer'
                               }`}
-                              title={`${appointment.patient.first_name} ${appointment.patient.last_name} - ${formatTime(appointment.start_time)} - ${appointment.status}`}
+                              title={`${appointment.patient.first_name} ${appointment.patient.last_name} - ${formatTime(appointment.start_time)} - ${appointment.status}${isCanceledOrNoShow ? ' (No disponible)' : ''}`}
                               onClick={() => handleStartConsultation(appointment)}
                             >
                               <div className="font-medium text-gray-900 dark:text-white truncate">
@@ -775,7 +793,8 @@ export default function AppointmentCalendar() {
                                 {formatTime(appointment.start_time)}
                               </div>
                             </div>
-                          ))}
+                          )})}
+
                           {dayAppointments.length > 2 && (
                             <div className="text-xs text-zuli-veronica font-medium text-center py-1 bg-zuli-veronica/5 rounded-full">
                               +{dayAppointments.length - 2} más
@@ -835,23 +854,24 @@ export default function AppointmentCalendar() {
                         {getAppointmentsForDate(day).map((appointment) => {
                           const { top, height } = getAppointmentPosition(appointment.start_time, appointment.end_time)
                           const showBadge = height > 50
+                          const isCanceledOrNoShow = appointment.status === 'Cancelada' || appointment.status === 'No asistió'
 
                           // Status-based colors - clean solid colors
                           const getAppointmentStyle = () => {
                             if (appointment.status === 'Completada') {
-                              return 'bg-green-50 dark:bg-green-900/30 border-l-green-500 hover:bg-green-100 dark:hover:bg-green-900/50'
-                            } else if (appointment.status === 'Cancelada' || appointment.status === 'No asistió') {
-                              return 'bg-gray-50 dark:bg-gray-800 border-l-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                              return 'bg-green-50 dark:bg-green-900/30 border-l-green-500 hover:bg-green-100 dark:hover:bg-green-900/50 cursor-pointer'
+                            } else if (isCanceledOrNoShow) {
+                              return 'bg-red-50 dark:bg-red-900/30 border-l-red-400 opacity-60 cursor-not-allowed'
                             }
-                            return 'bg-zuli-veronica/10 dark:bg-zuli-veronica/20 border-l-zuli-veronica hover:bg-zuli-veronica/20 dark:hover:bg-zuli-veronica/30'
+                            return 'bg-zuli-veronica/10 dark:bg-zuli-veronica/20 border-l-zuli-veronica hover:bg-zuli-veronica/20 dark:hover:bg-zuli-veronica/30 cursor-pointer'
                           }
 
                           return (
                             <div
                               key={appointment.id}
-                              className={`absolute left-0.5 right-0.5 border-l-3 px-2 py-1.5 rounded-r text-xs cursor-pointer transition-colors duration-150 z-10 ${getAppointmentStyle()}`}
+                              className={`absolute left-0.5 right-0.5 border-l-3 px-2 py-1.5 rounded-r text-xs transition-colors duration-150 z-10 ${getAppointmentStyle()}`}
                               style={{ top, height: Math.max(height, 28) }}
-                              title={`${appointment.patient.first_name} ${appointment.patient.last_name} - ${formatTime(appointment.start_time)} a ${formatTime(appointment.end_time)}`}
+                              title={`${appointment.patient.first_name} ${appointment.patient.last_name} - ${formatTime(appointment.start_time)} a ${formatTime(appointment.end_time)}${isCanceledOrNoShow ? ' (No disponible)' : ''}`}
                               onClick={() => handleStartConsultation(appointment)}
                             >
                               <div className="font-medium text-gray-900 dark:text-white truncate leading-tight">

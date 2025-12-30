@@ -11,7 +11,6 @@ import {
   Loader2,
   AlertCircle,
   Download,
-  Calendar,
   Pill,
   User,
   ChevronRight,
@@ -22,6 +21,7 @@ import {
   QrCode,
   Search,
 } from "lucide-react"
+import { downloadPrescriptionPDF, type PrescriptionPDFData } from "@/components/prescriptions/prescription-pdf"
 import Link from "next/link"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
@@ -43,11 +43,22 @@ interface Prescription {
   diagnosis: string | null
   notes: string | null
   medications: Medication[]
+  signed_at: string | null
+  valid_until: string | null
   doctor: {
     id: string
     first_name: string
     last_name: string
     specialty: string | null
+    license_number: string | null
+    phone: string | null
+    email: string | null
+  }
+  patient: {
+    id: string
+    first_name: string
+    last_name: string
+    date_of_birth: string | null
   }
 }
 
@@ -89,6 +100,7 @@ export default function PatientRecetasPage() {
   const [error, setError] = useState<string | null>(null)
   const [noPatientProfile, setNoPatientProfile] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [downloadingId, setDownloadingId] = useState<string | null>(null)
 
   useEffect(() => {
     async function fetchPrescriptions() {
@@ -119,11 +131,22 @@ export default function PatientRecetasPage() {
             diagnosis,
             notes,
             medications,
+            signed_at,
+            valid_until,
             doctors (
               id,
               first_name,
               last_name,
-              specialty
+              specialty,
+              license_number,
+              phone,
+              email
+            ),
+            patients (
+              id,
+              first_name,
+              last_name,
+              date_of_birth
             )
           `)
           .eq("patient_id", patient.id)
@@ -139,6 +162,7 @@ export default function PatientRecetasPage() {
           ...p,
           medications: (p.medications || []) as Medication[],
           doctor: p.doctors,
+          patient: p.patients,
         })) as unknown as Prescription[]
 
         setPrescriptions(transformed)
@@ -158,9 +182,50 @@ export default function PatientRecetasPage() {
     }
   }, [user, authLoading])
 
-  const handleDownload = async (prescriptionId: string) => {
-    // TODO: Implement PDF download
-    alert("La descarga de PDF estará disponible próximamente.")
+  const handleDownload = async (prescription: Prescription) => {
+    if (downloadingId) return
+    setDownloadingId(prescription.id)
+
+    try {
+      // Transform prescription data to PDF format
+      const pdfData: PrescriptionPDFData = {
+        id: prescription.id,
+        doctor: {
+          first_name: prescription.doctor.first_name,
+          last_name: prescription.doctor.last_name,
+          specialty: prescription.doctor.specialty || undefined,
+          license_number: prescription.doctor.license_number || undefined,
+          phone: prescription.doctor.phone || undefined,
+          email: prescription.doctor.email || undefined,
+        },
+        patient: {
+          first_name: prescription.patient.first_name,
+          last_name: prescription.patient.last_name,
+          date_of_birth: prescription.patient.date_of_birth || undefined,
+        },
+        medications: prescription.medications.map((med) => ({
+          brand_name: med.brand_name || med.medication_name || "Medicamento",
+          generic_name: med.generic_name || "",
+          dosage: med.dosage || "",
+          frequency: med.frequency || "",
+          duration: med.duration || "",
+          instructions: med.instructions || undefined,
+        })),
+        diagnosis: prescription.diagnosis || undefined,
+        notes: prescription.notes || undefined,
+        status: prescription.status,
+        signed_at: prescription.signed_at || undefined,
+        valid_until: prescription.valid_until || undefined,
+        created_at: prescription.created_at,
+      }
+
+      await downloadPrescriptionPDF(pdfData)
+    } catch (err) {
+      console.error("Error downloading PDF:", err)
+      alert("Error al descargar el PDF. Intenta de nuevo.")
+    } finally {
+      setDownloadingId(null)
+    }
   }
 
   if (authLoading || loading) {
@@ -433,18 +498,28 @@ export default function PatientRecetasPage() {
                     )}
 
                     {/* Actions */}
-                    {prescription.status === "signed" && (
+                    {(prescription.status === "signed" || prescription.status === "delivered") && (
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={(e) => {
                           e.stopPropagation()
-                          handleDownload(prescription.id)
+                          handleDownload(prescription)
                         }}
+                        disabled={downloadingId === prescription.id}
                         className="w-full"
                       >
-                        <Download className="h-4 w-4 mr-2" />
-                        Descargar PDF
+                        {downloadingId === prescription.id ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Generando PDF...
+                          </>
+                        ) : (
+                          <>
+                            <Download className="h-4 w-4 mr-2" />
+                            Descargar PDF
+                          </>
+                        )}
                       </Button>
                     )}
                   </div>

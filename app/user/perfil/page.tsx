@@ -205,6 +205,8 @@ const PERSONAL_HISTORY = [
 ]
 
 type BaselineState = {
+  first_name: string
+  last_name: string
   gender: string
   birth_date: string
   blood_type: string
@@ -239,6 +241,8 @@ export default function PerfilPage() {
   const [status, setStatus] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [form, setForm] = useState<BaselineState>({
+    first_name: "",
+    last_name: "",
     gender: "",
     birth_date: "",
     blood_type: "",
@@ -298,6 +302,8 @@ export default function PerfilPage() {
             : []
 
         setForm({
+          first_name: gi?.first_name ?? "",
+          last_name: gi?.last_name ?? "",
           gender: gi?.gender ?? "",
           birth_date: gi?.birth_date ?? "",
           blood_type: gi?.blood_type ?? "",
@@ -389,6 +395,8 @@ export default function PerfilPage() {
     setError(null)
 
     const general_info = {
+      first_name: form.first_name,
+      last_name: form.last_name,
       gender: form.gender,
       birth_date: form.birth_date,
       blood_type: form.blood_type,
@@ -436,6 +444,20 @@ export default function PerfilPage() {
       setError(upsertError.message)
       setSaving(false)
       return
+    }
+
+    // Sync patients table with baseline form data
+    // This ensures the consultation page shows updated patient info
+    if (form.first_name || form.last_name || form.birth_date || form.gender) {
+      await supabase
+        .from("patients")
+        .update({
+          first_name: form.first_name || undefined,
+          last_name: form.last_name || undefined,
+          date_of_birth: form.birth_date || undefined,
+          gender: form.gender || undefined,
+        })
+        .eq("user_id", user.id)
     }
 
     await supabase.from("patient_profiles").upsert({
@@ -529,8 +551,10 @@ export default function PerfilPage() {
   const isFemale = form.gender === "Femenino"
 
   // Calcular progreso
-  const totalFields = 10
+  const totalFields = 12
   let filledFields = 0
+  if (form.first_name) filledFields++
+  if (form.last_name) filledFields++
   if (form.gender) filledFields++
   if (form.birth_date) filledFields++
   if (form.blood_type) filledFields++
@@ -594,6 +618,28 @@ export default function PerfilPage() {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Nombre completo */}
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Nombre(s) *</Label>
+                <Input
+                  value={form.first_name}
+                  onChange={(e) => setForm((prev) => ({ ...prev, first_name: e.target.value }))}
+                  placeholder="Tu nombre"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Apellido(s) *</Label>
+                <Input
+                  value={form.last_name}
+                  onChange={(e) => setForm((prev) => ({ ...prev, last_name: e.target.value }))}
+                  placeholder="Tu apellido"
+                  required
+                />
+              </div>
+            </div>
+
             <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="space-y-2">
                 <Label>Género</Label>
