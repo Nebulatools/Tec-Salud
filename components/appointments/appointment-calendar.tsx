@@ -64,9 +64,10 @@ export default function AppointmentCalendar() {
   }, [user, currentDate, selectedFilter])
 
   useEffect(() => {
-    // Update currentDate based on selectedFilter
+    // Update currentDate based on selectedFilter - only when filter changes
     const today = new Date()
     if (selectedFilter === "Hoy") {
+      // Reset to today when switching to "Hoy" filter
       setCurrentDate(today)
     } else if (selectedFilter === "Esta semana") {
       // Set to current week
@@ -76,7 +77,8 @@ export default function AppointmentCalendar() {
       const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
       setCurrentDate(firstOfMonth)
     }
-  }, [selectedFilter])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedFilter]) // Only run when filter changes, not on every currentDate change
 
   // Helper: formato YYYY-MM-DD en HORA LOCAL (evita desfases por UTC)
   const ymdLocal = (d: Date) => {
@@ -112,10 +114,10 @@ export default function AppointmentCalendar() {
 
       // Apply date filters
       const today = new Date()
-      
+
       if (selectedFilter === "Hoy") {
-        // Comparación con fecha local exacta (no UTC)
-        query = query.eq("appointment_date", ymdLocal(today))
+        // Comparación con fecha local exacta usando currentDate (permite navegación)
+        query = query.eq("appointment_date", ymdLocal(currentDate))
       } else if (selectedFilter === "Esta semana") {
         const startOfWeek = new Date(today)
         startOfWeek.setDate(today.getDate() - today.getDay() + 1) // Monday
@@ -166,10 +168,10 @@ export default function AppointmentCalendar() {
 
   const getWeekDays = () => {
     let start = new Date(currentDate)
-    
+
     if (selectedFilter === "Hoy") {
-      // Show only current day
-      return [new Date()]
+      // Show the selected day (allows navigation)
+      return [new Date(currentDate)]
     } else if (selectedFilter === "Esta semana") {
       // Show current week
       start = new Date(currentDate)
@@ -331,8 +333,9 @@ export default function AppointmentCalendar() {
 
   const formatDateRange = () => {
     if (selectedFilter === "Hoy") {
-      const today = new Date()
-      return `${today.getDate()} De ${today.toLocaleDateString("es-ES", { month: "long" })} De ${today.getFullYear()} - Hoy`
+      const isToday = currentDate.toDateString() === new Date().toDateString()
+      const label = isToday ? " - Hoy" : ""
+      return `${currentDate.getDate()} De ${currentDate.toLocaleDateString("es-ES", { month: "long" })} De ${currentDate.getFullYear()}${label}`
     } else if (selectedFilter === "Esta semana") {
       const start = weekDays[0]
       const end = weekDays[6]
@@ -543,7 +546,10 @@ export default function AppointmentCalendar() {
                   size="icon"
                   onClick={() => {
                     const newDate = new Date(currentDate)
-                    if (selectedFilter === "Este mes") {
+                    if (selectedFilter === "Hoy") {
+                      // Navigate by day
+                      newDate.setDate(currentDate.getDate() - 1)
+                    } else if (selectedFilter === "Este mes") {
                       // Navigate by month
                       newDate.setMonth(currentDate.getMonth() - 1)
                     } else {
@@ -556,14 +562,29 @@ export default function AppointmentCalendar() {
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
 
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{formatDateRange()}</h2>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{formatDateRange()}</h2>
+                  {selectedFilter === "Hoy" && currentDate.toDateString() !== new Date().toDateString() && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentDate(new Date())}
+                      className="text-xs"
+                    >
+                      Ir a hoy
+                    </Button>
+                  )}
+                </div>
 
                 <Button
                   variant="ghost"
                   size="icon"
                   onClick={() => {
                     const newDate = new Date(currentDate)
-                    if (selectedFilter === "Este mes") {
+                    if (selectedFilter === "Hoy") {
+                      // Navigate by day
+                      newDate.setDate(currentDate.getDate() + 1)
+                    } else if (selectedFilter === "Este mes") {
                       // Navigate by month
                       newDate.setMonth(currentDate.getMonth() + 1)
                     } else {
@@ -582,19 +603,21 @@ export default function AppointmentCalendar() {
             {selectedFilter === "Hoy" ? (
               // Special day view - beautiful and compact with zuli colors
               <div className="space-y-6">
-                {/* Today's header - zuli gradient */}
+                {/* Day header - zuli gradient */}
                 <div className="text-center bg-gradient-to-r from-zuli-veronica/10 to-zuli-indigo/10 dark:from-zuli-veronica/20 dark:to-zuli-indigo/20 rounded-2xl p-8 relative overflow-hidden">
                   <div className="absolute inset-0 opacity-10">
                     <div className="absolute top-0 right-0 w-32 h-32 rounded-full bg-zuli-veronica -translate-y-1/2 translate-x-1/2" />
                     <div className="absolute bottom-0 left-0 w-24 h-24 rounded-full bg-zuli-indigo translate-y-1/2 -translate-x-1/2" />
                   </div>
                   <div className="relative">
-                    <div className="text-sm font-semibold uppercase tracking-wider text-zuli-veronica">Hoy</div>
+                    <div className="text-sm font-semibold uppercase tracking-wider text-zuli-veronica">
+                      {currentDate.toDateString() === new Date().toDateString() ? "Hoy" : currentDate.toLocaleDateString("es-ES", { weekday: "long" })}
+                    </div>
                     <div className="text-4xl font-bold bg-gradient-to-r from-zuli-veronica to-zuli-indigo bg-clip-text text-transparent mt-2">
-                      {new Date().getDate()}
+                      {currentDate.getDate()}
                     </div>
                     <div className="text-lg text-gray-700 dark:text-gray-300 capitalize mt-1">
-                      {new Date().toLocaleDateString("es-ES", {
+                      {currentDate.toLocaleDateString("es-ES", {
                         weekday: "long",
                         month: "long",
                         year: "numeric"
@@ -603,26 +626,28 @@ export default function AppointmentCalendar() {
                   </div>
                 </div>
 
-                {/* Today's appointments */}
+                {/* Day's appointments */}
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Consultas de hoy</h3>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                      Consultas {currentDate.toDateString() === new Date().toDateString() ? "de hoy" : `del ${currentDate.getDate()}`}
+                    </h3>
                     <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-800 rounded-lg px-3 py-2">
                       <span className="text-sm text-gray-600 dark:text-gray-400">Ocultar completadas</span>
                       <Switch checked={hideCompletedToday} onCheckedChange={setHideCompletedToday} />
                     </div>
                   </div>
 
-                  {getAppointmentsForDate(new Date()).length === 0 ? (
+                  {getAppointmentsForDate(currentDate).length === 0 ? (
                     <div className="text-center py-16 animate-fadeIn">
                       <div className="empty-state-icon-colored">
                         <CalendarIcon className="h-12 w-12 text-zuli-veronica/60" />
                       </div>
                       <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                        Sin consultas para hoy
+                        Sin consultas para {currentDate.toDateString() === new Date().toDateString() ? "hoy" : "este día"}
                       </h3>
                       <p className="text-gray-500 dark:text-gray-400 max-w-sm mx-auto mb-6">
-                        No tienes consultas programadas para hoy. ¡Es un buen momento para organizar tu agenda!
+                        No tienes consultas programadas para {currentDate.toDateString() === new Date().toDateString() ? "hoy" : "este día"}. ¡Es un buen momento para organizar tu agenda!
                       </p>
                       <Button className="btn-zuli-gradient">
                         <Plus className="mr-2 h-4 w-4" />
@@ -631,7 +656,7 @@ export default function AppointmentCalendar() {
                     </div>
                   ) : (
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                      {getAppointmentsForDate(new Date())
+                      {getAppointmentsForDate(currentDate)
                         // Ya estamos en "Hoy", no necesitamos validar fecha; solo ocultar completadas
                         .filter((apt) => !(hideCompletedToday && apt.status === 'Completada'))
                         .map((appointment, aptIndex) => (
@@ -692,24 +717,24 @@ export default function AppointmentCalendar() {
                   )}
                 </div>
                 
-                {/* Quick stats for today */}
-                {getAppointmentsForDate(new Date()).length > 0 && (
+                {/* Quick stats for the day */}
+                {getAppointmentsForDate(currentDate).length > 0 && (
                   <div className="grid grid-cols-3 gap-4 mt-6">
                     <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 text-center">
                       <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                        {getAppointmentsForDate(new Date()).length}
+                        {getAppointmentsForDate(currentDate).length}
                       </div>
                       <div className="text-sm text-gray-600 dark:text-gray-400">Total citas</div>
                     </div>
                     <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4 text-center">
                       <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-                        {getAppointmentsForDate(new Date()).filter(apt => apt.status === "Completada").length}
+                        {getAppointmentsForDate(currentDate).filter(apt => apt.status === "Completada").length}
                       </div>
                       <div className="text-sm text-gray-600 dark:text-gray-400">Completadas</div>
                     </div>
                     <div className="bg-orange-50 dark:bg-orange-900/20 rounded-lg p-4 text-center">
                       <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-                        {getAppointmentsForDate(new Date()).filter(apt => apt.status === "Programada").length}
+                        {getAppointmentsForDate(currentDate).filter(apt => apt.status === "Programada").length}
                       </div>
                       <div className="text-sm text-gray-600 dark:text-gray-400">Pendientes</div>
                     </div>

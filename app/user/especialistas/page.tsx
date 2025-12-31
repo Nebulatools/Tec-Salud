@@ -117,25 +117,53 @@ export default function EspecialistasMarketplacePage() {
         specialty_description: ds.specialties?.description ?? null,
       })) ?? []
 
+    // Try to get profile info by user_id first, then fallback to email matching
     const userIds = mapped.map((d) => d.user_id).filter(Boolean) as string[]
+    const emails = mapped.map((d) => d.email).filter(Boolean)
+
+    // Query app_users by both user_id and email to maximize matches
+    let profiles: any[] = []
     if (userIds.length > 0) {
-      const { data: profiles } = await supabase
+      const { data: byUserId } = await supabase
         .from("app_users")
-        .select("id, metadata")
+        .select("id, email, metadata")
         .in("id", userIds)
-
-      const metaMap = new Map<string, any>()
-      profiles?.forEach((p: any) => metaMap.set(p.id, p.metadata))
-
-      mapped = mapped.map((d) => {
-        const meta = d.user_id ? metaMap.get(d.user_id) : null
-        return {
-          ...d,
-          avatar_url: meta?.avatar_url ?? null,
-          headline: meta?.headline ?? null,
-        }
-      })
+      if (byUserId) profiles = [...profiles, ...byUserId]
     }
+
+    // Also query by email for doctors without user_id
+    if (emails.length > 0) {
+      const { data: byEmail } = await supabase
+        .from("app_users")
+        .select("id, email, metadata")
+        .in("email", emails)
+      if (byEmail) {
+        // Add only new profiles not already in the list
+        const existingIds = new Set(profiles.map(p => p.id))
+        byEmail.forEach(p => {
+          if (!existingIds.has(p.id)) profiles.push(p)
+        })
+      }
+    }
+
+    // Build maps for lookup
+    const metaMapById = new Map<string, any>()
+    const metaMapByEmail = new Map<string, any>()
+    profiles?.forEach((p: any) => {
+      metaMapById.set(p.id, p.metadata)
+      if (p.email) metaMapByEmail.set(p.email.toLowerCase(), p.metadata)
+    })
+
+    mapped = mapped.map((d) => {
+      // Try user_id first, then fallback to email
+      const meta = (d.user_id ? metaMapById.get(d.user_id) : null)
+        || metaMapByEmail.get(d.email?.toLowerCase())
+      return {
+        ...d,
+        avatar_url: meta?.avatar_url ?? null,
+        headline: meta?.headline ?? null,
+      }
+    })
 
     // Fetch doctor ratings from the summary view
     const doctorIds = mapped.map((d) => d.id).filter(Boolean)
