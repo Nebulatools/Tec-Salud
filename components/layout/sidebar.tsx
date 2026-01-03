@@ -8,7 +8,6 @@ import { ZuliLogo } from "@/components/ui/zuli-logo"
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Consulta", href: "/consultas", icon: Activity, matchPrefix: true },
-  { name: "Pacientes", href: "/pacientes", icon: Users, matchPrefix: true },
   { name: "Expedientes", href: "/expedientes", icon: FolderOpen, matchPrefix: true },
   { name: "Recetas", href: "/recetas", icon: FileText, matchPrefix: true },
   { name: "QR Codes", href: "/qr-codes", icon: QrCode, matchPrefix: true },

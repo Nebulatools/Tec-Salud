@@ -2,10 +2,9 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { useAuth } from "@/hooks/use-auth"
 import { supabase } from "@/lib/supabase"
@@ -16,24 +15,61 @@ export default function Header() {
   const { user } = useAuth()
   const router = useRouter()
   const [searchTerm, setSearchTerm] = useState("")
-  const [doctorInfo, setDoctorInfo] = useState<{ first_name: string; last_name: string; specialty: string } | null>(null)
+  const [doctorInfo, setDoctorInfo] = useState<{
+    full_name: string
+    specialty: string
+    avatar_url: string | null
+  } | null>(null)
+
+  const fetchDoctorInfo = async () => {
+    if (!user) return
+
+    // Get specialty from doctors table
+    const { data: doctorData } = await supabase
+      .from("doctors")
+      .select("specialty")
+      .eq("user_id", user.id)
+      .single()
+
+    // Get full_name and avatar from app_users
+    const { data: appUserData } = await supabase
+      .from("app_users")
+      .select("full_name, metadata")
+      .eq("id", user.id)
+      .single()
+
+    const avatarUrl = (appUserData?.metadata as Record<string, unknown>)?.avatar_url as string | null
+
+    setDoctorInfo({
+      full_name: appUserData?.full_name || "Doctor",
+      specialty: doctorData?.specialty || "General Medicine",
+      avatar_url: avatarUrl || null,
+    })
+  }
 
   useEffect(() => {
-    const fetchDoctorInfo = async () => {
-      if (user) {
-        const { data, error } = await supabase
-          .from("doctors")
-          .select("first_name, last_name, specialty")
-          .eq("user_id", user.id)
-          .single()
-        
-        if (data && !error) {
-          setDoctorInfo(data)
-        }
+    fetchDoctorInfo()
+
+    // Subscribe to changes on app_users table (name and avatar)
+    if (user) {
+      const appUserChannel = supabase
+        .channel("header-appuser-changes")
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "app_users",
+            filter: `id=eq.${user.id}`,
+          },
+          () => fetchDoctorInfo()
+        )
+        .subscribe()
+
+      return () => {
+        supabase.removeChannel(appUserChannel)
       }
     }
-    
-    fetchDoctorInfo()
   }, [user])
 
   const handleLogout = async () => {
@@ -70,24 +106,27 @@ export default function Header() {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="flex items-center gap-2 hover:bg-white/10 text-white">
                 <Avatar className="h-8 w-8">
+                  {doctorInfo?.avatar_url && (
+                    <AvatarImage src={doctorInfo.avatar_url} alt="Foto de perfil" />
+                  )}
                   <AvatarFallback className="bg-zuli-tricolor text-white font-medium">
-                    {doctorInfo ? `${doctorInfo.first_name?.[0]}${doctorInfo.last_name?.[0]}` : 'Dr'}
+                    {doctorInfo?.full_name?.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase() || "Dr"}
                   </AvatarFallback>
                 </Avatar>
                 <div className="text-left">
                   <p className="text-sm font-medium text-white">
-                    {doctorInfo ? `Dr. ${doctorInfo.first_name} ${doctorInfo.last_name}` : 'Dr.'}
+                    Dr. {doctorInfo?.full_name || "Doctor"}
                   </p>
-                  <p className="text-xs text-zuli-indigo">{doctorInfo?.specialty || 'General Medicine'}</p>
+                  <p className="text-xs text-zuli-indigo">{doctorInfo?.specialty || "General Medicine"}</p>
                 </div>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.push("/perfil")}>
                 <User className="mr-2 h-4 w-4" />
                 Perfil
               </DropdownMenuItem>
-              <DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.push("/configuracion")}>
                 <Settings className="mr-2 h-4 w-4" />
                 Configuración
               </DropdownMenuItem>

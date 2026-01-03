@@ -5,7 +5,6 @@ import Link from "next/link"
 import { useAppUser } from "@/hooks/use-app-user"
 import { supabase } from "@/lib/supabase"
 import { Card, CardContent } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -14,9 +13,7 @@ import {
   User,
   Calendar,
   FileText,
-  Activity,
   ChevronRight,
-  Loader2,
 } from "lucide-react"
 import { format, differenceInYears } from "date-fns"
 import { es } from "date-fns/locale"
@@ -148,7 +145,7 @@ export default function ExpedientesPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Expedientes</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Historial médico de tus pacientes
+            Selecciona un paciente para ver su expediente completo
           </p>
         </div>
         <Badge variant="secondary" className="w-fit">

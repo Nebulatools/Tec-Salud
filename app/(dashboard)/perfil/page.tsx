@@ -98,11 +98,11 @@ export default function PerfilAdminPage() {
     }
 
     if (doctorId) {
-      const [first = "", ...rest] = form.full_name.split(" ")
-      const last = rest.join(" ").trim() || " "
+      const [first = "", ...rest] = form.full_name.trim().split(" ")
+      const last = rest.join(" ").trim()
       await supabase
         .from("doctors")
-        .update({ first_name: first || "Doctor", last_name: last || "Admin" })
+        .update({ first_name: first || "Doctor", last_name: last })
         .eq("id", doctorId)
     }
 
@@ -128,19 +128,27 @@ export default function PerfilAdminPage() {
     setError(null)
 
     try {
-      // Upload to Supabase Storage
+      // Upload to Supabase Storage (unified avatars bucket)
       const fileExt = file.name.split(".").pop()
-      const fileName = `${appUser.id}-${Date.now()}.${fileExt}`
+      const fileName = `doctors/${appUser.id}/avatar-${Date.now()}.${fileExt}`
+
+      // Delete old avatar if exists in new bucket
+      if (form.avatar_url?.includes("/avatars/")) {
+        const oldPath = form.avatar_url.split("/avatars/")[1]
+        if (oldPath) {
+          await supabase.storage.from("avatars").remove([oldPath])
+        }
+      }
 
       const { error: uploadError } = await supabase.storage
-        .from("doctor-avatars")
+        .from("avatars")
         .upload(fileName, file, { upsert: true })
 
       if (uploadError) throw uploadError
 
       // Get public URL
       const { data: { publicUrl } } = supabase.storage
-        .from("doctor-avatars")
+        .from("avatars")
         .getPublicUrl(fileName)
 
       // Update form state

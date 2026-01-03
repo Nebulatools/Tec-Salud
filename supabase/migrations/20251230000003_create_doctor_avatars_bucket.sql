@@ -1,3 +1,7 @@
+-- DEPRECATED: This bucket is superseded by unified 'avatars' bucket
+-- See: 20260103000001_unified_avatars_bucket.sql
+-- Kept for backward compatibility with existing avatar URLs
+
 -- Create storage bucket for doctor avatars
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 VALUES (

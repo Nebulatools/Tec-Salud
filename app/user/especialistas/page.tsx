@@ -119,6 +119,7 @@ export default function EspecialistasMarketplacePage() {
 
     // Get profile info (avatar, headline) from app_users
     const userIds = mapped.map((d) => d.user_id).filter(Boolean) as string[]
+
     if (userIds.length > 0) {
       const { data: profiles } = await supabase
         .from("app_users")
@@ -196,7 +197,8 @@ export default function EspecialistasMarketplacePage() {
   }, [doctors, selectedSpecialty, searchQuery])
 
   const handleSelectDoctor = (doctor: Doctor) => {
-    router.push(`/user/cuestionario?doctor=${doctor.id}&specialty=${doctor.specialty_id}`)
+    // Navegar a página de detalle del doctor
+    router.push(`/user/especialistas/${doctor.id}`)
   }
 
   if (loading) {
@@ -438,7 +440,7 @@ export default function EspecialistasMarketplacePage() {
                       )}
                     </div>
                     <span className="text-xs text-zuli-veronica font-medium group-hover:underline flex items-center gap-0.5 shrink-0">
-                      Solicitar cita
+                      Ver perfil
                       <ArrowRight className="h-3.5 w-3.5 group-hover:translate-x-0.5 transition-transform" />
                     </span>
                   </div>
