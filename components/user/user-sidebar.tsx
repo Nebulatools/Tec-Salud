@@ -1,7 +1,7 @@
 // Sidebar para portal de usuario - mismo estilo que admin
 "use client"
 
-import { Home, User, Stethoscope, Upload, FileText, Calendar, Users, Settings } from "lucide-react"
+import { Home, User, Stethoscope, FileText, Calendar, Users, Settings, ClipboardList } from "lucide-react"
 import { BaseSidebar } from "@/components/layout/base-sidebar"
 import { ZuliLogo } from "@/components/ui/zuli-logo"
 
@@ -10,9 +10,9 @@ const navigation = [
   { name: "Mis Citas", href: "/user/citas", icon: Calendar, matchPrefix: true },
   { name: "Mis Recetas", href: "/user/recetas", icon: FileText, matchPrefix: true },
   { name: "Mi Familia", href: "/user/familia", icon: Users, matchPrefix: true },
-  { name: "Mi Perfil", href: "/user/perfil", icon: User, matchPrefix: true },
-  { name: "Especialistas", href: "/user/especialistas", icon: Stethoscope, matchPrefix: true },
-  { name: "Laboratorios", href: "/user/laboratorios", icon: Upload, matchPrefix: true },
+  { name: "Expediente", href: "/user/expediente", icon: ClipboardList, matchPrefix: true },
+  { name: "Hub Médico", href: "/user/especialistas", icon: Stethoscope, matchPrefix: true },
+  { name: "Mi Perfil", href: "/user/mi-perfil", icon: User, matchPrefix: true },
   { name: "Configuración", href: "/user/configuracion", icon: Settings, matchPrefix: true },
 ]
 
