@@ -23,7 +23,8 @@ import {
 import { cn } from "@/lib/utils"
 
 type ProfileState = {
-  full_name: string
+  first_name: string
+  last_name: string
   email: string
   phone: string
   avatar_url: string | null
@@ -38,7 +39,8 @@ export default function MiPerfilPage() {
   const [status, setStatus] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [form, setForm] = useState<ProfileState>({
-    full_name: "",
+    first_name: "",
+    last_name: "",
     email: "",
     phone: "",
     avatar_url: null,
@@ -57,8 +59,14 @@ export default function MiPerfilPage() {
 
       if (data) {
         const metadata = data.metadata as Record<string, unknown> | null
+        // Parse full_name into first_name and last_name
+        const nameParts = (data.full_name || "").trim().split(" ")
+        const firstName = nameParts[0] || ""
+        const lastName = nameParts.slice(1).join(" ") || ""
+
         setForm({
-          full_name: data.full_name || "",
+          first_name: firstName,
+          last_name: lastName,
           email: data.email || user.email || "",
           phone: data.phone || "",
           avatar_url: (metadata?.avatar_url as string) || null,
@@ -166,11 +174,14 @@ export default function MiPerfilPage() {
     setError(null)
 
     try {
+      // Combine first_name and last_name for app_users.full_name
+      const fullName = `${form.first_name} ${form.last_name}`.trim()
+
       // Update app_users
       const { error: upsertError } = await supabase.from("app_users").upsert(
         {
           id: user.id,
-          full_name: form.full_name,
+          full_name: fullName,
           email: form.email,
           phone: form.phone,
           metadata: {
@@ -183,9 +194,8 @@ export default function MiPerfilPage() {
       if (upsertError) throw upsertError
 
       // Also sync to patients table if linked
-      const nameParts = form.full_name.trim().split(" ")
-      const firstName = nameParts[0] || ""
-      const lastName = nameParts.slice(1).join(" ") || ""
+      const firstName = form.first_name
+      const lastName = form.last_name
 
       // Build update object with only non-empty values
       const patientUpdate: Record<string, string> = {}
@@ -344,17 +354,32 @@ export default function MiPerfilPage() {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="full_name">Nombre completo</Label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  id="full_name"
-                  value={form.full_name}
-                  onChange={(e) => setForm((prev) => ({ ...prev, full_name: e.target.value }))}
-                  placeholder="Tu nombre completo"
-                  className="pl-10"
-                />
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="first_name">Nombre(s)</Label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    id="first_name"
+                    value={form.first_name}
+                    onChange={(e) => setForm((prev) => ({ ...prev, first_name: e.target.value }))}
+                    placeholder="Tu nombre"
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="last_name">Apellido(s)</Label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    id="last_name"
+                    value={form.last_name}
+                    onChange={(e) => setForm((prev) => ({ ...prev, last_name: e.target.value }))}
+                    placeholder="Tu apellido"
+                    className="pl-10"
+                  />
+                </div>
               </div>
             </div>
 

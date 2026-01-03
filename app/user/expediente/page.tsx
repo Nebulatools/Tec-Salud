@@ -37,6 +37,8 @@ import {
   FolderOpen,
   ChevronDown,
   Pencil,
+  Mail,
+  Phone,
 } from "lucide-react"
 
 // ============================================================================
@@ -46,8 +48,6 @@ import {
 type BooleanAnswer = "SI" | "NO" | "NO SABE" | null
 
 type BaselineState = {
-  first_name: string
-  last_name: string
   gender: string
   birth_date: string
   blood_type: string
@@ -311,8 +311,6 @@ export default function ExpedientePage() {
   const [status, setStatus] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [form, setForm] = useState<BaselineState>({
-    first_name: "",
-    last_name: "",
     gender: "",
     birth_date: "",
     blood_type: "",
@@ -339,6 +337,9 @@ export default function ExpedientePage() {
     citologia_date: "",
   })
 
+  // Datos de perfil (solo lectura)
+  const [profileInfo, setProfileInfo] = useState({ first_name: "", last_name: "", email: "", phone: "" })
+
   // Estado de cuestionarios de especialidad
   const [specialtyResponses, setSpecialtyResponses] = useState<SpecialtyResponse[]>([])
   const [loadingSpecialty, setLoadingSpecialty] = useState(true)
@@ -355,12 +356,30 @@ export default function ExpedientePage() {
     const load = async () => {
       if (!user) return
 
-      // Load from app_users for name defaults
+      // Load from app_users for name defaults and profile info (read-only)
       const { data: appUserData } = await supabase
         .from("app_users")
-        .select("full_name, phone")
+        .select("full_name, email, phone")
         .eq("id", user.id)
         .maybeSingle()
+
+      // Set profile info for read-only display (from app_users / Mi Perfil)
+      if (appUserData) {
+        const nameParts = (appUserData.full_name || "").trim().split(" ")
+        setProfileInfo({
+          first_name: nameParts[0] || "",
+          last_name: nameParts.slice(1).join(" ") || "",
+          email: appUserData.email || user.email || "",
+          phone: appUserData.phone || "",
+        })
+      } else {
+        setProfileInfo({
+          first_name: "",
+          last_name: "",
+          email: user.email || "",
+          phone: "",
+        })
+      }
 
       const { data } = await supabase
         .from("patient_baseline_forms")
@@ -391,8 +410,6 @@ export default function ExpedientePage() {
             : []
 
         setForm({
-          first_name: (gi?.first_name as string) ?? "",
-          last_name: (gi?.last_name as string) ?? "",
           gender: (gi?.gender as string) ?? "",
           birth_date: (gi?.birth_date as string) ?? "",
           blood_type: (gi?.blood_type as string) ?? "",
@@ -418,15 +435,8 @@ export default function ExpedientePage() {
           citologia_result: (c?.citologia_result as string) ?? "",
           citologia_date: (c?.citologia_date as string) ?? "",
         })
-      } else if (appUserData?.full_name) {
-        // Pre-fill from app_users if no baseline form exists
-        const nameParts = appUserData.full_name.split(" ")
-        setForm((prev) => ({
-          ...prev,
-          first_name: nameParts[0] || "",
-          last_name: nameParts.slice(1).join(" ") || "",
-        }))
       }
+      // Note: first_name and last_name are now read from profileInfo (set above from app_users)
       setLoading(false)
     }
     load()
@@ -575,8 +585,8 @@ export default function ExpedientePage() {
     setError(null)
 
     const general_info = {
-      first_name: form.first_name,
-      last_name: form.last_name,
+      first_name: profileInfo.first_name,
+      last_name: profileInfo.last_name,
       gender: form.gender,
       birth_date: form.birth_date,
       blood_type: form.blood_type,
@@ -627,12 +637,12 @@ export default function ExpedientePage() {
     }
 
     // Sync patients table
-    if (form.first_name || form.last_name || form.birth_date || form.gender) {
+    if (profileInfo.first_name || profileInfo.last_name || form.birth_date || form.gender) {
       await supabase
         .from("patients")
         .update({
-          first_name: form.first_name || undefined,
-          last_name: form.last_name || undefined,
+          first_name: profileInfo.first_name || undefined,
+          last_name: profileInfo.last_name || undefined,
           date_of_birth: form.birth_date || undefined,
           gender: form.gender || undefined,
         })
@@ -795,8 +805,8 @@ export default function ExpedientePage() {
   // Calcular progreso del cuestionario base
   const totalFields = 12
   let filledFields = 0
-  if (form.first_name) filledFields++
-  if (form.last_name) filledFields++
+  if (profileInfo.first_name) filledFields++
+  if (profileInfo.last_name) filledFields++
   if (form.gender) filledFields++
   if (form.birth_date) filledFields++
   if (form.blood_type) filledFields++
@@ -898,26 +908,58 @@ export default function ExpedientePage() {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  {/* Datos de perfil (solo lectura, desde Mi Perfil) */}
                   <div className="grid md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>Nombre(s) *</Label>
-                      <Input
-                        value={form.first_name}
-                        onChange={(e) => setForm((prev) => ({ ...prev, first_name: e.target.value }))}
-                        placeholder="Tu nombre"
-                        required
-                      />
+                      <Label className="text-gray-500">Nombre(s)</Label>
+                      <div className="relative">
+                        <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        <Input
+                          value={profileInfo.first_name || "No especificado"}
+                          disabled
+                          className="pl-10 bg-gray-50 text-gray-500 cursor-not-allowed"
+                        />
+                      </div>
                     </div>
                     <div className="space-y-2">
-                      <Label>Apellido(s) *</Label>
-                      <Input
-                        value={form.last_name}
-                        onChange={(e) => setForm((prev) => ({ ...prev, last_name: e.target.value }))}
-                        placeholder="Tu apellido"
-                        required
-                      />
+                      <Label className="text-gray-500">Apellido(s)</Label>
+                      <div className="relative">
+                        <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        <Input
+                          value={profileInfo.last_name || "No especificado"}
+                          disabled
+                          className="pl-10 bg-gray-50 text-gray-500 cursor-not-allowed"
+                        />
+                      </div>
                     </div>
                   </div>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-gray-500">Correo electrónico</Label>
+                      <div className="relative">
+                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        <Input
+                          value={profileInfo.email || "No especificado"}
+                          disabled
+                          className="pl-10 bg-gray-50 text-gray-500 cursor-not-allowed"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-gray-500">Teléfono</Label>
+                      <div className="relative">
+                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        <Input
+                          value={profileInfo.phone || "No especificado"}
+                          disabled
+                          className="pl-10 bg-gray-50 text-gray-500 cursor-not-allowed"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-400">
+                    Para actualizar estos datos, ve a <a href="/user/mi-perfil" className="text-zuli-veronica hover:underline">Mi Perfil</a>
+                  </p>
 
                   <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div className="space-y-2">
